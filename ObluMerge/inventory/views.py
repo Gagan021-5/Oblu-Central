@@ -144,23 +144,35 @@ class Index(AccountantRequiredMixin, TemplateView):
         context["days_behind"] = (today - max_daily_date).days if max_daily_date else 0
 
         # ── 2. Executive KPIs & Previous Period Comparison ──
-        sales_agg = DailyStockData.objects.filter(
-            date__gte=start_date, date__lte=end_date, outwards_quantity__gt=0
+        # sales_agg = DailyStockData.objects.filter(
+        #     date__gte=start_date, date__lte=end_date, outwards_quantity__gt=0
+        # ).aggregate(
+        #     total_val=Sum("outwards_value"),
+        #     total_qty=Sum("outwards_quantity")
+        # )
+           # amount and quality
+        sales_agg = VoucherStockItem.objects.filter(
+        voucher__voucher_type__iexact="TAX INVOICE",
+        voucher__date__gte=start_date,
+        voucher__date__lte=end_date,
         ).aggregate(
-            total_val=Sum("outwards_value"),
-            total_qty=Sum("outwards_quantity")
+            total_val=Sum("amount"),
+            total_qty=Sum("quantity")
         )
+
         total_sales = float(sales_agg["total_val"] or 0)
         units_sold = int(round(sales_agg["total_qty"] or 0))
 
         # Previous period comparison for growth %
         prev_end_date = start_date - timedelta(days=1)
         prev_start_date = prev_end_date - timedelta(days=duration_days)
-        prev_sales_agg = DailyStockData.objects.filter(
-            date__gte=prev_start_date, date__lte=prev_end_date, outwards_quantity__gt=0
+        prev_sales_agg = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=prev_start_date,
+            voucher__date__lte=prev_end_date,
         ).aggregate(
-            total_val=Sum("outwards_value"),
-            total_qty=Sum("outwards_quantity")
+            total_val=Sum("amount"),
+            total_qty=Sum("quantity")
         )
         prev_sales = float(prev_sales_agg["total_val"] or 0)
         prev_units = int(round(prev_sales_agg["total_qty"] or 0))
@@ -211,16 +223,18 @@ class Index(AccountantRequiredMixin, TemplateView):
 
         # ── 3. Sales Trend Data (Chart.js) ──
         trend_qs = (
-            DailyStockData.objects.filter(
-                date__gte=start_date, date__lte=end_date, outwards_quantity__gt=0
-            )
-            .values("date")
-            .annotate(
-                daily_val=Sum("outwards_value"),
-                daily_qty=Sum("outwards_quantity")
-            )
-            .order_by("date")
-        )
+    VoucherStockItem.objects.filter(
+        voucher__voucher_type__iexact="TAX INVOICE",
+        voucher__date__gte=start_date,
+        voucher__date__lte=end_date,
+    )
+    .values("voucher__date")
+    .annotate(
+        daily_val=Sum("amount"),
+        daily_qty=Sum("quantity")
+    )
+    .order_by("voucher__date")
+)
 
         # Daily dispatched orders mapping
         daily_orders_map = dict(
@@ -244,7 +258,7 @@ class Index(AccountantRequiredMixin, TemplateView):
         for t in trend_qs:
             val = round(float(t["daily_val"] or 0), 2)
             qty = round(float(t["daily_qty"] or 0), 1)
-            t_date = t["date"]
+            t_date = t["voucher__date"]
             date_str = t_date.strftime("%d %b")
             orders_cnt = daily_orders_map.get(t_date, 0)
             trend_labels.append(date_str)
@@ -266,16 +280,19 @@ class Index(AccountantRequiredMixin, TemplateView):
 
         # ── 4. Top 5 Categories ──
         cat_qs = (
-            DailyStockData.objects.filter(
-                date__gte=start_date, date__lte=end_date, outwards_quantity__gt=0
-            )
-            .values("product__category__name")
-            .annotate(
-                cat_val=Sum("outwards_value"),
-                cat_qty=Sum("outwards_quantity")
-            )
-            .order_by("-cat_val")[:5]
+        VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=start_date,
+            voucher__date__lte=end_date,
+            item__isnull=False,
         )
+        .values("item__category__name")
+        .annotate(
+            cat_val=Sum("amount"),
+            cat_qty=Sum("quantity")
+        )
+        .order_by("-cat_val")[:5]   
+     )
 
         category_colors = [
             {"bar": "#78c2ad", "bg": "rgba(120, 194, 173, 0.15)", "text": "#317865"},
@@ -293,7 +310,7 @@ class Index(AccountantRequiredMixin, TemplateView):
             color_scheme = category_colors[(idx - 1) % len(category_colors)]
             top_categories.append({
                 "rank": idx,
-                "name": cat["product__category__name"] or "Uncategorized",
+                "name": cat["item__category__name"] or "Uncategorized",
                 "sales_value": val,
                 "sales_value_display": format_inr(val),
                 "units_sold": f"{qty:,}",
@@ -306,25 +323,28 @@ class Index(AccountantRequiredMixin, TemplateView):
 
         # ── 5. Top 5 Products & Low Stock Alerts ──
         prod_qs = (
-            DailyStockData.objects.filter(
-                date__gte=start_date, date__lte=end_date, outwards_quantity__gt=0
-            )
-            .values(
-                "product__id",
-                "product__name",
-                "product__category__name",
-                "product__quantity",
-                "product__min_quantity_outwards",
-                "product__min_quantity_average",
-                "product__min_quantity",
-                "product__unit",
-            )
-            .annotate(
-                prod_val=Sum("outwards_value"),
-                prod_qty=Sum("outwards_quantity")
-            )
-            .order_by("-prod_val")[:5]
+        VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=start_date,
+            voucher__date__lte=end_date,
+            item__isnull=False,
         )
+        .values(
+            "item__id",
+            "item__name",
+            "item__category__name",
+            "item__quantity",
+            "item__min_quantity_outwards",
+            "item__min_quantity_average",
+            "item__min_quantity",
+            "item__unit",
+        )
+        .annotate(
+            prod_val=Sum("amount"),
+            prod_qty=Sum("quantity")
+        )
+        .order_by("-prod_val")[:5]
+    )
 
         top_products = []
         smart_alerts = []
@@ -333,18 +353,18 @@ class Index(AccountantRequiredMixin, TemplateView):
         for idx, p in enumerate(prod_qs, 1):
             val = float(p["prod_val"] or 0)
             qty_sold = int(round(p["prod_qty"] or 0))
-            current_stock = p["product__quantity"]
+            current_stock = p["item__quantity"]
             if current_stock is None:
                 current_stock = 0
 
             # Determine threshold
             threshold = (
-                p["product__min_quantity_outwards"]
-                if p["product__min_quantity_outwards"] and p["product__min_quantity_outwards"] > 0
+                p["item__min_quantity_outwards"]
+                if p["item__min_quantity_outwards"] and p["item__min_quantity_outwards"] > 0
                 else (
-                    p["product__min_quantity_average"]
-                    if p["product__min_quantity_average"] and p["product__min_quantity_average"] > 0
-                    else p["product__min_quantity"]
+                    p["item__min_quantity_average"]
+                    if p["item__min_quantity_average"] and p["item__min_quantity_average"] > 0
+                    else p["item__min_quantity"]
                 )
             )
 
@@ -364,16 +384,16 @@ class Index(AccountantRequiredMixin, TemplateView):
                 stock_ratio = 100
 
             # Initials for avatar
-            p_name = p["product__name"] or "Item"
+            p_name = p["item__name"] or "Item"
             p_words = [w for w in p_name.replace(",", " ").split() if w]
             p_initials = (p_words[0][:2] if len(p_words) == 1 else p_words[0][0] + p_words[1][0]).upper()
 
             prod_dict = {
                 "rank": idx,
-                "id": p["product__id"],
+                "id": p["item__id"],
                 "name": p_name,
                 "initials": p_initials,
-                "category": p["product__category__name"] or "Uncategorized",
+                "category": p["item__category__name"] or "Uncategorized",
                 "sales_value": val,
                 "sales_value_display": format_inr(val),
                 "units_sold": f"{qty_sold:,}",
@@ -382,16 +402,16 @@ class Index(AccountantRequiredMixin, TemplateView):
                 "stock_ratio": stock_ratio,
                 "is_running_low": is_running_low,
                 "is_critical": is_critical,
-                "unit": p["product__unit"] or "units",
+                "unit": p["item__unit"] or "units",
             }
             top_products.append(prod_dict)
 
             # Build smart alert if running low or out of stock
             if is_running_low:
                 smart_alerts.append({
-                    "product_id": p["product__id"],
+                    "product_id": p["item__id"],
                     "product_name": p_name,
-                    "category": p["product__category__name"] or "Uncategorized",
+                    "category": p["item__category__name"] or "Uncategorized",
                     "current_stock": current_stock,
                     "min_threshold": threshold if (threshold and threshold > 0) else "N/A",
                     "units_sold": f"{qty_sold:,}",
