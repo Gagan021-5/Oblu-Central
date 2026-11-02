@@ -63,9 +63,11 @@ def _customer_scope(user, *permission_keys):
     from functools import reduce
     from operator import or_
 
-    querysets = [scope_queryset(user, key, Customer.objects.all()) for key in permission_keys if can(user, key)]
+    # Admin / finance / staff users always see all customers -- check this FIRST
+    # so we never fall through to the empty-queryset branch for privileged users.
     if user.is_superuser or user.is_staff or is_admin(user) or is_finance(user):
         return Customer.objects.all()
+    querysets = [scope_queryset(user, key, Customer.objects.all()) for key in permission_keys if can(user, key)]
     if not querysets:
         return Customer.objects.none()
     return reduce(or_, querysets)
