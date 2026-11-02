@@ -105,8 +105,14 @@ export default function ProformaScreen() {
         status: statusParam,
       });
 
-      setItems(res.results);
-      setStats(res.stats);
+      if (res && Array.isArray(res.results)) {
+        setItems(res.results);
+      } else {
+        setItems([]);
+      }
+      if (res?.stats) {
+        setStats(res.stats);
+      }
     } catch (err) {
       console.warn("[ProformaScreen] loadData error:", err);
     } finally {

@@ -155,6 +155,15 @@ export async function fetchProformasFromApi(params?: {
   count: number;
   next_page: number | null;
 }> {
+  const defaultStats: ProformaStats = {
+    pipeline_value: "₹0",
+    pipeline_value_num: 0,
+    pending_approvals: 0,
+    approved_count: 0,
+    billed_count: 0,
+    total_count: 0,
+  };
+
   try {
     const res = await api.get<any>("/proforma/", {
       params: {
@@ -166,32 +175,36 @@ export async function fetchProformasFromApi(params?: {
       },
     });
 
-    const data = res.data || {};
+    if (!res || !res.data) {
+      return { results: [], stats: defaultStats, count: 0, next_page: null };
+    }
+
+    let data = res.data;
+    if (typeof data === "string") {
+      try {
+        data = JSON.parse(data);
+      } catch (e) {
+        console.error("[ProformaService] Failed to parse proforma response:", e);
+      }
+    }
+
+    const resultsList = Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data)
+      ? data
+      : [];
+
     return {
-      results: Array.isArray(data.results) ? data.results : [],
-      stats: data.stats || {
-        pipeline_value: "₹0",
-        pipeline_value_num: 0,
-        pending_approvals: 0,
-        approved_count: 0,
-        billed_count: 0,
-        total_count: 0,
-      },
-      count: Number(data.count) || 0,
-      next_page: data.next_page ?? null,
+      results: resultsList,
+      stats: data?.stats || defaultStats,
+      count: Number(data?.count) || resultsList.length,
+      next_page: data?.next_page ?? null,
     };
   } catch (error) {
     console.warn("[ProformaService] fetchProformasFromApi failed:", error);
     return {
       results: [],
-      stats: {
-        pipeline_value: "₹0",
-        pipeline_value_num: 0,
-        pending_approvals: 0,
-        approved_count: 0,
-        billed_count: 0,
-        total_count: 0,
-      },
+      stats: defaultStats,
       count: 0,
       next_page: null,
     };
