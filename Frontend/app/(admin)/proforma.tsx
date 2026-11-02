@@ -22,7 +22,12 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes, Radius, Shadows } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
-import { FilterChip } from "@/components/ui/FilterChip";
+import {
+  ProformaFilterSheet,
+  ProformaDocTypeFilter,
+  ProformaStatusFilter,
+  ProformaSortOption,
+} from "@/components/ui/ProformaFilterSheet";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { API_BASE_URL } from "@/services/api";
@@ -50,7 +55,18 @@ export default function AdminProformaScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+  const [docTypeFilter, setDocTypeFilter] = useState<ProformaDocTypeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<ProformaStatusFilter>("all");
+  const [sortOption, setSortOption] = useState<ProformaSortOption>("newest");
+
+  const isFilterActive = docTypeFilter !== "all" || statusFilter !== "all" || sortOption !== "newest";
+
+  const handleResetFilters = () => {
+    setDocTypeFilter("all");
+    setStatusFilter("all");
+    setSortOption("newest");
+  };
   const [items, setItems] = useState<ProformaItem[]>([]);
   const [stats, setStats] = useState<ProformaStats>({
     pipeline_value: "₹0",
@@ -90,20 +106,24 @@ export default function AdminProformaScreen() {
   const loadData = useCallback(async (isPull = false) => {
     if (!isPull) setLoading(true);
     try {
-      const typeParam = activeFilter === "quotation" ? "quotation" : "all";
-      const statusParam =
-        activeFilter === "approved" || activeFilter === "pending" || activeFilter === "billed"
-          ? (activeFilter as any)
-          : "all";
-
       const res = await fetchProformasFromApi({
         search: debouncedSearch,
-        type: typeParam,
-        status: statusParam,
+        type: docTypeFilter,
+        status: statusFilter,
       });
 
       if (res && Array.isArray(res.results)) {
-        setItems(res.results);
+        let list = [...res.results];
+        if (sortOption === "amount_high") {
+          list.sort((a, b) => (b.amountNum || 0) - (a.amountNum || 0));
+        } else if (sortOption === "amount_low") {
+          list.sort((a, b) => (a.amountNum || 0) - (b.amountNum || 0));
+        } else if (sortOption === "client_asc") {
+          list.sort((a, b) => (a.clientName || "").localeCompare(b.clientName || ""));
+        } else if (sortOption === "oldest") {
+          list.reverse();
+        }
+        setItems(list);
       } else {
         setItems([]);
       }
@@ -111,12 +131,12 @@ export default function AdminProformaScreen() {
         setStats(res.stats);
       }
     } catch (err) {
-      console.warn("[AdminProformaScreen] loadData error:", err);
+      console.warn("[ProformaScreen] loadData error:", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [debouncedSearch, activeFilter]);
+  }, [debouncedSearch, docTypeFilter, statusFilter, sortOption]);
 
   useEffect(() => {
     loadData();
@@ -435,8 +455,10 @@ export default function AdminProformaScreen() {
               <SearchBar
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Search proforma by client, PI# or sales rep..."
+                placeholder="Search proforma by client, PI# or rep..."
                 onClear={() => setSearchQuery("")}
+                onFilterPress={() => setFilterSheetVisible(true)}
+                filterActive={isFilterActive}
               />
             </View>
 
@@ -457,42 +479,31 @@ export default function AdminProformaScreen() {
               />
             </View>
 
-            {/* Filter Chips */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipsRow}
-            >
-              <FilterChip
-                label="All Documents"
-                count={stats.total_count}
-                isActive={activeFilter === "all"}
-                onPress={() => setActiveFilter("all")}
-              />
-              <FilterChip
-                label="Approved"
-                count={stats.approved_count}
-                isActive={activeFilter === "approved"}
-                onPress={() => setActiveFilter("approved")}
-              />
-              <FilterChip
-                label="Pending"
-                count={stats.pending_approvals}
-                isActive={activeFilter === "pending"}
-                onPress={() => setActiveFilter("pending")}
-              />
-              <FilterChip
-                label="Billed"
-                count={stats.billed_count}
-                isActive={activeFilter === "billed"}
-                onPress={() => setActiveFilter("billed")}
-              />
-              <FilterChip
-                label="Quotations Only"
-                isActive={activeFilter === "quotation"}
-                onPress={() => setActiveFilter("quotation")}
-              />
-            </ScrollView>
+            {/* Active Filter Pill */}
+            {isFilterActive && (
+              <View style={styles.activeFilterPillRow}>
+                <View
+                  style={[
+                    styles.activeFilterPill,
+                    {
+                      backgroundColor: isDark ? "rgba(53, 214, 160, 0.15)" : "#E6F8F2",
+                      borderColor: isDark ? "#35D6A0" : "#00A879",
+                    },
+                  ]}
+                >
+                  <Ionicons name="funnel" size={12} color={isDark ? "#35D6A0" : "#00A879"} />
+                  <Text style={[styles.activeFilterPillText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                    Filtered: {docTypeFilter !== "all" ? (docTypeFilter === "quotation" ? "Quotations" : "Proformas") : ""}
+                    {docTypeFilter !== "all" && statusFilter !== "all" ? " • " : ""}
+                    {statusFilter !== "all" ? statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1) : ""}
+                    {sortOption !== "newest" ? " • Sorted" : ""}
+                  </Text>
+                  <TouchableOpacity onPress={handleResetFilters} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={15} color={isDark ? "#35D6A0" : "#00A879"} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
         }
         ListEmptyComponent={
@@ -1127,6 +1138,20 @@ export default function AdminProformaScreen() {
         </View>
       </Modal>
 
+      {/* Proforma Filter Sheet Modal */}
+      <ProformaFilterSheet
+        visible={filterSheetVisible}
+        docTypeFilter={docTypeFilter}
+        statusFilter={statusFilter}
+        sortOption={sortOption}
+        stats={stats}
+        onDocTypeChange={setDocTypeFilter}
+        onStatusChange={setStatusFilter}
+        onSortChange={setSortOption}
+        onClose={() => setFilterSheetVisible(false)}
+        onReset={handleResetFilters}
+      />
+
       {/* Full Size Image Viewer Modal */}
       <Modal visible={!!enlargedImage} transparent animationType="fade" onRequestClose={() => setEnlargedImage(null)}>
         <View style={styles.enlargedModalBackdrop}>
@@ -1189,6 +1214,24 @@ const styles = StyleSheet.create({
   },
   searchWrapper: {
     marginBottom: 12,
+  },
+  activeFilterPillRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  activeFilterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  activeFilterPillText: {
+    fontFamily: Typography.semiBold,
+    fontSize: 12,
   },
   metricsRow: {
     flexDirection: "row",
