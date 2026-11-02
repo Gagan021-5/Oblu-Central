@@ -1,5 +1,6 @@
 /**
- * Proforma Service — REST API integration for Proforma Invoices & Quotations.
+ * Proforma Service — REST API integration for Proforma Invoices, Quotations,
+ * and Warehouse Dispatch Photo Capture / Docket Workflows.
  * Connects directly to /api/proforma/ endpoints.
  */
 
@@ -95,6 +96,52 @@ export interface ProformaProductLookup {
   price: number;
   price_formatted: string;
 }
+
+// ── Dispatch & Photo Interfaces ─────────────────────────────────────────
+
+export interface DispatchPhotoItem {
+  id: number;
+  url: string;
+  uploaded_by: string;
+  uploaded_at: string;
+}
+
+export interface DispatchRemarkItem {
+  id: number;
+  user: string;
+  message: string;
+  created_at: string;
+}
+
+export interface DispatchDocket {
+  docket_number: string;
+  dispatched_at: string;
+  dispatched_by: string;
+  photos: Array<{ id: number; url: string }>;
+}
+
+export interface DispatchInfo {
+  dispatch_id: number;
+  invoice_id: number;
+  invoice_number: string;
+  status: string;
+  status_display: string;
+  shipment_method: string;
+  photos: DispatchPhotoItem[];
+  remarks: DispatchRemarkItem[];
+  docket: DispatchDocket | null;
+  can_submit_packing: boolean;
+  can_approve_packing: boolean;
+  can_dispatch: boolean;
+}
+
+export interface PhotoAsset {
+  uri: string;
+  name?: string;
+  type?: string;
+}
+
+// ── Document APIs ───────────────────────────────────────────────────────
 
 export async function fetchProformasFromApi(params?: {
   search?: string;
@@ -216,3 +263,89 @@ export async function fetchProformaProductsApi(
   }
 }
 
+// ── Dispatch & Photo Capture APIs ───────────────────────────────────────
+
+export async function fetchDispatchDetailApi(
+  invoiceId: number | string
+): Promise<DispatchInfo | null> {
+  const numericId = String(invoiceId).replace(/[^0-9]/g, "") || String(invoiceId);
+  try {
+    const res = await api.get<DispatchInfo>(`/proforma/dispatch/${numericId}/`);
+    return res.data;
+  } catch (error) {
+    console.warn(`[ProformaService] fetchDispatchDetailApi for ${invoiceId} failed:`, error);
+    return null;
+  }
+}
+
+export async function submitPackingPhotosApi(
+  invoiceId: number | string,
+  photos: PhotoAsset[],
+  remark?: string
+): Promise<{ success: boolean; message: string; status: string }> {
+  const numericId = String(invoiceId).replace(/[^0-9]/g, "") || String(invoiceId);
+  const formData = new FormData();
+
+  photos.forEach((p, idx) => {
+    formData.append("photos", {
+      uri: p.uri,
+      name: p.name || `packing_photo_${idx + 1}.jpg`,
+      type: p.type || "image/jpeg",
+    } as any);
+  });
+
+  if (remark) {
+    formData.append("remark", remark);
+  }
+
+  const res = await api.post(`/proforma/dispatch/${numericId}/packing/`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return res.data;
+}
+
+export async function approvePackingApi(
+  invoiceId: number | string
+): Promise<{ success: boolean; message: string; status: string }> {
+  const numericId = String(invoiceId).replace(/[^0-9]/g, "") || String(invoiceId);
+  const res = await api.post(`/proforma/dispatch/${numericId}/approve-packing/`);
+  return res.data;
+}
+
+export async function rejectPackingApi(
+  invoiceId: number | string,
+  remark?: string
+): Promise<{ success: boolean; message: string; status: string }> {
+  const numericId = String(invoiceId).replace(/[^0-9]/g, "") || String(invoiceId);
+  const res = await api.post(`/proforma/dispatch/${numericId}/reject-packing/`, {
+    remark,
+  });
+  return res.data;
+}
+
+export async function sendWarehouseDispatchApi(
+  invoiceId: number | string,
+  docketNumber: string,
+  docketPhotos: PhotoAsset[]
+): Promise<{ success: boolean; message: string; status: string }> {
+  const numericId = String(invoiceId).replace(/[^0-9]/g, "") || String(invoiceId);
+  const formData = new FormData();
+  formData.append("docket_number", docketNumber);
+
+  docketPhotos.forEach((p, idx) => {
+    formData.append("docket_photos", {
+      uri: p.uri,
+      name: p.name || `docket_photo_${idx + 1}.jpg`,
+      type: p.type || "image/jpeg",
+    } as any);
+  });
+
+  const res = await api.post(`/proforma/dispatch/${numericId}/send/`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return res.data;
+}

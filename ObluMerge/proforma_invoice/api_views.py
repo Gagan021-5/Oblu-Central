@@ -1,6 +1,7 @@
 """
 Proforma Invoice — REST API views for the employee mobile app.
-Provides real-time access to Proforma Invoices, Quotations, Line Items, and Approvals.
+Provides real-time access to Proforma Invoices, Quotations, Line Items, Approvals,
+and Full Warehouse Dispatch Photo & Docket Upload Workflows.
 """
 
 from decimal import Decimal
@@ -11,6 +12,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.exceptions import PermissionDenied
 
 from access_control.services import can, scope_queryset
@@ -26,7 +28,42 @@ from .models import (
     ProformaPriceChangeRequest,
     ProductPrice,
     ApprovedPriceMemory,
+    ShipmentMethod,
+    DispatchRequest,
+    DispatchPhoto,
+    WarehouseDispatch,
+    DocketPhoto,
+    DispatchRemark,
+    DispatchStateHistory,
+    DispatchInvoice,
 )
+
+
+def is_accounts_user(user):
+    if not user.is_authenticated:
+        return False
+    emp = getattr(user, "employee_profile", None)
+    user_roles = [a.role.role_key for a in emp.role_assignments.filter(is_active=True)] if emp else []
+    return bool(
+        user.is_superuser
+        or getattr(user, "is_accountant", False)
+        or any(r in user_roles for r in ["admin", "accounts_operations"])
+        or user.username.lower() in ["accounts", "accountant", "finance", "infected"]
+        or can(user, "dispatch.queue")
+    )
+
+
+def is_warehouse_user(user):
+    if not user.is_authenticated:
+        return False
+    emp = getattr(user, "employee_profile", None)
+    user_roles = [a.role.role_key for a in emp.role_assignments.filter(is_active=True)] if emp else []
+    return bool(
+        user.is_superuser
+        or "warehouse" in user_roles
+        or user.username.lower() in ["warehouse", "infected"]
+        or can(user, "proforma.dispatch")
+    )
 
 
 def _format_inr(val):
@@ -525,3 +562,291 @@ class ProformaProductsLookupAPIView(APIView):
 
         return Response({"products": results})
 
+
+# =========================================================================
+# WAREHOUSE DISPATCH, CAMERA PHOTO CAPTURE & COURIER DOCKET APIS
+# =========================================================================
+
+class DispatchDetailAPIView(APIView):
+    """
+    GET /api/proforma/dispatch/<int:invoice_id>/
+    Returns full dispatch state, packing photos, docket number and history.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, invoice_id):
+        user = request.user
+        invoice = get_object_or_404(ProformaInvoice, pk=invoice_id)
+
+        dispatch_req, _ = DispatchRequest.objects.get_or_create(
+            invoice=invoice,
+            defaults={
+                "requested_by": user,
+                "status": "waiting_for_packing" if invoice.dispatch_status != "dispatched" else "dispatched_by_warehouse",
+            }
+        )
+
+        photos_list = []
+        for p in dispatch_req.photos.all().order_by("-uploaded_at"):
+            try:
+                img_url = request.build_absolute_uri(p.image.url)
+            except Exception:
+                img_url = ""
+            photos_list.append({
+                "id": p.id,
+                "url": img_url,
+                "uploaded_by": p.uploaded_by.username if p.uploaded_by else "",
+                "uploaded_at": p.uploaded_at.strftime("%d %b %Y, %I:%M %p") if p.uploaded_at else "",
+            })
+
+        remarks_list = []
+        for r in dispatch_req.remarks.all().order_by("-created_at"):
+            remarks_list.append({
+                "id": r.id,
+                "user": r.user.username if r.user else "",
+                "message": r.message,
+                "created_at": r.created_at.strftime("%d %b %Y, %I:%M %p") if r.created_at else "",
+            })
+
+        docket_info = None
+        warehouse_dispatch = getattr(dispatch_req, "warehousedispatch", None)
+        if warehouse_dispatch:
+            docket_photos = []
+            for dp in DocketPhoto.objects.filter(warehouse_dispatch=warehouse_dispatch).order_by("-uploaded_at"):
+                try:
+                    dp_url = request.build_absolute_uri(dp.image.url)
+                except Exception:
+                    dp_url = ""
+                docket_photos.append({
+                    "id": dp.id,
+                    "url": dp_url,
+                })
+
+            docket_info = {
+                "docket_number": warehouse_dispatch.docket_number,
+                "dispatched_at": warehouse_dispatch.dispatched_at.strftime("%d %b %Y, %I:%M %p") if warehouse_dispatch.dispatched_at else "",
+                "dispatched_by": warehouse_dispatch.dispatched_by.username if warehouse_dispatch.dispatched_by else "",
+                "photos": docket_photos,
+            }
+
+        return Response({
+            "dispatch_id": dispatch_req.id,
+            "invoice_id": invoice.id,
+            "invoice_number": f"PI-{invoice.date_created.strftime('%Y') if invoice.date_created else '2026'}-{str(invoice.id).zfill(4)}",
+            "status": dispatch_req.status,
+            "status_display": dict(DispatchRequest.STATUS_CHOICES).get(dispatch_req.status, dispatch_req.status) if hasattr(DispatchRequest, "STATUS_CHOICES") else dispatch_req.status.replace("_", " ").title(),
+            "shipment_method": dispatch_req.shipment_method.name if dispatch_req.shipment_method else "Surface",
+            "photos": photos_list,
+            "remarks": remarks_list,
+            "docket": docket_info,
+            "can_submit_packing": is_warehouse_user(user),
+            "can_approve_packing": is_accounts_user(user),
+            "can_dispatch": is_warehouse_user(user),
+        })
+
+
+class DispatchPackingSubmitAPIView(APIView):
+    """
+    POST /api/proforma/dispatch/<int:invoice_id>/packing/
+    Uploads packing photos (from camera or gallery) and optional warehouse remark.
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, invoice_id):
+        user = request.user
+        if not is_warehouse_user(user):
+            raise PermissionDenied("Only Warehouse staff can submit packing photos.")
+
+        invoice = get_object_or_404(ProformaInvoice, pk=invoice_id)
+        dispatch_req, _ = DispatchRequest.objects.get_or_create(invoice=invoice)
+
+        photos = request.FILES.getlist("photos")
+        if not photos:
+            # Check single file fallback
+            single = request.FILES.get("photo")
+            if single:
+                photos = [single]
+
+        if not photos:
+            return Response({"error": "Please provide at least one packing photo."}, status=400)
+
+        remark = request.data.get("remark", "").strip()
+
+        with transaction.atomic():
+            for photo in photos:
+                DispatchPhoto.objects.create(
+                    dispatch_request=dispatch_req,
+                    image=photo,
+                    uploaded_by=user
+                )
+
+            if remark:
+                DispatchRemark.objects.create(
+                    dispatch_request=dispatch_req,
+                    user=user,
+                    message=remark
+                )
+
+            old_status = dispatch_req.status
+            dispatch_req.status = "packed_awaiting_approval"
+            dispatch_req.save()
+
+            DispatchStateHistory.objects.create(
+                dispatch_request=dispatch_req,
+                from_status=old_status,
+                to_status="packed_awaiting_approval",
+                changed_by=user
+            )
+
+        return Response({
+            "success": True,
+            "status": "packed_awaiting_approval",
+            "message": f"Successfully uploaded {len(photos)} packing photo(s). Sent to Accounts for clearance.",
+        })
+
+
+class DispatchApprovePackingAPIView(APIView):
+    """
+    POST /api/proforma/dispatch/<int:invoice_id>/approve-packing/
+    Accounts verifies packing photos and clears for dispatch.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, invoice_id):
+        user = request.user
+        if not is_accounts_user(user):
+            raise PermissionDenied("Only Accounts and Super Admin can approve packing.")
+
+        invoice = get_object_or_404(ProformaInvoice, pk=invoice_id)
+        dispatch_req = get_object_or_404(DispatchRequest, invoice=invoice)
+
+        if dispatch_req.status != "packed_awaiting_approval":
+            return Response({"error": "Dispatch is not awaiting packing approval."}, status=400)
+
+        old_status = dispatch_req.status
+        dispatch_req.status = "packing_approved"
+        dispatch_req.save()
+
+        DispatchStateHistory.objects.create(
+            dispatch_request=dispatch_req,
+            from_status=old_status,
+            to_status="packing_approved",
+            changed_by=user
+        )
+
+        return Response({
+            "success": True,
+            "status": "packing_approved",
+            "message": "Packing approved. Warehouse can now hand over to carrier.",
+        })
+
+
+class DispatchRejectPackingAPIView(APIView):
+    """
+    POST /api/proforma/dispatch/<int:invoice_id>/reject-packing/
+    Accounts rejects packaging with remark and sends back to warehouse.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, invoice_id):
+        user = request.user
+        if not is_accounts_user(user):
+            raise PermissionDenied("Only Accounts and Super Admin can reject packing.")
+
+        invoice = get_object_or_404(ProformaInvoice, pk=invoice_id)
+        dispatch_req = get_object_or_404(DispatchRequest, invoice=invoice)
+
+        rejection_remark = request.data.get("remark", "").strip()
+
+        if rejection_remark:
+            DispatchRemark.objects.create(
+                dispatch_request=dispatch_req,
+                user=user,
+                message=f"PACKING REJECTED: {rejection_remark}"
+            )
+
+        old_status = dispatch_req.status
+        dispatch_req.status = "waiting_for_packing"
+        dispatch_req.save()
+
+        DispatchStateHistory.objects.create(
+            dispatch_request=dispatch_req,
+            from_status=old_status,
+            to_status="waiting_for_packing",
+            changed_by=user
+        )
+
+        return Response({
+            "success": True,
+            "status": "waiting_for_packing",
+            "message": "Packing rejected and sent back to warehouse for re-packing.",
+        })
+
+
+class DispatchWarehouseSendAPIView(APIView):
+    """
+    POST /api/proforma/dispatch/<int:invoice_id>/send/
+    Warehouse enters docket number and uploads courier receipt photo.
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, invoice_id):
+        user = request.user
+        if not is_warehouse_user(user):
+            raise PermissionDenied("Only Warehouse staff can complete courier dispatch.")
+
+        invoice = get_object_or_404(ProformaInvoice, pk=invoice_id)
+        dispatch_req = get_object_or_404(DispatchRequest, invoice=invoice)
+
+        docket_number = request.data.get("docket_number", "").strip()
+        if not docket_number:
+            return Response({"error": "Docket tracking number is required."}, status=400)
+
+        docket_photos = request.FILES.getlist("docket_photos")
+        if not docket_photos:
+            single = request.FILES.get("docket_photo")
+            if single:
+                docket_photos = [single]
+
+        if not docket_photos:
+            return Response({"error": "Please take or upload at least one photo of the courier receipt."}, status=400)
+
+        with transaction.atomic():
+            warehouse_dispatch, _ = WarehouseDispatch.objects.update_or_create(
+                dispatch_request=dispatch_req,
+                defaults={
+                    "docket_number": docket_number,
+                    "dispatched_at": timezone.now(),
+                    "dispatched_by": user,
+                }
+            )
+
+            for photo in docket_photos:
+                DocketPhoto.objects.create(
+                    warehouse_dispatch=warehouse_dispatch,
+                    image=photo,
+                    uploaded_by=user
+                )
+
+            old_status = dispatch_req.status
+            dispatch_req.status = "dispatched_by_warehouse"
+            dispatch_req.save()
+
+            invoice.dispatch_status = "dispatched"
+            invoice.dispatched_at = timezone.now()
+            invoice.save(update_fields=["dispatch_status", "dispatched_at"])
+
+            DispatchStateHistory.objects.create(
+                dispatch_request=dispatch_req,
+                from_status=old_status,
+                to_status="dispatched_by_warehouse",
+                changed_by=user
+            )
+
+        return Response({
+            "success": True,
+            "status": "dispatched_by_warehouse",
+            "message": f"Dispatched successfully with Docket #{docket_number} and {len(docket_photos)} receipt photo(s).",
+        })
