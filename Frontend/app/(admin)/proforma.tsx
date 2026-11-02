@@ -17,7 +17,7 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as ImagePicker from "expo-image-picker";
+import { capturePhotoAsync, pickImagesFromLibraryAsync } from "@/services/imagePickerService";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes, Radius, Shadows } from "@/constants/theme";
@@ -237,44 +237,17 @@ export default function AdminProformaScreen() {
 
   // Camera Picker for Packing Photos
   const handleCapturePackingPhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Camera access is required to take packaging photos.");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.8,
-      allowsEditing: false,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const asset = result.assets[0];
-      setSelectedPackingPhotos((prev) => [
-        ...prev,
-        {
-          uri: asset.uri,
-          name: asset.fileName || `packing_${Date.now()}.jpg`,
-          type: asset.mimeType || "image/jpeg",
-        },
-      ]);
+    const photo = await capturePhotoAsync();
+    if (photo) {
+      setSelectedPackingPhotos((prev) => [...prev, photo]);
     }
   };
 
   // Gallery Picker for Packing Photos
   const handlePickPackingGallery = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      quality: 0.8,
-      allowsMultipleSelection: true,
-    });
-
-    if (!result.canceled && result.assets) {
-      const newAssets: PhotoAsset[] = result.assets.map((asset) => ({
-        uri: asset.uri,
-        name: asset.fileName || `packing_${Date.now()}.jpg`,
-        type: asset.mimeType || "image/jpeg",
-      }));
-      setSelectedPackingPhotos((prev) => [...prev, ...newAssets]);
+    const photos = await pickImagesFromLibraryAsync(true);
+    if (photos.length > 0) {
+      setSelectedPackingPhotos((prev) => [...prev, ...photos]);
     }
   };
 
@@ -363,27 +336,9 @@ export default function AdminProformaScreen() {
 
   // Camera Picker for Docket Photo
   const handleCaptureDocketPhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Camera access is required to photograph the courier receipt.");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.8,
-      allowsEditing: false,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const asset = result.assets[0];
-      setSelectedDocketPhotos((prev) => [
-        ...prev,
-        {
-          uri: asset.uri,
-          name: asset.fileName || `docket_${Date.now()}.jpg`,
-          type: asset.mimeType || "image/jpeg",
-        },
-      ]);
+    const photo = await capturePhotoAsync();
+    if (photo) {
+      setSelectedDocketPhotos((prev) => [...prev, photo]);
     }
   };
 
