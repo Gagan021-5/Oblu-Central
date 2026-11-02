@@ -54,7 +54,13 @@ export default function CustomerMapScreen() {
     isSuperuser ||
     isAdminUser ||
     userHasRole("sales_head") ||
-    hasPermission(permissionProfile, "customer.view_all");
+    userHasRole("buss_mgr") ||
+    userHasRole("business") ||
+    userHasRole("rsm") ||
+    userHasRole("finance") ||
+    userHasRole("accounts") ||
+    hasPermission(permissionProfile, "customer.view_all") ||
+    hasPermission(permissionProfile, "customer.view");
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);

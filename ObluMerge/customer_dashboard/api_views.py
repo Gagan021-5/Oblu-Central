@@ -154,17 +154,17 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 class CustomerMapPointsView(APIView):
-    """Return only geocoded customers visible under the detailed-map grant."""
+    """Return only geocoded customers visible under the user's customer viewing scope."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not can(request.user, "customer.view_all"):
+        if not _has_customer_permission(request.user, "customer.view_all", "customer.view"):
             raise PermissionDenied("Detailed customer map access is not enabled for this account.")
 
-        points = scope_queryset(
+        points = _customer_scope(
             request.user,
             "customer.view_all",
-            Customer.objects.all(),
+            "customer.view",
         ).filter(
             latitude__isnull=False,
             longitude__isnull=False,
