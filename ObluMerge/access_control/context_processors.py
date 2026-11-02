@@ -11,6 +11,8 @@ def rbac_context(request):
 
     user_roles = []
     role_display_name = "User"
+
+    # 1. Fetch from HRMS RoleAssignments
     if emp:
         for assignment in emp.role_assignments.filter(is_active=True):
             if assignment.is_currently_valid():
@@ -18,12 +20,28 @@ def rbac_context(request):
                 if role_display_name == "User":
                     role_display_name = assignment.role.display_name
 
+    # 2. Bridge Superuser -> "admin"
     if user.is_superuser:
         role_display_name = "Superuser"
-    elif getattr(user, "is_accountant", False) and not user_roles:
-        role_display_name = "Accountant"
+        if "admin" not in user_roles:
+            user_roles.append("admin")
 
-    # Fetch effective permissions dictionary:
+    # 3. Bridge Accounts / Finance -> "accounts_operations"
+    is_finance_flag = getattr(user, "is_accountant", False) or user.username.lower() in ["accounts", "accountant", "finance"]
+    if is_finance_flag:
+        if role_display_name == "User":
+            role_display_name = "Accounts & Operations"
+        if "accounts_operations" not in user_roles:
+            user_roles.append("accounts_operations")
+
+    # 4. Bridge Warehouse user -> "warehouse"
+    if user.username.lower() == "warehouse" or "warehouse" in user.username.lower():
+        if role_display_name == "User":
+            role_display_name = "Warehouse"
+        if "warehouse" not in user_roles:
+            user_roles.append("warehouse")
+
+    # Fetch effective permissions dictionary
     perms = get_user_effective_permissions(user)
     perm_keys = set(perms.keys()) if perms else set()
 
@@ -35,7 +53,7 @@ def rbac_context(request):
         "permissions": perm_keys,
         "is_executive": bool(
             user.is_superuser
-            or getattr(user, "is_accountant", False)
+            or is_finance_flag
             or any(r in user_roles for r in ["admin", "sales_head", "business", "accounts_operations"])
         ),
         "salesperson": salesperson,

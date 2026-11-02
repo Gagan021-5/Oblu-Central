@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   StyleSheet,
   RefreshControl,
   ScrollView,
+  Modal,
+  ActivityIndicator,
+  Alert,
+  Linking,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,25 +23,16 @@ import { FilterChip } from "@/components/ui/FilterChip";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { FloatingTabBar } from "@/components/employee/FloatingTabBar";
-
-interface ProformaItem {
-  id: string;
-  piNumber: string;
-  clientName: string;
-  amount: string;
-  gstAmount: string;
-  date: string;
-  rep: string;
-  status: "Approved" | "Pending" | "Billed";
-}
-
-const INITIAL_PROFORMAS: ProformaItem[] = [
-  { id: "1", piNumber: "PI-2026-0891", clientName: "Apex Dental Multispeciality", amount: "₹1,84,000", gstAmount: "₹33,120 (18%)", date: "22 Oct 2026", rep: "Gagan Sharma", status: "Approved" },
-  { id: "2", piNumber: "PI-2026-0892", clientName: "Care & Cure Maxillofacial Clinic", amount: "₹92,500", gstAmount: "₹16,650 (18%)", date: "21 Oct 2026", rep: "Bhavya Bhardwaj", status: "Pending" },
-  { id: "3", piNumber: "PI-2026-0888", clientName: "Shanti Memorial Hospital", amount: "₹4,12,000", gstAmount: "₹74,160 (18%)", date: "20 Oct 2026", rep: "Vivek Kumar", status: "Billed" },
-  { id: "4", piNumber: "PI-2026-0885", clientName: "Elite Implantology Institute", amount: "₹2,45,000", gstAmount: "₹44,100 (18%)", date: "19 Oct 2026", rep: "Gagan Sharma", status: "Approved" },
-  { id: "5", piNumber: "PI-2026-0881", clientName: "Dr. Bansal Ortho & Dental Care", amount: "₹68,000", gstAmount: "₹12,240 (18%)", date: "18 Oct 2026", rep: "Anshika Verma", status: "Pending" },
-];
+import { API_BASE_URL } from "@/services/api";
+import {
+  ProformaItem,
+  ProformaStats,
+  ProformaDetail,
+  fetchProformasFromApi,
+  fetchProformaDetailApi,
+  handlePriceRequestActionApi,
+  convertQuotationToPIApi,
+} from "@/services/proformaService";
 
 export default function ProformaScreen() {
   const insets = useSafeAreaInsets();
@@ -45,44 +40,156 @@ export default function ProformaScreen() {
   const { user } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [items, setItems] = useState<ProformaItem[]>([]);
+  const [stats, setStats] = useState<ProformaStats>({
+    pipeline_value: "₹0",
+    pipeline_value_num: 0,
+    pending_approvals: 0,
+    approved_count: 0,
+    billed_count: 0,
+    total_count: 0,
+  });
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Detail Modal State
+  const [selectedItem, setSelectedItem] = useState<ProformaItem | null>(null);
+  const [detailData, setDetailData] = useState<ProformaDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const isAdmin = (user?.role || "").toLowerCase().includes("admin");
 
+  // Search debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const loadData = useCallback(async (isPull = false) => {
+    if (!isPull) setLoading(true);
+    try {
+      const typeParam = activeFilter === "quotation" ? "quotation" : "all";
+      const statusParam =
+        activeFilter === "approved" || activeFilter === "pending" || activeFilter === "billed"
+          ? (activeFilter as any)
+          : "all";
+
+      const res = await fetchProformasFromApi({
+        search: debouncedSearch,
+        type: typeParam,
+        status: statusParam,
+      });
+
+      setItems(res.results);
+      setStats(res.stats);
+    } catch (err) {
+      console.warn("[ProformaScreen] loadData error:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [debouncedSearch, activeFilter]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
-  }, []);
+    loadData(true);
+  }, [loadData]);
 
-  const filteredItems = useMemo(() => {
-    return INITIAL_PROFORMAS.filter((item) => {
-      const matchSearch =
-        searchQuery === "" ||
-        item.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.piNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.rep.toLowerCase().includes(searchQuery.toLowerCase());
+  // Open Detail
+  const handleOpenDetail = async (item: ProformaItem) => {
+    setSelectedItem(item);
+    setDetailData(null);
+    setDetailLoading(true);
+    try {
+      const detail = await fetchProformaDetailApi(item.id, item.doc_type);
+      setDetailData(detail);
+    } catch (err) {
+      console.warn("Error fetching proforma detail:", err);
+      Alert.alert("Error", "Could not load document details.");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
-      const matchFilter =
-        activeFilter === "all" ||
-        (activeFilter === "approved" && item.status === "Approved") ||
-        (activeFilter === "pending" && item.status === "Pending") ||
-        (activeFilter === "billed" && item.status === "Billed");
+  const closeDetail = () => {
+    setSelectedItem(null);
+    setDetailData(null);
+  };
 
-      return matchSearch && matchFilter;
+  // Convert Quotation Action
+  const handleConvert = async () => {
+    if (!detailData) return;
+    Alert.alert(
+      "Convert to Proforma",
+      `Convert quotation ${detailData.number} to a live Proforma Invoice?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Convert",
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              const res = await convertQuotationToPIApi(detailData.id);
+              if (res.success) {
+                Alert.alert("Success", res.message || "Converted to Proforma Invoice!");
+                closeDetail();
+                loadData(true);
+              }
+            } catch (err: any) {
+              const msg = err?.response?.data?.error || "Conversion failed. Check permissions.";
+              Alert.alert("Error", msg);
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Approve Price Change
+  const handlePriceApproval = async (requestId: number, action: "approve" | "reject") => {
+    setActionLoading(true);
+    try {
+      const res = await handlePriceRequestActionApi(requestId, action);
+      if (res.success) {
+        Alert.alert("Success", res.message);
+        if (selectedItem) {
+          const updated = await fetchProformaDetailApi(selectedItem.id, selectedItem.doc_type);
+          setDetailData(updated);
+        }
+        loadData(true);
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || `Could not ${action} price request.`;
+      Alert.alert("Error", msg);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Open web print / PDF
+  const handleOpenPdf = () => {
+    if (!detailData) return;
+    const cleanBase = API_BASE_URL.replace(/\/api\/?$/, "");
+    const webUrl = `${cleanBase}${detailData.web_url}`;
+    Linking.openURL(webUrl).catch(() => {
+      Alert.alert("Error", "Could not open web invoice.");
     });
-  }, [searchQuery, activeFilter]);
-
-  const counts = useMemo(() => {
-    const total = INITIAL_PROFORMAS.length;
-    const approved = INITIAL_PROFORMAS.filter((i) => i.status === "Approved").length;
-    const pending = INITIAL_PROFORMAS.filter((i) => i.status === "Pending").length;
-    const billed = INITIAL_PROFORMAS.filter((i) => i.status === "Billed").length;
-    return { total, approved, pending, billed };
-  }, []);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      {/* Top Bar */}
       <View style={[styles.topBar, { borderBottomColor: colors.borderLight }]}>
         <TouchableOpacity
           style={[
@@ -110,9 +217,10 @@ export default function ProformaScreen() {
         <View style={styles.topBarRightPlaceholder} />
       </View>
 
+      {/* Main List */}
       <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => item.id}
+        data={items}
+        keyExtractor={(item) => `${item.doc_type}-${item.id}`}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.listContent,
@@ -137,53 +245,77 @@ export default function ProformaScreen() {
               />
             </View>
 
+            {/* Live Metrics */}
             <View style={styles.metricsRow}>
               <MetricCard
                 label="Quotations Pipeline"
-                value="₹14.8L"
-                subValue="5 active drafts"
+                value={stats.pipeline_value || "₹0"}
+                subValue={`${stats.total_count} active orders`}
                 icon="document-text-outline"
               />
               <MetricCard
                 label="Pending Approvals"
-                value="2"
+                value={String(stats.pending_approvals)}
                 subValue="rate clearance"
                 icon="time-outline"
-                isHighlight
+                isHighlight={stats.pending_approvals > 0}
               />
             </View>
 
+            {/* Filter Chips */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.chipsRow}
             >
               <FilterChip
-                label="All Quotations"
-                count={counts.total}
+                label="All Documents"
+                count={stats.total_count}
                 isActive={activeFilter === "all"}
                 onPress={() => setActiveFilter("all")}
               />
               <FilterChip
                 label="Approved"
-                count={counts.approved}
+                count={stats.approved_count}
                 isActive={activeFilter === "approved"}
                 onPress={() => setActiveFilter("approved")}
               />
               <FilterChip
                 label="Pending"
-                count={counts.pending}
+                count={stats.pending_approvals}
                 isActive={activeFilter === "pending"}
                 onPress={() => setActiveFilter("pending")}
               />
               <FilterChip
                 label="Billed"
-                count={counts.billed}
+                count={stats.billed_count}
                 isActive={activeFilter === "billed"}
                 onPress={() => setActiveFilter("billed")}
               />
+              <FilterChip
+                label="Quotations Only"
+                isActive={activeFilter === "quotation"}
+                onPress={() => setActiveFilter("quotation")}
+              />
             </ScrollView>
           </View>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                Loading live proforma invoices...
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-text-outline" size={48} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No proforma records found.
+              </Text>
+            </View>
+          )
         }
         renderItem={({ item }) => {
           const pillVariant =
@@ -194,7 +326,9 @@ export default function ProformaScreen() {
               : "neutral";
 
           return (
-            <View
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => handleOpenDetail(item)}
               style={[
                 styles.itemCard,
                 {
@@ -218,7 +352,7 @@ export default function ProformaScreen() {
                   ]}
                 >
                   <Ionicons
-                    name="document-text"
+                    name={item.doc_type === "quotation" ? "reader-outline" : "document-text"}
                     size={18}
                     color={
                       item.status === "Approved"
@@ -259,16 +393,208 @@ export default function ProformaScreen() {
                 </View>
                 <View style={[styles.metaDivider, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(16, 21, 19, 0.08)" }]} />
                 <View style={styles.metaCol}>
-                  <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>TAX / GST</Text>
+                  <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>COURIER GST</Text>
                   <Text style={[styles.metaValue, { color: colors.textPrimary }]}>
                     {item.gstAmount}
                   </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
+
+      {/* Proforma Detail Modal */}
+      <Modal
+        visible={!!selectedItem}
+        transparent
+        animationType="slide"
+        onRequestClose={closeDetail}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.cardBorder,
+                maxHeight: "88%",
+              },
+            ]}
+          >
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                  {selectedItem?.piNumber || "Document Detail"}
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                  {selectedItem?.clientName}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={closeDetail} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={22} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            {detailLoading ? (
+              <View style={styles.detailLoadingState}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                  Loading live line items & calculations...
+                </Text>
+              </View>
+            ) : detailData ? (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
+                {/* Customer Contact Banner */}
+                <View style={[styles.customerBanner, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(16, 21, 19, 0.03)", borderColor: colors.cardBorder }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.custName, { color: colors.textPrimary }]}>
+                      {detailData.customer.name}
+                    </Text>
+                    <Text style={[styles.custMeta, { color: colors.textSecondary }]}>
+                      {detailData.customer.city || "Headquarters"} • Rep: {detailData.created_by}
+                    </Text>
+                    {!!detailData.customer.gstin && (
+                      <Text style={[styles.custGstin, { color: colors.textMuted }]}>
+                        GSTIN: {detailData.customer.gstin}
+                      </Text>
+                    )}
+                  </View>
+                  {!!detailData.customer.phone && (
+                    <TouchableOpacity
+                      style={[styles.callBtn, { backgroundColor: isDark ? "rgba(53, 214, 160, 0.15)" : "rgba(0, 168, 121, 0.12)" }]}
+                      onPress={() => Linking.openURL(`tel:${detailData.customer.phone}`)}
+                    >
+                      <Ionicons name="call" size={16} color={isDark ? "#35D6A0" : "#00A879"} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Line Items Section */}
+                <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>
+                  ORDERED LINE ITEMS ({detailData.items.length})
+                </Text>
+                {detailData.items.map((itm, idx) => (
+                  <View key={itm.id || idx} style={[styles.lineItemRow, { borderBottomColor: colors.borderLight }]}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={[styles.lineItemName, { color: colors.textPrimary }]} numberOfLines={2}>
+                        {itm.product_name}
+                      </Text>
+                      <Text style={[styles.lineItemSub, { color: colors.textSecondary }]}>
+                        Qty: {itm.quantity} × {itm.unit_price}
+                      </Text>
+                    </View>
+                    <Text style={[styles.lineItemTotal, { color: colors.textPrimary }]}>
+                      {itm.total_price}
+                    </Text>
+                  </View>
+                ))}
+
+                {/* Financial Summary */}
+                <Text style={[styles.sectionHeading, { color: colors.textSecondary, marginTop: 16 }]}>
+                  FINANCIAL SUMMARY
+                </Text>
+                <View style={[styles.financialCard, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(16, 21, 19, 0.03)", borderColor: colors.cardBorder }]}>
+                  <View style={styles.finRow}>
+                    <Text style={[styles.finLabel, { color: colors.textSecondary }]}>Taxable Subtotal</Text>
+                    <Text style={[styles.finVal, { color: colors.textPrimary }]}>{detailData.totals.taxable_total}</Text>
+                  </View>
+                  <View style={styles.finRow}>
+                    <Text style={[styles.finLabel, { color: colors.textSecondary }]}>Courier Charge</Text>
+                    <Text style={[styles.finVal, { color: colors.textPrimary }]}>{detailData.totals.courier_charge}</Text>
+                  </View>
+                  <View style={styles.finRow}>
+                    <Text style={[styles.finLabel, { color: colors.textSecondary }]}>Total GST</Text>
+                    <Text style={[styles.finVal, { color: colors.textPrimary }]}>{detailData.totals.gst_total}</Text>
+                  </View>
+                  <View style={[styles.finDivider, { backgroundColor: colors.borderLight }]} />
+                  <View style={styles.finRow}>
+                    <Text style={[styles.finGrandLabel, { color: colors.textPrimary }]}>Grand Total</Text>
+                    <Text style={[styles.finGrandVal, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                      {detailData.totals.grand_total}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Pending Price Change Requests (Approval Authority) */}
+                {detailData.price_requests && detailData.price_requests.length > 0 && (
+                  <View style={styles.priceRequestBlock}>
+                    <Text style={[styles.sectionHeading, { color: "#D97706", marginTop: 16 }]}>
+                      SPECIAL PRICE CLEARANCE
+                    </Text>
+                    {detailData.price_requests.map((pr) => (
+                      <View key={pr.id} style={[styles.prCard, { borderColor: "#F59E0B" }]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.prTitle, { color: colors.textPrimary }]}>{pr.product_name}</Text>
+                          <Text style={[styles.prDetail, { color: colors.textSecondary }]}>
+                            Req: ₹{pr.requested_price} • Rec: ₹{pr.recommended_price}
+                          </Text>
+                          {!!pr.reason && (
+                            <Text style={[styles.prReason, { color: colors.textMuted }]}>
+                              Note: {pr.reason}
+                            </Text>
+                          )}
+                        </View>
+                        {detailData.can_approve_price && pr.status === "pending" && (
+                          <View style={styles.prActions}>
+                            <TouchableOpacity
+                              style={[styles.prBtn, { backgroundColor: "#10B981" }]}
+                              onPress={() => handlePriceApproval(pr.id, "approve")}
+                              disabled={actionLoading}
+                            >
+                              <Text style={styles.prBtnText}>Approve</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.prBtn, { backgroundColor: "#EF4444" }]}
+                              onPress={() => handlePriceApproval(pr.id, "reject")}
+                              disabled={actionLoading}
+                            >
+                              <Text style={styles.prBtnText}>Reject</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Action Buttons */}
+                <View style={styles.modalActionButtons}>
+                  {/* Convert to PI Button if Quotation */}
+                  {detailData.can_convert_to_pi && (
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+                      onPress={handleConvert}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <>
+                          <Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />
+                          <Text style={styles.actionBtnText}>Convert to Proforma</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Open Official Web PDF */}
+                  <TouchableOpacity
+                    style={[styles.outlineBtn, { borderColor: colors.primary }]}
+                    onPress={handleOpenPdf}
+                  >
+                    <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                    <Text style={[styles.outlineBtnText, { color: colors.primary }]}>
+                      View Official PDF / Print
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       <FloatingTabBar />
     </View>
@@ -398,5 +724,222 @@ const styles = StyleSheet.create({
   metaValueHighlight: {
     fontFamily: Typography.bold,
     fontSize: 13,
+  },
+  emptyState: {
+    paddingVertical: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  emptyText: {
+    fontFamily: Typography.medium,
+    fontSize: 14,
+    marginTop: 6,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    padding: 20,
+    ...Shadows.card,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(150,150,150,0.15)",
+  },
+  modalTitle: {
+    fontFamily: Typography.bold,
+    fontSize: 18,
+  },
+  modalSubtitle: {
+    fontFamily: Typography.medium,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  detailLoadingState: {
+    paddingVertical: 40,
+    alignItems: "center",
+    gap: 8,
+  },
+  loadingText: {
+    fontFamily: Typography.medium,
+    fontSize: 13,
+  },
+  modalBody: {
+    paddingVertical: 14,
+    paddingBottom: 30,
+  },
+  customerBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 16,
+  },
+  custName: {
+    fontFamily: Typography.bold,
+    fontSize: 15,
+  },
+  custMeta: {
+    fontFamily: Typography.medium,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  custGstin: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  callBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sectionHeading: {
+    fontFamily: Typography.semiBold,
+    fontSize: 11,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  lineItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  lineItemName: {
+    fontFamily: Typography.semiBold,
+    fontSize: 13,
+  },
+  lineItemSub: {
+    fontFamily: Typography.regular,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  lineItemTotal: {
+    fontFamily: Typography.bold,
+    fontSize: 13,
+  },
+  financialCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 6,
+  },
+  finRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  finLabel: {
+    fontFamily: Typography.medium,
+    fontSize: 12,
+  },
+  finVal: {
+    fontFamily: Typography.bold,
+    fontSize: 12,
+  },
+  finDivider: {
+    height: 1,
+    marginVertical: 4,
+  },
+  finGrandLabel: {
+    fontFamily: Typography.bold,
+    fontSize: 14,
+  },
+  finGrandVal: {
+    fontFamily: Typography.bold,
+    fontSize: 16,
+  },
+  priceRequestBlock: {
+    marginTop: 8,
+  },
+  prCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  prTitle: {
+    fontFamily: Typography.bold,
+    fontSize: 13,
+  },
+  prDetail: {
+    fontFamily: Typography.medium,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  prReason: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  prActions: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  prBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  prBtnText: {
+    color: "#FFFFFF",
+    fontFamily: Typography.bold,
+    fontSize: 11,
+  },
+  modalActionButtons: {
+    marginTop: 20,
+    gap: 10,
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 46,
+    borderRadius: 14,
+    gap: 8,
+  },
+  actionBtnText: {
+    color: "#FFFFFF",
+    fontFamily: Typography.bold,
+    fontSize: 14,
+  },
+  outlineBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
+  outlineBtnText: {
+    fontFamily: Typography.bold,
+    fontSize: 14,
   },
 });

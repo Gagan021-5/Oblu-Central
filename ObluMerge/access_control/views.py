@@ -71,7 +71,7 @@ def get_allowed_apps_for_user(user, effective_perms):
     # 4. Proforma (Saleshead, RSM, ASM, accounts, warehouse, admin)
     has_proforma = (
         is_super or finance_access or is_wildcard
-        or any(p in effective_perms for p in ["proforma.view", "proforma.create", "proforma.dispatch"])
+        or any(p in effective_perms for p in ["proforma.view", "proforma.create", "proforma.dispatch", "dispatch.queue"])
         or any(r in sp_role or r in user_role_str for r in ["sales", "asm", "rsm", "head", "accounts", "warehouse", "admin", "business"])
     )
     if has_proforma:
@@ -129,7 +129,7 @@ def get_hierarchy_scope_for_user(user, effective_perms):
             subordinates.append({
                 "id": sub_sp.user_id or sub_sp.id,
                 "salesperson_id": sub_sp.id,
-                "username": sub_sp.user.username if sub_sp.user else sub_sp.name.lower().replace(" ", "_"),
+                "username": sub_sp.user.username if sub_sp.user else "",
                 "name": sub_sp.name,
                 "role": sub_role,
             })
@@ -192,6 +192,7 @@ class MeProfileView(APIView):
                         "temporary": bool(assignment.ends_at),
                         "expires_at": assignment.ends_at.strftime("%Y-%m-%d %H:%M") if assignment.ends_at else None,
                     })
+
         ## for admin and directors role access in mobile app 
         if user.is_superuser or user.is_staff or getattr(user, 'role', '') == 'admin' or user.username.lower() in ['nitin_aggarwal', 'akshay_narayan', 'infected']:
             user_role = "Admin"
@@ -230,12 +231,29 @@ class MeProfileView(APIView):
             },
             "allowed_apps": allowed_apps,
             "hierarchy_scope": hierarchy_scope,
-            # Backward compatibility fields
+            # Direct compatibility fields
             "user_id": user.id,
             "username": user.username,
             "full_name": user_name,
             "email": emp.email if emp else user.email,
+            "employee_code": emp.employee_code if emp else None,
             "roles": roles_list,
+            "company": {
+                "id": emp.company.id,
+                "name": emp.company.name
+            } if emp and emp.company else None,
+            "department": {
+                "id": emp.department.id,
+                "name": emp.department.name
+            } if emp and emp.department else None,
+            "designation": {
+                "id": emp.designation.id,
+                "title": emp.designation.title
+            } if emp and emp.designation else None,
+            "reporting_manager": {
+                "id": emp.reporting_manager.id,
+                "name": emp.reporting_manager.full_name
+            } if emp and emp.reporting_manager else None,
             "permissions": list(effective_perms.keys()),
             "scopes": serialized_scopes,
         })

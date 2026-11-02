@@ -14,9 +14,30 @@ def get_user_effective_permissions(user):
     if not user.is_authenticated:
         return {}
 
-    # Superuser or legacy accountant gets global access
-    if user.is_superuser or getattr(user, "is_accountant", False):
+    # 1. Superuser gets global access
+    if user.is_superuser:
         return {"*": {"all"}}
+
+    # 2. Fallback for accounts/finance users (ONLY their specific permissions, NO price approval, NO quotation)
+    u_lower = user.username.lower()
+    if getattr(user, "is_accountant", False) or u_lower in ["accounts", "accountant", "finance"]:
+        return {
+            "proforma.view": {"all"},
+            "dispatch.queue": {"all"},
+            "proforma.dispatch": {"all"},
+            "product_tier.manage": {"all"},
+            "product_price.view": {"all"},
+            "stock.request": {"all"},
+            "customer.view": {"all"},
+        }
+
+    # 3. Fallback for warehouse user
+    if "warehouse" in u_lower:
+        return {
+            "proforma.dispatch": {"all"},
+            "inventory.view": {"all"},
+            "stock.request": {"all"},
+        }
 
     emp = getattr(user, "employee_profile", None)
     if not emp:
@@ -71,7 +92,7 @@ def get_object_owner_user_id(obj):
 def can(user, permission_key, obj=None):
     if not user.is_authenticated:
         return False
-    if user.is_superuser or getattr(user, "is_accountant", False):
+    if user.is_superuser:
         return True
 
     perms = get_user_effective_permissions(user)
@@ -96,17 +117,9 @@ def can(user, permission_key, obj=None):
         if owner_user_id in accessible_ids:
             return True
 
-    if "department" in granted_scopes and emp and emp.department_id:
-        if getattr(obj, "department_id", None) == emp.department_id:
-            return True
-
-    if "company" in granted_scopes and emp:
-        obj_co = getattr(obj, "company_id", None)
-        if obj_co and (obj_co == emp.company_id or emp.managed_companies.filter(id=obj_co).exists()):
-            return True
-
     return False
 
+# access_control/services.py
 
 def scope_queryset(user, permission_key, queryset):
     if not user.is_authenticated:
@@ -131,14 +144,23 @@ def scope_queryset(user, permission_key, queryset):
 
     union_filter = Q()
 
+    # Helper to check if a field is a ForeignKey/relation or CharField
+    def is_rel(field_name):
+        try:
+            return model._meta.get_field(field_name).is_relation
+        except Exception:
+            return False
+
     # =========================================================================
     # Scope Rule: SELF
     # =========================================================================
     if "self" in granted_scopes:
         self_q = Q()
         if hasattr(model, "created_by"):
-            # Handles both User ForeignKey and CharField username (Proforma/Quotation)
-            self_q |= Q(created_by=user) | Q(created_by=user.username)
+            if is_rel("created_by"):
+                self_q |= Q(created_by=user)
+            else:
+                self_q |= Q(created_by=user.username)
         if hasattr(model, "user"):
             self_q |= Q(user=user)
         if hasattr(model, "salesperson"):
@@ -163,10 +185,14 @@ def scope_queryset(user, permission_key, queryset):
 
         team_q = Q()
         if hasattr(model, "created_by"):
-            # Matches both user IDs and usernames stored on PIs
-            team_q |= Q(created_by_id__in=accessible_user_ids) | Q(created_by__in=accessible_usernames)
+            # SAFE CHECK: Use IDs if ForeignKey, use Usernames if CharField
+            if is_rel("created_by"):
+                team_q |= Q(created_by_id__in=accessible_user_ids)
+            else:
+                team_q |= Q(created_by__in=accessible_usernames)
+
         if hasattr(model, "user"):
-            team_q |= Q(user_id__in=accessible_user_ids)
+            team_q |= Q(user_id__in=accessible_user_ids) if is_rel("user") else Q(user__in=accessible_usernames)
         if hasattr(model, "salesperson"):
             team_q |= Q(salesperson__user_id__in=accessible_user_ids) | Q(salesperson_id__in=team_sp_ids)
         if hasattr(model, "customer"):

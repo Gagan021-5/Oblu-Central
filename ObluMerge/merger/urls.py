@@ -34,6 +34,7 @@ urlpatterns = [
     path('api/leads/', include('leads.api_urls')),
     path('api/hrms/', include('hrms.api_urls')),
     path('api/inventory/', include('inventory.api_urls')),
+    path('api/proforma/', include('proforma_invoice.api_urls')),
     path('api/', include('call_tracking.urls')),
 
     # 🔐 Password reset

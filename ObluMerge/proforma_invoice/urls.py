@@ -106,11 +106,6 @@ urlpatterns = [
         name="notify_warehouse"
     ),
     path(
-        "dispatch/<int:pk>/upload-invoice/",
-        views.UploadInvoicePdfView.as_view(),
-        name="upload_dispatch_invoice"
-    ),
-    path(
         "dispatch/<int:pk>/submit-packing/",
         views.WarehousePackingSubmitView.as_view(),
         name="warehouse_submit_packing"
