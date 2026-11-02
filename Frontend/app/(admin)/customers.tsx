@@ -31,6 +31,7 @@ import {
   CustomerEditOptions,
   fetchCustomerEditOptionsApi,
   fetchCustomerPageFromApi,
+  fetchCustomersFromApi,
   updateCustomerEditableFieldsApi,
 } from "@/services/customerService";
 import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
@@ -100,7 +101,13 @@ export default function CustomersScreen() {
         page,
         page_size: 25,
       });
-      const customerList = result?.customers || [];
+      let customerList = result?.customers || [];
+      if (customerList.length === 0 && !debouncedSearch && page === 1 && paymentFilter === "all" && balanceFilter === "all") {
+        try {
+          const fallback = await fetchCustomersFromApi({ page: 1, page_size: 25 });
+          if (fallback.length > 0) customerList = fallback;
+        } catch {}
+      }
       setCustomers((previous) => append ? [...previous, ...customerList] : customerList);
       setNextPage(result?.nextPage ?? null);
     } catch (error: any) {
@@ -579,7 +586,9 @@ export default function CustomersScreen() {
           <Text style={[styles.loadingText, { color: colors.textMuted }]}>
           {loadError || (search || filtersActive ? "No customers match these search and filter options" : "No customers found")}
           </Text>
-          {loadError ? <TouchableOpacity onPress={() => { void loadData(); }} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></TouchableOpacity> : null}
+          <TouchableOpacity onPress={() => { void loadData(true); }} style={styles.retryButton}>
+            <Text style={styles.retryText}>{loadError ? "Retry" : "Refresh Directory"}</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
