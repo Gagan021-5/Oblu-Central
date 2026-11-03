@@ -27,7 +27,7 @@ import datetime
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from django.db.models import Sum, Max
-from tally_voucher.models import VoucherStockItem
+from tally_voucher.models import Voucher, VoucherStockItem
 from collections import defaultdict
 from customer_dashboard.models import Customer
 from urllib.parse import quote
@@ -55,7 +55,7 @@ from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 
 from .models import InventoryItem
-from tally_voucher.models import VoucherStockItem
+from tally_voucher.models import Voucher, VoucherStockItem
 logger = logging.getLogger(__name__)
 
 
@@ -87,61 +87,105 @@ class Index(AccountantRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         request = self.request
 
-        # ── 1. Global Date Filter & Anchor Mode ──
-        period = request.GET.get("period", "1m").strip().lower()
-        if period not in ["3d", "3w", "1m", "3m"]:
-            period = "1m"
+        # ── 1. Global Date Filter & Custom Range ──
+        req_start = request.GET.get("start_date", "").strip()
+        req_end = request.GET.get("end_date", "").strip()
+        period = request.GET.get("period", "").strip().lower()
 
         max_daily_date = DailyStockData.objects.aggregate(m=Max("date"))["m"]
+        max_voucher_date = Voucher.objects.aggregate(m=Max("date"))["m"]
+        latest_db_date = max_voucher_date or max_daily_date
         today = timezone.now().date()
 
-        # Anchor mode: 'snapshot' (relative to latest DB entry) vs 'today' (relative to live current day)
+        # Anchor reference date: default to latest DB transaction date (or today if live data is recent)
         anchor_param = request.GET.get("anchor", "").strip().lower()
         if anchor_param == "today":
             anchor_mode = "today"
             ref_date = today
         elif anchor_param == "snapshot":
             anchor_mode = "snapshot"
-            ref_date = max_daily_date or today
+            ref_date = latest_db_date or today
         else:
-            # Smart default: if DB snapshot is older than 3 days, anchor to snapshot so data is visible
-            if max_daily_date and (today - max_daily_date).days > 3:
+            if latest_db_date and (today - latest_db_date).days > 3:
                 anchor_mode = "snapshot"
-                ref_date = max_daily_date
+                ref_date = latest_db_date
             else:
                 anchor_mode = "today"
                 ref_date = today
 
-        if period == "3d":
-            start_date = ref_date - timedelta(days=3)
-            period_label = "Last 3 Days"
-            duration_days = 3
-        elif period == "3w":
-            start_date = ref_date - timedelta(days=21)
-            period_label = "Last 3 Weeks"
-            duration_days = 21
-        elif period == "3m":
-            start_date = ref_date - timedelta(days=90)
-            period_label = "Last 3 Months"
-            duration_days = 90
-        else:
-            period = "1m"
-            start_date = ref_date - timedelta(days=30)
-            period_label = "Last 1 Month"
-            duration_days = 30
+        is_custom = False
 
-        end_date = ref_date
+        # Support user-customizable date range lookup (e.g. start_date=2026-10-01&end_date=2026-10-31)
+        if req_start and req_end:
+            try:
+                parsed_start = datetime.datetime.strptime(req_start, "%Y-%m-%d").date()
+                parsed_end = datetime.datetime.strptime(req_end, "%Y-%m-%d").date()
+                if parsed_start <= parsed_end:
+                    start_date = parsed_start
+                    end_date = parsed_end
+                    duration_days = max((end_date - start_date).days + 1, 1)
+                    period = "custom"
+                    period_label = f"{start_date.strftime('%d %b %Y')} – {end_date.strftime('%d %b %Y')}"
+                    is_custom = True
+            except (ValueError, TypeError):
+                is_custom = False
+
+        if not is_custom:
+            if period == "3d":
+                start_date = ref_date - timedelta(days=2)
+                end_date = ref_date
+                period_label = "Last 3 Days"
+                duration_days = 3
+            elif period == "3w":
+                start_date = ref_date - timedelta(days=20)
+                end_date = ref_date
+                period_label = "Last 3 Weeks"
+                duration_days = 21
+            elif period == "last_month":
+                if ref_date.month == 1:
+                    lm_year = ref_date.year - 1
+                    lm_month = 12
+                else:
+                    lm_year = ref_date.year
+                    lm_month = ref_date.month - 1
+                start_date = date(lm_year, lm_month, 1)
+                last_day_lm = calendar.monthrange(lm_year, lm_month)[1]
+                end_date = date(lm_year, lm_month, last_day_lm)
+                period_label = start_date.strftime("%B %Y")
+                duration_days = max((end_date - start_date).days + 1, 1)
+            elif period == "3m":
+                start_date = ref_date - timedelta(days=90)
+                end_date = ref_date
+                period_label = "Last 3 Months"
+                duration_days = 90
+            else:
+                # DEFAULT: Full calendar month (1st to 30th/31st depending on the month)
+                period = "1m"
+                ref_year = ref_date.year
+                ref_month = ref_date.month
+                last_day = calendar.monthrange(ref_year, ref_month)[1]
+                start_date = date(ref_year, ref_month, 1)
+                end_date = date(ref_year, ref_month, last_day)
+                period_label = ref_date.strftime("%B %Y")
+                duration_days = max((end_date - start_date).days + 1, 1)
+
+        last_day_of_month = calendar.monthrange(ref_date.year, ref_date.month)[1]
 
         context["period"] = period
         context["period_label"] = period_label
         context["start_date"] = start_date
         context["end_date"] = end_date
+        context["start_date_iso"] = start_date.strftime("%Y-%m-%d")
+        context["end_date_iso"] = end_date.strftime("%Y-%m-%d")
+        context["is_custom"] = is_custom
+        context["duration_days"] = duration_days
+        context["last_day_of_month"] = last_day_of_month
         context["date_range_display"] = f"{start_date.strftime('%d %b %Y')} – {end_date.strftime('%d %b %Y')}"
         context["anchor_mode"] = anchor_mode
         context["is_snapshot_anchor"] = (anchor_mode == "snapshot")
-        context["max_daily_date"] = max_daily_date
+        context["max_daily_date"] = latest_db_date or max_daily_date
         context["today_date"] = today
-        context["days_behind"] = (today - max_daily_date).days if max_daily_date else 0
+        context["days_behind"] = (today - latest_db_date).days if latest_db_date else 0
 
         # ── 2. Executive KPIs & Previous Period Comparison ──
         # sales_agg = DailyStockData.objects.filter(
@@ -165,7 +209,7 @@ class Index(AccountantRequiredMixin, TemplateView):
 
         # Previous period comparison for growth %
         prev_end_date = start_date - timedelta(days=1)
-        prev_start_date = prev_end_date - timedelta(days=duration_days)
+        prev_start_date = prev_end_date - timedelta(days=max(duration_days - 1, 0))
         prev_sales_agg = VoucherStockItem.objects.filter(
             voucher__voucher_type__iexact="TAX INVOICE",
             voucher__date__gte=prev_start_date,
