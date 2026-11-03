@@ -141,18 +141,6 @@ class Index(AccountantRequiredMixin, TemplateView):
                 end_date = ref_date
                 period_label = "Last 3 Weeks"
                 duration_days = 21
-            elif period == "last_month":
-                if ref_date.month == 1:
-                    lm_year = ref_date.year - 1
-                    lm_month = 12
-                else:
-                    lm_year = ref_date.year
-                    lm_month = ref_date.month - 1
-                start_date = date(lm_year, lm_month, 1)
-                last_day_lm = calendar.monthrange(lm_year, lm_month)[1]
-                end_date = date(lm_year, lm_month, last_day_lm)
-                period_label = start_date.strftime("%B %Y")
-                duration_days = max((end_date - start_date).days + 1, 1)
             elif period == "3m":
                 start_date = ref_date - timedelta(days=90)
                 end_date = ref_date
