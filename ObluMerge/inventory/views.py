@@ -1,61 +1,45 @@
-from calendar import month
-
-from django.shortcuts import render , redirect , reverse
-from django.urls import reverse_lazy
-from django.views.generic import TemplateView, View, CreateView, UpdateView, DeleteView,ListView  # Imports TemplateView, a built-in Django view for rendering templates.
-from .forms import CustomUserCreationForm , InventoryItemForm,PurchaseOrderTrackingForm
-from django.contrib.auth import authenticate , login ,logout
-from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import InventoryItem, Category, MonthlyStockData, DailyStockData
-import pandas as pd
-import re
-import json
-from django.core.serializers.json import DjangoJSONEncoder
-from sklearn.linear_model import LinearRegression
-import numpy as np
-from django.shortcuts import get_object_or_404
 import calendar
-from inventory.mixins import AccountantRequiredMixin
-from .utils import fetch_tally_stock
-import logging
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.db.models import Q
-from django.db.models import Sum
-from django.db.models.functions import TruncMonth
+from calendar import month
 import datetime
-from datetime import timedelta
+from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
-from django.db.models import Sum, Max
-from tally_voucher.models import Voucher, VoucherStockItem
 from collections import defaultdict
-from customer_dashboard.models import Customer
+import json
+import logging
+import re
 from urllib.parse import quote
-from django.utils import timezone
 from decimal import Decimal
 
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+
+from django.shortcuts import render, redirect, reverse, get_object_or_404
+from django.urls import reverse_lazy
+from django.views.generic import TemplateView, View, CreateView, UpdateView, DeleteView, ListView
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.utils import timezone
+from django.core.paginator import Paginator
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db.models import Q, Sum, Max, F, Count
+from django.db.models.functions import TruncMonth
+
+from inventory.mixins import AccountantRequiredMixin
+from tally_voucher.models import Voucher, VoucherStockItem
+from customer_dashboard.models import Customer
+from .models import InventoryItem, Category, MonthlyStockData, DailyStockData
+from .forms import CustomUserCreationForm, InventoryItemForm, PurchaseOrderTrackingForm
 from .utils import (
+    fetch_tally_stock,
     get_current_stage,
     get_expected_arrival_date,
     get_days_in_current_stage,
     get_remaining_days,
 )
 
-from django.db.models import Q, Sum, Max, F, Count
-from django.core.paginator import Paginator
-import calendar
-import json
-from collections import defaultdict
-from datetime import date
-
-from dateutil.relativedelta import relativedelta
-
-from django.shortcuts import render
-from django.views import View
-from django.contrib.auth.mixins import LoginRequiredMixin
-
-from .models import InventoryItem
-from tally_voucher.models import Voucher, VoucherStockItem
 logger = logging.getLogger(__name__)
 
 
