@@ -17,6 +17,7 @@ import { Typography } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { FilterChip } from "@/components/ui/FilterChip";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { InventoryDateFilterSheet } from "@/components/ui/InventoryDateFilterSheet";
 import api from "@/services/api";
 
 interface InventoryItem {
@@ -38,6 +39,8 @@ interface DashboardData {
   date_range_display: string;
   anchor_mode: string;
   today_date?: string;
+  is_custom?: boolean;
+  duration_days?: number;
   kpis: {
     outwards_sales_value: number;
     outwards_sales_value_display: string;
@@ -87,7 +90,11 @@ export default function InventoryScreen() {
   const { user } = useAuth();
   const scrollRef = useRef<any>(null);
 
-  const [period, setPeriod] = useState<"3d" | "3w" | "1m" | "3m">("1m");
+  const [period, setPeriod] = useState<"3d" | "3w" | "1m" | "3m" | "custom">("1m");
+  const [startDate, setStartDate] = useState("2026-10-01");
+  const [endDate, setEndDate] = useState("2026-10-31");
+  const [isCustom, setIsCustom] = useState(false);
+  const [showDateSheet, setShowDateSheet] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
 
@@ -109,21 +116,40 @@ export default function InventoryScreen() {
   const isAdmin = (user?.role || "").toLowerCase().includes("admin") || (user?.email || "").toLowerCase().includes("abhijay");
 
   // Fetch executive dashboard metrics
-  const fetchDashboard = useCallback(async (selectedPeriod: string) => {
-    try {
-      setLoadingDashboard(true);
-      const res = await api.get("/inventory/dashboard/", {
-        params: { period: selectedPeriod, anchor: "today" },
-      });
-      if (res.data && res.data.kpis) {
-        setDashboardData(res.data);
+  const fetchDashboard = useCallback(
+    async (
+      selectedPeriod?: "3d" | "3w" | "1m" | "3m" | "custom",
+      customStart?: string,
+      customEnd?: string
+    ) => {
+      try {
+        setLoadingDashboard(true);
+        const params: Record<string, string> = {};
+
+        if (customStart && customEnd) {
+          params.start_date = customStart;
+          params.end_date = customEnd;
+        } else if (selectedPeriod && selectedPeriod !== "custom") {
+          params.period = selectedPeriod;
+        } else {
+          params.period = "1m";
+        }
+
+        const res = await api.get("/inventory/dashboard/", { params });
+        if (res.data && res.data.kpis) {
+          setDashboardData(res.data);
+          if (res.data.start_date) setStartDate(res.data.start_date);
+          if (res.data.end_date) setEndDate(res.data.end_date);
+          if (res.data.is_custom !== undefined) setIsCustom(Boolean(res.data.is_custom));
+        }
+      } catch (e: any) {
+        console.warn("[Inventory:fetchDashboard] Failed:", e?.message);
+      } finally {
+        setLoadingDashboard(false);
       }
-    } catch (e: any) {
-      console.warn("[Inventory:fetchDashboard] Failed:", e?.message);
-    } finally {
-      setLoadingDashboard(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   // Fetch catalog items from PostgreSQL
   const fetchItems = useCallback(async (pageNum = 1, search = searchQuery, filter = activeFilter) => {
@@ -154,10 +180,10 @@ export default function InventoryScreen() {
     }
   }, [searchQuery, activeFilter]);
 
-  // Initial and period-change fetch
+  // Initial load
   useEffect(() => {
-    void fetchDashboard(period);
-  }, [period, fetchDashboard]);
+    void fetchDashboard("1m");
+  }, [fetchDashboard]);
 
   // Fetch items on search or filter change
   useEffect(() => {
@@ -169,9 +195,14 @@ export default function InventoryScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchDashboard(period), fetchItems(page, searchQuery, activeFilter)]);
+    await Promise.all([
+      isCustom
+        ? fetchDashboard("custom", startDate, endDate)
+        : fetchDashboard(period),
+      fetchItems(page, searchQuery, activeFilter),
+    ]);
     setRefreshing(false);
-  }, [period, page, searchQuery, activeFilter, fetchDashboard, fetchItems]);
+  }, [isCustom, startDate, endDate, period, page, searchQuery, activeFilter, fetchDashboard, fetchItems]);
 
   // Dynamic colors
   const foreground = isDark ? "#F1F7F4" : "#0F172A";
@@ -222,38 +253,224 @@ export default function InventoryScreen() {
             Real-time stock velocity, category performance, and purchase order tracking.
           </Text>
 
-          {/* Period Range Switcher (3 Days, 3 Weeks, 1 Month, 3 Months) */}
-          <View style={[styles.periodSwitcher, { backgroundColor: isDark ? "#152420" : "#F1F5F9" }]}>
-            {(["3d", "3w", "1m", "3m"] as const).map((p) => {
-              const label = p === "3d" ? "3 Days" : p === "3w" ? "3 Weeks" : p === "1m" ? "1 Month" : "3 Months";
-              const active = period === p;
-              return (
-                <TouchableOpacity
-                  key={p}
-                  onPress={() => setPeriod(p)}
-                  style={[
-                    styles.periodBtn,
-                    active && { backgroundColor: "#159A7C", shadowColor: "#159A7C", shadowOpacity: 0.3, shadowRadius: 4, elevation: 2 },
-                  ]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.periodBtnText, { color: active ? "#FFFFFF" : muted, fontFamily: active ? Typography.bold : Typography.medium }]}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Active Range Sub-bar */}
-          <View style={[styles.activeRangeBar, { backgroundColor: isDark ? "#12201C" : "#F8FAFC", borderColor: cardBorder }]}>
-            <Ionicons name="calendar-outline" size={15} color="#159A7C" />
-            <Text style={[styles.activeRangeText, { color: muted }]} numberOfLines={1}>
-              Active Range:{" "}
-              <Text style={{ fontFamily: Typography.bold, color: foreground }}>
-                {dashboardData?.date_range_display || (period === "3m" ? "01 Aug 2026 – 30 Oct 2026 (Last 3 Months)" : "30 Sep 2026 – 30 Oct 2026 (Last 1 Month)")}
+          {/* Period Range Switcher (Full Month, 3 Months, 3 Weeks, 3 Days, Custom) */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.periodSwitcherScroll}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                setPeriod("1m");
+                setIsCustom(false);
+                void fetchDashboard("1m");
+              }}
+              style={[
+                styles.periodPill,
+                {
+                  backgroundColor: period === "1m" && !isCustom ? "#159A7C" : isDark ? "#152420" : "#F1F5F9",
+                  borderColor: period === "1m" && !isCustom ? "#159A7C" : cardBorder,
+                },
+                period === "1m" && !isCustom && styles.periodPillActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.periodPillText,
+                  {
+                    color: period === "1m" && !isCustom ? "#FFFFFF" : muted,
+                    fontFamily: period === "1m" && !isCustom ? Typography.bold : Typography.medium,
+                  },
+                ]}
+              >
+                Full Month (1–31)
               </Text>
-            </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setPeriod("3m");
+                setIsCustom(false);
+                void fetchDashboard("3m");
+              }}
+              style={[
+                styles.periodPill,
+                {
+                  backgroundColor: period === "3m" && !isCustom ? "#159A7C" : isDark ? "#152420" : "#F1F5F9",
+                  borderColor: period === "3m" && !isCustom ? "#159A7C" : cardBorder,
+                },
+                period === "3m" && !isCustom && styles.periodPillActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.periodPillText,
+                  {
+                    color: period === "3m" && !isCustom ? "#FFFFFF" : muted,
+                    fontFamily: period === "3m" && !isCustom ? Typography.bold : Typography.medium,
+                  },
+                ]}
+              >
+                3 Months
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setPeriod("3w");
+                setIsCustom(false);
+                void fetchDashboard("3w");
+              }}
+              style={[
+                styles.periodPill,
+                {
+                  backgroundColor: period === "3w" && !isCustom ? "#159A7C" : isDark ? "#152420" : "#F1F5F9",
+                  borderColor: period === "3w" && !isCustom ? "#159A7C" : cardBorder,
+                },
+                period === "3w" && !isCustom && styles.periodPillActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.periodPillText,
+                  {
+                    color: period === "3w" && !isCustom ? "#FFFFFF" : muted,
+                    fontFamily: period === "3w" && !isCustom ? Typography.bold : Typography.medium,
+                  },
+                ]}
+              >
+                3 Weeks
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setPeriod("3d");
+                setIsCustom(false);
+                void fetchDashboard("3d");
+              }}
+              style={[
+                styles.periodPill,
+                {
+                  backgroundColor: period === "3d" && !isCustom ? "#159A7C" : isDark ? "#152420" : "#F1F5F9",
+                  borderColor: period === "3d" && !isCustom ? "#159A7C" : cardBorder,
+                },
+                period === "3d" && !isCustom && styles.periodPillActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.periodPillText,
+                  {
+                    color: period === "3d" && !isCustom ? "#FFFFFF" : muted,
+                    fontFamily: period === "3d" && !isCustom ? Typography.bold : Typography.medium,
+                  },
+                ]}
+              >
+                3 Days
+              </Text>
+            </TouchableOpacity>
+
+            {isCustom && (
+              <TouchableOpacity
+                onPress={() => setShowDateSheet(true)}
+                style={[styles.periodPill, styles.periodPillActive, { backgroundColor: "#159A7C", borderColor: "#159A7C" }]}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <Text style={[styles.periodPillText, { color: "#FFFFFF", fontFamily: Typography.bold }]}>
+                  Custom Range
+                </Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+
+          {/* ── Active Range & Customizable Date Controls Banner ── */}
+          <View style={[styles.activeRangeCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={styles.rangeHeaderRow}>
+              <View style={[styles.rangeIconCircle, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.18)" : "#E2F7F1" }]}>
+                <Ionicons name="calendar-outline" size={16} color="#159A7C" />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={styles.rangeTitleRow}>
+                  <Text style={[styles.rangeHeading, { color: foreground }]} numberOfLines={1}>
+                    Active Range:{" "}
+                    <Text style={{ fontFamily: Typography.bold }}>
+                      {dashboardData?.date_range_display || "01 Oct 2026 – 31 Oct 2026"}
+                    </Text>
+                  </Text>
+                  <View style={[styles.badgePeriod, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.2)" : "#E2F7F1" }]}>
+                    <Text style={styles.badgePeriodText}>
+                      {isCustom
+                        ? `Custom (${dashboardData?.duration_days ?? 0}d)`
+                        : (dashboardData?.period_label || "October 2026")}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.rangeSubtext, { color: muted }]}>
+                  Showing inventory velocity & sales metrics across{" "}
+                  <Text style={{ fontFamily: Typography.bold, color: foreground }}>
+                    {dashboardData?.duration_days ?? 31} days
+                  </Text>
+                  .
+                </Text>
+              </View>
+            </View>
+
+            {/* Customizable Date Inputs Row */}
+            <View style={[styles.customDateControlBar, { backgroundColor: isDark ? "#12201C" : "#F8FAFC", borderColor: cardBorder }]}>
+              <TouchableOpacity
+                style={styles.dateFieldPressable}
+                onPress={() => setShowDateSheet(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.dateFieldLabel, { color: muted }]}>FROM</Text>
+                <Text style={[styles.dateFieldValue, { color: foreground }]}>
+                  {startDate || dashboardData?.start_date || "2026-10-01"}
+                </Text>
+              </TouchableOpacity>
+
+              <Ionicons name="arrow-forward" size={14} color={muted} style={{ marginHorizontal: 4 }} />
+
+              <TouchableOpacity
+                style={styles.dateFieldPressable}
+                onPress={() => setShowDateSheet(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.dateFieldLabel, { color: muted }]}>TO</Text>
+                <Text style={[styles.dateFieldValue, { color: foreground }]}>
+                  {endDate || dashboardData?.end_date || "2026-10-31"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.applyBtn}
+                onPress={() => setShowDateSheet(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="options-outline" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <Text style={styles.applyBtnText}>Change</Text>
+              </TouchableOpacity>
+
+              {isCustom && (
+                <TouchableOpacity
+                  style={[styles.resetBtn, { borderColor: cardBorder, backgroundColor: isDark ? "#2A1818" : "#FEE2E2" }]}
+                  onPress={() => {
+                    setPeriod("1m");
+                    setIsCustom(false);
+                    void fetchDashboard("1m");
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="refresh-outline" size={13} color="#DC2626" />
+                  <Text style={styles.resetBtnText}>Reset</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
@@ -638,6 +855,27 @@ export default function InventoryScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* ── Custom Date Range Filter Modal Sheet ── */}
+      <InventoryDateFilterSheet
+        visible={showDateSheet}
+        startDate={startDate}
+        endDate={endDate}
+        isCustom={isCustom}
+        onApply={(start, end) => {
+          setStartDate(start);
+          setEndDate(end);
+          setIsCustom(true);
+          setPeriod("custom");
+          void fetchDashboard("custom", start, end);
+        }}
+        onReset={() => {
+          setPeriod("1m");
+          setIsCustom(false);
+          void fetchDashboard("1m");
+        }}
+        onClose={() => setShowDateSheet(false)}
+      />
     </View>
   );
 }
@@ -670,33 +908,130 @@ const styles = StyleSheet.create({
   heroTitle: { fontFamily: Typography.bold, fontSize: 24, letterSpacing: -0.5 },
   heroSubtitle: { fontFamily: Typography.regular, fontSize: 13, lineHeight: 18, marginTop: 2 },
 
-  periodSwitcher: {
+  periodSwitcherScroll: {
     flexDirection: "row",
-    borderRadius: 12,
-    padding: 3,
-    marginTop: 8,
-    gap: 4,
-  },
-  periodBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 9,
-  },
-  periodBtnText: { fontSize: 12 },
-
-  activeRangeBar: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 8,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 4,
     marginTop: 4,
   },
-  activeRangeText: { fontFamily: Typography.regular, fontSize: 11.5, flex: 1 },
+  periodPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  periodPillActive: {
+    shadowColor: "#159A7C",
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  periodPillText: {
+    fontSize: 12,
+  },
+
+  activeRangeCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 8,
+    gap: 10,
+  },
+  rangeHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  rangeIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rangeTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  rangeHeading: {
+    fontSize: 12,
+    fontFamily: Typography.semiBold,
+  },
+  badgePeriod: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  badgePeriodText: {
+    fontSize: 10.5,
+    fontFamily: Typography.bold,
+    color: "#159A7C",
+  },
+  rangeSubtext: {
+    fontSize: 11,
+    fontFamily: Typography.regular,
+    marginTop: 2,
+  },
+  customDateControlBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  dateFieldPressable: {
+    flex: 1,
+    minWidth: 70,
+  },
+  dateFieldLabel: {
+    fontSize: 9,
+    fontFamily: Typography.bold,
+    letterSpacing: 0.5,
+  },
+  dateFieldValue: {
+    fontSize: 11.5,
+    fontFamily: Typography.semiBold,
+    marginTop: 1,
+  },
+  applyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#159A7C",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    shadowColor: "#159A7C",
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  applyBtnText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontFamily: Typography.bold,
+  },
+  resetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  resetBtnText: {
+    color: "#DC2626",
+    fontSize: 11,
+    fontFamily: Typography.semiBold,
+    marginLeft: 2,
+  },
 
   kpiGrid: {
     flexDirection: "row",
