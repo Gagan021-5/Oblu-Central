@@ -229,13 +229,25 @@ class Index(AccountantRequiredMixin, TemplateView):
         except Exception:
             active_pos_count = 0
 
-        # Low stock count across full catalog
+        # Active commercial items: items with TAX INVOICE sales in trailing 90 days (Excluding Dead Stock)
+        dead_stock_cutoff = end_date - timedelta(days=90)
+        active_item_ids = list(
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=dead_stock_cutoff,
+                voucher__date__lte=end_date,
+                item_id__isnull=False,
+            ).values_list("item_id", flat=True).distinct()
+        )
+
+        # Low stock count across active commercial catalog (Excluding Dead Stock)
         low_stock_items_qs = InventoryItem.objects.filter(
+            id__in=active_item_ids,
             quantity__lt=F("min_quantity_outwards"),
-            min_quantity_outwards__gt=0
+            min_quantity_outwards__gt=0,
         )
         low_stock_count = low_stock_items_qs.count()
-        total_products = InventoryItem.objects.count()
+        total_products = len(active_item_ids) or InventoryItem.objects.count()
 
         # ── 3. Sales Trend Data (Chart.js) ──
         trend_qs = (
@@ -594,18 +606,20 @@ class Index(AccountantRequiredMixin, TemplateView):
             active_purchase_orders = []
         context["active_purchase_orders"] = active_purchase_orders
 
-        # ── 8. Catalog Inventory Health ──
-        catalog_total = InventoryItem.objects.count()
+        # ── 8. Catalog Inventory Health (Excluding Dead Stock) ──
+        active_catalog_qs = InventoryItem.objects.filter(id__in=active_item_ids)
+        catalog_total = active_catalog_qs.count()
         total_items = catalog_total or 1
-        catalog_out_of_stock = InventoryItem.objects.filter(
+        catalog_out_of_stock = active_catalog_qs.filter(
             Q(quantity__lte=0) | Q(quantity__isnull=True)
         ).count()
-        catalog_low_stock = InventoryItem.objects.filter(
+        catalog_low_stock = active_catalog_qs.filter(
             quantity__gt=0,
             quantity__lt=F("min_quantity_outwards"),
             min_quantity_outwards__gt=0
         ).count()
         catalog_healthy = max(catalog_total - catalog_out_of_stock - catalog_low_stock, 0)
+        dead_stock_count = InventoryItem.objects.exclude(id__in=active_item_ids).count()
 
         context["health"] = {
             "total": catalog_total,
@@ -615,6 +629,7 @@ class Index(AccountantRequiredMixin, TemplateView):
             "low_stock_pct": round(catalog_low_stock / total_items * 100, 1),
             "out_of_stock": catalog_out_of_stock,
             "out_of_stock_pct": round(catalog_out_of_stock / total_items * 100, 1),
+            "dead_stock": dead_stock_count,
             "attention_pct": round((catalog_low_stock + catalog_out_of_stock) / total_items * 100, 1),
         }
 

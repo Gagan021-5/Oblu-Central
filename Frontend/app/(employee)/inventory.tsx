@@ -28,7 +28,7 @@ interface InventoryItem {
   stock: number;
   unit: string;
   reorderLevel: number;
-  status: "In Stock" | "Low Stock" | "Critical";
+  status: "In Stock" | "Low Stock" | "Critical" | "Dead Stock";
 }
 
 interface DashboardData {
@@ -79,6 +79,7 @@ interface DashboardData {
     low_pct: number;
     critical_stock: number;
     critical_pct: number;
+    dead_stock?: number;
   };
   top_categories?: any[];
   top_products?: any[];
@@ -105,7 +106,7 @@ export default function InventoryScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [itemCounts, setItemCounts] = useState({ total: 0, in_stock: 0, low_stock: 0, critical: 0 });
+  const [itemCounts, setItemCounts] = useState({ total: 0, in_stock: 0, low_stock: 0, critical: 0, dead_stock: 0 });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [hasNext, setHasNext] = useState(false);
@@ -562,12 +563,12 @@ export default function InventoryScreen() {
                 </View>
               </View>
               <Text style={[styles.kpiValue, { color: foreground }]}>
-                {dashboardData?.kpis?.low_stock_skus ?? 258} SKUs
+                {dashboardData?.kpis?.low_stock_skus ?? 0} SKUs
               </Text>
               <View style={[styles.alertPillBadge, { backgroundColor: "#FEE2E2" }]}>
                 <Ionicons name="alert-circle" size={12} color="#DC2626" />
                 <Text style={[styles.alertPillText, { color: "#DC2626" }]} numberOfLines={1}>
-                  {dashboardData?.kpis?.low_stock_fast_movers || 2} Top Movers urgent
+                  {dashboardData?.kpis?.low_stock_fast_movers ?? 0} Top Movers urgent
                 </Text>
               </View>
             </View>
@@ -693,7 +694,7 @@ export default function InventoryScreen() {
                 <Text style={[styles.healthLabel, { color: foreground }]}>Low Stock (Below Safety Threshold)</Text>
               </View>
               <Text style={[styles.healthValue, { color: "#F59E0B" }]}>
-                {dashboardData?.catalog_health?.low_stock ?? 258} ({dashboardData?.catalog_health?.low_pct ?? 32.4}%)
+                {dashboardData?.catalog_health?.low_stock ?? 0} ({dashboardData?.catalog_health?.low_pct ?? 0}%)
               </Text>
             </View>
 
@@ -703,9 +704,21 @@ export default function InventoryScreen() {
                 <Text style={[styles.healthLabel, { color: foreground }]}>Out of Stock / Critical</Text>
               </View>
               <Text style={[styles.healthValue, { color: "#EF4444" }]}>
-                {dashboardData?.catalog_health?.critical_stock ?? 374} ({dashboardData?.catalog_health?.critical_pct ?? 47.0}%)
+                {dashboardData?.catalog_health?.critical_stock ?? 0} ({dashboardData?.catalog_health?.critical_pct ?? 0}%)
               </Text>
             </View>
+
+            {dashboardData?.catalog_health?.dead_stock !== undefined && (
+              <View style={styles.healthRow}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={[styles.dot, { backgroundColor: "#6B7280" }]} />
+                  <Text style={[styles.healthLabel, { color: foreground }]}>Dead Stock (No sale in 90 days)</Text>
+                </View>
+                <Text style={[styles.healthValue, { color: "#6B7280" }]}>
+                  {dashboardData?.catalog_health?.dead_stock}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -715,7 +728,7 @@ export default function InventoryScreen() {
             <View>
               <Text style={[styles.catalogHeading, { color: foreground }]}>Warehouse Catalog</Text>
               <Text style={[styles.catalogSub, { color: muted }]}>
-                Showing {items.length} of {itemCounts.total || 796} active product lines
+                Showing {items.length} of {itemCounts.total || 0} active product lines
               </Text>
             </View>
           </View>
@@ -732,27 +745,33 @@ export default function InventoryScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterStrip}>
             <FilterChip
               label="All"
-              count={itemCounts.total || 796}
+              count={itemCounts.total}
               isActive={activeFilter === "all"}
               onPress={() => setActiveFilter("all")}
             />
             <FilterChip
               label="In Stock"
-              count={itemCounts.in_stock || 164}
+              count={itemCounts.in_stock}
               isActive={activeFilter === "in_stock"}
               onPress={() => setActiveFilter("in_stock")}
             />
             <FilterChip
               label="Low Stock"
-              count={itemCounts.low_stock || 258}
+              count={itemCounts.low_stock}
               isActive={activeFilter === "low_stock"}
               onPress={() => setActiveFilter("low_stock")}
             />
             <FilterChip
               label="Critical"
-              count={itemCounts.critical || 374}
+              count={itemCounts.critical}
               isActive={activeFilter === "critical"}
               onPress={() => setActiveFilter("critical")}
+            />
+            <FilterChip
+              label="Dead Stock"
+              count={itemCounts.dead_stock}
+              isActive={activeFilter === "dead_stock"}
+              onPress={() => setActiveFilter("dead_stock")}
             />
           </ScrollView>
 
@@ -782,7 +801,7 @@ export default function InventoryScreen() {
                       <Text style={[styles.itemCategory, { color: "#159A7C" }]}>{item.category}</Text>
                     </View>
                   </View>
-                  <StatusPill label={item.status} variant={item.status === "In Stock" ? "paid" : item.status === "Low Stock" ? "pending" : "overdue"} size="small" />
+                  <StatusPill label={item.status} variant={item.status === "In Stock" ? "paid" : item.status === "Low Stock" ? "pending" : item.status === "Dead Stock" ? "neutral" : "overdue"} size="small" />
                 </View>
 
                 <View style={[styles.itemStockBar, { backgroundColor: isDark ? "#14231F" : "#F8FAFC", borderColor: cardBorder }]}>
@@ -791,7 +810,7 @@ export default function InventoryScreen() {
                     <Text
                       style={[
                         styles.itemStockVal,
-                        { color: item.status === "Critical" ? "#DC2626" : item.status === "Low Stock" ? "#D97706" : foreground },
+                        { color: item.status === "Critical" ? "#DC2626" : item.status === "Low Stock" ? "#D97706" : item.status === "Dead Stock" ? "#6B7280" : foreground },
                       ]}
                     >
                       {item.stock.toLocaleString()} {item.unit}

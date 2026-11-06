@@ -167,13 +167,25 @@ class InventoryExecutiveDashboardAPIView(APIView):
         except Exception:
             active_pos_count = 0
 
-        # Low stock count across full catalog
+        # Active commercial items: items with TAX INVOICE sales in trailing 90 days (Excluding Dead Stock)
+        dead_stock_cutoff = end_date - timedelta(days=90)
+        active_item_ids = list(
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=dead_stock_cutoff,
+                voucher__date__lte=end_date,
+                item_id__isnull=False,
+            ).values_list("item_id", flat=True).distinct()
+        )
+
+        # Low stock count across active commercial catalog (Excluding Dead Stock)
         low_stock_items_qs = InventoryItem.objects.filter(
+            id__in=active_item_ids,
             quantity__lt=F("min_quantity_outwards"),
-            min_quantity_outwards__gt=0
+            min_quantity_outwards__gt=0,
         )
         low_stock_count = low_stock_items_qs.count()
-        total_products = InventoryItem.objects.count()
+        total_products = len(active_item_ids) or InventoryItem.objects.count()
 
         # Sales Trend Data (from VoucherStockItem)
         trend_qs = (
@@ -346,17 +358,19 @@ class InventoryExecutiveDashboardAPIView(APIView):
                     ),
                 })
 
-        # Catalog health
-        catalog_total = total_products or 1
-        catalog_out_of_stock = InventoryItem.objects.filter(
+        # Catalog health (Excluding Dead Stock)
+        active_catalog_qs = InventoryItem.objects.filter(id__in=active_item_ids)
+        catalog_total = active_catalog_qs.count() or 1
+        catalog_out_of_stock = active_catalog_qs.filter(
             Q(quantity__lte=0) | Q(quantity__isnull=True)
         ).count()
-        catalog_low_stock = InventoryItem.objects.filter(
+        catalog_low_stock = active_catalog_qs.filter(
             quantity__gt=0,
             quantity__lt=F("min_quantity_outwards"),
             min_quantity_outwards__gt=0
         ).count()
         catalog_healthy = max(0, catalog_total - catalog_out_of_stock - catalog_low_stock)
+        dead_stock_count = InventoryItem.objects.exclude(id__in=active_item_ids).count()
 
         return Response({
             "status": "success",
@@ -408,6 +422,7 @@ class InventoryExecutiveDashboardAPIView(APIView):
                 "low_pct": round((catalog_low_stock / catalog_total) * 100, 1),
                 "critical_stock": catalog_out_of_stock,
                 "critical_pct": round((catalog_out_of_stock / catalog_total) * 100, 1),
+                "dead_stock": dead_stock_count,
             },
             "top_categories": top_categories,
             "top_products": top_products,
@@ -443,32 +458,51 @@ class InventoryItemListAPIView(APIView):
                 Q(category__name__icontains=q)
             )
 
+        # Trailing 90-day active window for commercial viability (Excluding Dead Stock)
+        latest_voucher_date = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE"
+        ).aggregate(m=Max("voucher__date"))["m"] or timezone.now().date()
+        cutoff_90 = latest_voucher_date - timedelta(days=90)
+        active_item_ids = set(
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=cutoff_90,
+                item_id__isnull=False,
+            ).values_list("item_id", flat=True).distinct()
+        )
+
         if status_filter == "in_stock":
             qs = qs.filter(quantity__gte=F("min_quantity_outwards"))
         elif status_filter == "low_stock":
-            qs = qs.filter(quantity__gt=0, quantity__lt=F("min_quantity_outwards"))
+            qs = qs.filter(id__in=active_item_ids, quantity__gt=0, quantity__lt=F("min_quantity_outwards"))
         elif status_filter == "critical":
-            qs = qs.filter(Q(quantity__lte=0) | Q(quantity__isnull=True))
+            qs = qs.filter(id__in=active_item_ids).filter(Q(quantity__lte=0) | Q(quantity__isnull=True))
+        elif status_filter == "dead_stock":
+            qs = qs.exclude(id__in=active_item_ids)
 
         total_count = qs.count()
         total_pages = max(1, (total_count + page_size - 1) // page_size)
         start_idx = (page - 1) * page_size
         items = qs.order_by("name")[start_idx : start_idx + page_size]
 
-        # Overall counts for pills
+        # Overall counts for pills (Excluding Dead Stock from Low Stock)
         base_qs = InventoryItem.objects.all()
         counts = {
             "total": base_qs.count(),
             "in_stock": base_qs.filter(quantity__gte=F("min_quantity_outwards")).count(),
-            "low_stock": base_qs.filter(quantity__gt=0, quantity__lt=F("min_quantity_outwards")).count(),
-            "critical": base_qs.filter(Q(quantity__lte=0) | Q(quantity__isnull=True)).count(),
+            "low_stock": base_qs.filter(id__in=active_item_ids, quantity__gt=0, quantity__lt=F("min_quantity_outwards")).count(),
+            "critical": base_qs.filter(id__in=active_item_ids).filter(Q(quantity__lte=0) | Q(quantity__isnull=True)).count(),
+            "dead_stock": base_qs.exclude(id__in=active_item_ids).count(),
         }
 
         results = []
         for item in items:
             qty = item.quantity or 0
             reorder = item.min_quantity_outwards or item.min_quantity or 0
-            if qty <= 0:
+            is_active = item.id in active_item_ids
+            if not is_active:
+                item_status = "Dead Stock"
+            elif qty <= 0:
                 item_status = "Critical"
             elif reorder > 0 and qty < reorder:
                 item_status = "Low Stock"
