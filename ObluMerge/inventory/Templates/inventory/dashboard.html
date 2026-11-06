@@ -622,6 +622,166 @@
         width: 100%;
         max-width: 100%;
         overflow-x: auto;
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(120, 194, 173, 0.4) transparent;
+    }
+
+    .catalog-table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+    .catalog-table-responsive::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .catalog-table-responsive::-webkit-scrollbar-thumb {
+        background: rgba(120, 194, 173, 0.4);
+        border-radius: 9999px;
+    }
+    .catalog-table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--oblu-teal);
+    }
+
+    /* Floating Horizontal Scroller Capsule (Fixed Bottom Center) */
+    .floating-table-scroller {
+        position: fixed;
+        bottom: 22px;
+        left: calc(var(--sidebar-width, 285px) + (100vw - var(--sidebar-width, 285px)) / 2);
+        transform: translateX(-50%);
+        z-index: 1040;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 16px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(120, 194, 173, 0.4);
+        border-radius: 9999px;
+        box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.18), 0 4px 14px rgba(21, 154, 124, 0.16);
+        transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s, left 0.3s ease;
+        user-select: none;
+    }
+
+    body.sidebar-collapsed .floating-table-scroller,
+    html.sidebar-collapsed .floating-table-scroller {
+        left: 50% !important;
+    }
+
+    @media (max-width: 992px) {
+        .floating-table-scroller {
+            left: 50% !important;
+            bottom: 16px;
+            max-width: 92vw;
+            gap: 8px;
+            padding: 6px 12px;
+        }
+    }
+
+    .floating-table-scroller.scroller-hidden {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        transform: translate(-50%, 16px) !important;
+    }
+
+    .scroller-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        color: var(--oblu-slate-600);
+        background: rgba(241, 245, 249, 0.9);
+        border: 1px solid var(--oblu-slate-200);
+        border-radius: 9999px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        white-space: nowrap;
+        outline: none;
+    }
+
+    .scroller-nav-btn:hover {
+        background: var(--oblu-teal-soft);
+        color: var(--oblu-teal-deep);
+        border-color: rgba(120, 194, 173, 0.5);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(120, 194, 173, 0.2);
+    }
+
+    .scroller-nav-btn:active {
+        transform: translateY(0);
+    }
+
+    .scroller-track-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        width: 220px;
+    }
+
+    @media (max-width: 576px) {
+        .scroller-track-container {
+            width: 130px;
+        }
+    }
+
+    .scroller-range-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        border-radius: 9999px;
+        background: linear-gradient(to right, var(--oblu-teal) 0%, var(--oblu-teal) 0%, #e2e8f0 0%, #e2e8f0 100%);
+        outline: none;
+        cursor: grab;
+        border: none;
+        margin: 0;
+    }
+
+    .scroller-range-slider:active {
+        cursor: grabbing;
+    }
+
+    .scroller-range-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--oblu-teal) 0%, var(--oblu-teal-dark) 100%);
+        cursor: grab;
+        box-shadow: 0 2px 6px rgba(21, 154, 124, 0.45);
+        border: 2px solid #ffffff;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .scroller-range-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+        box-shadow: 0 3px 8px rgba(21, 154, 124, 0.6);
+    }
+
+    .scroller-range-slider::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--oblu-teal);
+        cursor: grab;
+        box-shadow: 0 2px 6px rgba(21, 154, 124, 0.45);
+        border: 2px solid #ffffff;
+    }
+
+    .scroller-track-labels {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        font-size: 0.63rem;
+        font-weight: 600;
+        color: var(--oblu-slate-400);
+        padding: 0 2px;
+        letter-spacing: 0.2px;
     }
 
     .catalog-table {
@@ -1533,6 +1693,32 @@
             </div>
         </div>
 
+        <!-- FLOATING HORIZONTAL SCROLLER BAR (FIXED BOTTOM CENTER) -->
+        <div id="floatingTableScroller" class="floating-table-scroller scroller-hidden" role="region" aria-label="Horizontal Table Scroller">
+            <button type="button" class="scroller-nav-btn" id="scrollerLeftBtn" title="Scroll to Product Details (Left)">
+                <i class="bi bi-arrow-left"></i> Left
+            </button>
+            <div class="scroller-track-container">
+                <input 
+                    type="range" 
+                    id="scrollerRangeInput" 
+                    class="scroller-range-slider" 
+                    min="0" 
+                    max="100" 
+                    value="0" 
+                    step="1"
+                    aria-label="Table horizontal scroll position"
+                />
+                <div class="scroller-track-labels">
+                    <span class="track-label left"><i class="bi bi-box-seam"></i> Products</span>
+                    <span class="track-label right">Actions <i class="bi bi-lightning-charge"></i></span>
+                </div>
+            </div>
+            <button type="button" class="scroller-nav-btn" id="scrollerRightBtn" title="Scroll to Quick Actions & Ledger (Right)">
+                Actions <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+
         <!-- 6. GRID CARDS VIEW (TOGGLEABLE) -->
         <div id="gridViewWrapper" class="catalog-grid-view">
             {% for item in page_obj %}
@@ -1793,6 +1979,133 @@ function initCatalogApp() {
                 }
             }
         });
+    }
+
+    // =========================================================
+    // FLOATING HORIZONTAL SCROLLER BAR (FIXED BOTTOM CENTER)
+    // =========================================================
+    const floatingScroller = document.getElementById('floatingTableScroller');
+    const scrollerRange = document.getElementById('scrollerRangeInput');
+    const scrollerLeftBtn = document.getElementById('scrollerLeftBtn');
+    const scrollerRightBtn = document.getElementById('scrollerRightBtn');
+    const tableResponsive = document.querySelector('.catalog-table-responsive');
+
+    function isSidebarOpen() {
+        const isCollapsed = document.body.classList.contains('sidebar-collapsed') ||
+                            document.documentElement.classList.contains('sidebar-collapsed');
+        return !isCollapsed;
+    }
+
+    function isTableViewActive() {
+        if (!tableViewWrapper) return false;
+        return tableViewWrapper.style.display !== 'none';
+    }
+
+    function updateSliderFill(pct) {
+        if (!scrollerRange) return;
+        scrollerRange.value = pct;
+        scrollerRange.style.background = `linear-gradient(to right, var(--oblu-teal) 0%, var(--oblu-teal) ${pct}%, #e2e8f0 ${pct}%, #e2e8f0 100%)`;
+    }
+
+    function checkScrollerState() {
+        if (!floatingScroller || !tableResponsive) return;
+
+        // Condition 1: Must be in Table View
+        if (!isTableViewActive()) {
+            floatingScroller.classList.add('scroller-hidden');
+            return;
+        }
+
+        // Condition 2: Only show when sidebar is OPEN (as requested by user)
+        if (!isSidebarOpen()) {
+            floatingScroller.classList.add('scroller-hidden');
+            return;
+        }
+
+        // Condition 3: Table must have horizontal overflow
+        const maxScroll = tableResponsive.scrollWidth - tableResponsive.clientWidth;
+        if (maxScroll <= 6) {
+            floatingScroller.classList.add('scroller-hidden');
+            return;
+        }
+
+        // Condition 4: Table should be currently in view
+        const rect = tableResponsive.getBoundingClientRect();
+        const isInViewport = (rect.bottom > 80 && rect.top < window.innerHeight - 40);
+        if (!isInViewport) {
+            floatingScroller.classList.add('scroller-hidden');
+            return;
+        }
+
+        // All conditions met: show floating horizontal scroller
+        floatingScroller.classList.remove('scroller-hidden');
+
+        // Sync slider position
+        const currentScroll = tableResponsive.scrollLeft;
+        const pct = Math.min(100, Math.max(0, Math.round((currentScroll / maxScroll) * 100)));
+        updateSliderFill(pct);
+    }
+
+    if (tableResponsive && floatingScroller && scrollerRange) {
+        // 1. Table scroll event -> update slider
+        tableResponsive.addEventListener('scroll', () => {
+            const maxScroll = tableResponsive.scrollWidth - tableResponsive.clientWidth;
+            if (maxScroll > 0) {
+                const pct = Math.min(100, Math.max(0, Math.round((tableResponsive.scrollLeft / maxScroll) * 100)));
+                updateSliderFill(pct);
+            }
+        }, { passive: true });
+
+        // 2. Slider input event -> scroll table in real time
+        scrollerRange.addEventListener('input', (e) => {
+            const pct = parseInt(e.target.value, 10);
+            const maxScroll = tableResponsive.scrollWidth - tableResponsive.clientWidth;
+            if (maxScroll > 0) {
+                tableResponsive.scrollLeft = (pct / 100) * maxScroll;
+            }
+            scrollerRange.style.background = `linear-gradient(to right, var(--oblu-teal) 0%, var(--oblu-teal) ${pct}%, #e2e8f0 ${pct}%, #e2e8f0 100%)`;
+        });
+
+        // 3. Left button click -> smooth scroll left
+        if (scrollerLeftBtn) {
+            scrollerLeftBtn.addEventListener('click', () => {
+                tableResponsive.scrollTo({ left: 0, behavior: 'smooth' });
+            });
+        }
+
+        // 4. Right button click -> smooth scroll right
+        if (scrollerRightBtn) {
+            scrollerRightBtn.addEventListener('click', () => {
+                const maxScroll = tableResponsive.scrollWidth - tableResponsive.clientWidth;
+                tableResponsive.scrollTo({ left: maxScroll, behavior: 'smooth' });
+            });
+        }
+
+        // 5. Mouse wheel over the floating scroller -> scroll table horizontally
+        floatingScroller.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            tableResponsive.scrollLeft += (e.deltaY || e.deltaX);
+        }, { passive: false });
+
+        // 6. Listen to window & document events
+        window.addEventListener('resize', checkScrollerState, { passive: true });
+        window.addEventListener('scroll', checkScrollerState, { passive: true });
+
+        // 7. Observe sidebar class mutations on body and html
+        const sidebarObserver = new MutationObserver(() => {
+            setTimeout(checkScrollerState, 40);
+            setTimeout(checkScrollerState, 260); // After sidebar CSS animation completes
+        });
+        sidebarObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        sidebarObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+        // 8. Re-check on view toggles
+        if (btnTableView) btnTableView.addEventListener('click', () => setTimeout(checkScrollerState, 100));
+        if (btnGridView) btnGridView.addEventListener('click', () => setTimeout(checkScrollerState, 100));
+
+        // Initial check
+        setTimeout(checkScrollerState, 100);
+        setTimeout(checkScrollerState, 500);
     }
 }
 
