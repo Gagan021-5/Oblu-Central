@@ -491,12 +491,12 @@ export default function InventoryScreen() {
                 </View>
               </View>
               <Text style={[styles.kpiValue, { color: foreground }]}>
-                {dashboardData?.kpis?.outwards_sales_value_display || (period === "3m" ? "₹227.00 Cr" : "₹223.64 Cr")}
+                {dashboardData?.kpis?.outwards_sales_value_display || "₹0"}
               </Text>
               <View style={styles.kpiPillRow}>
                 <View style={[styles.growthPill, { backgroundColor: "#E2F7F1" }]}>
                   <Text style={[styles.growthPillText, { color: "#159A7C" }]}>
-                    ↑ {dashboardData?.kpis?.sales_growth_pct || (period === "3m" ? 4312.6 : 12868.9)}%
+                    {dashboardData?.kpis ? `${dashboardData.kpis.is_sales_growth_positive ? "↑" : "↓"} ${dashboardData.kpis.sales_growth_pct}%` : "—"}
                   </Text>
                 </View>
                 <Text style={[styles.kpiSubtext, { color: muted }]} numberOfLines={1}>
@@ -504,7 +504,7 @@ export default function InventoryScreen() {
                 </Text>
               </View>
               <Text style={[styles.kpiExtra, { color: muted }]}>
-                Avg {dashboardData?.kpis?.avg_daily_sales_display || (period === "3m" ? "₹2.52 Cr" : "₹7.45 Cr")}/day
+                Avg {dashboardData?.kpis?.avg_daily_sales_display || "₹0"}/day
               </Text>
             </View>
 
@@ -517,12 +517,12 @@ export default function InventoryScreen() {
                 </View>
               </View>
               <Text style={[styles.kpiValue, { color: foreground }]}>
-                {dashboardData?.kpis?.orders_dispatched_display || (period === "3m" ? "806 Orders" : "256 Orders")}
+                {dashboardData?.kpis?.orders_dispatched_display || "0 Orders"}
               </Text>
               <View style={styles.kpiPillRow}>
                 <View style={[styles.growthPill, { backgroundColor: dashboardData?.kpis?.is_orders_growth_positive ? "#E2F7F1" : "#FEE2E2" }]}>
                   <Text style={[styles.growthPillText, { color: dashboardData?.kpis?.is_orders_growth_positive ? "#159A7C" : "#DC2626" }]}>
-                    {dashboardData?.kpis?.is_orders_growth_positive ? "↑" : "↓"} {dashboardData?.kpis?.orders_growth_pct || (period === "3m" ? "6.1" : "6.6")}%
+                    {dashboardData?.kpis ? `${dashboardData.kpis.is_orders_growth_positive ? "↑" : "↓"} ${dashboardData.kpis.orders_growth_pct}%` : "—"}
                   </Text>
                 </View>
                 <Text style={[styles.kpiSubtext, { color: muted }]} numberOfLines={1}>
@@ -530,7 +530,7 @@ export default function InventoryScreen() {
                 </Text>
               </View>
               <Text style={[styles.kpiExtra, { color: muted }]}>
-                across {dashboardData?.kpis?.units_sold_display || (period === "3m" ? "10,508,565 units" : "10,367,616 units")}
+                across {dashboardData?.kpis?.units_sold_display || "0 units"}
               </Text>
             </View>
 
@@ -612,19 +612,19 @@ export default function InventoryScreen() {
             <View style={styles.stripCol}>
               <Text style={[styles.stripLabel, { color: muted }]}>TOTAL REVENUE</Text>
               <Text style={[styles.stripValue, { color: foreground }]}>
-                {dashboardData?.sales_velocity?.total_revenue_display || (period === "3m" ? "₹227.00 Cr" : "₹223.64 Cr")}
+                {dashboardData?.sales_velocity?.total_revenue_display || "₹0"}
               </Text>
             </View>
             <View style={styles.stripCol}>
               <Text style={[styles.stripLabel, { color: muted }]}>PEAK DAY</Text>
               <Text style={[styles.stripValue, { color: foreground }]}>
-                {dashboardData?.sales_velocity?.peak_day || "26 Oct"} ({dashboardData?.sales_velocity?.peak_sales_display || "₹15.34 Cr"})
+                {dashboardData?.sales_velocity?.peak_day ? `${dashboardData.sales_velocity.peak_day} (${dashboardData.sales_velocity.peak_sales_display})` : "N/A"}
               </Text>
             </View>
             <View style={styles.stripCol}>
               <Text style={[styles.stripLabel, { color: muted }]}>DAILY RUN RATE</Text>
               <Text style={[styles.stripValue, { color: foreground }]}>
-                {dashboardData?.sales_velocity?.daily_run_rate_display || (period === "3m" ? "₹2.52 Cr" : "₹7.45 Cr")}
+                {dashboardData?.sales_velocity?.daily_run_rate_display || "₹0"}
               </Text>
             </View>
           </View>

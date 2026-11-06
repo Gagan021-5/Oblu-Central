@@ -15,7 +15,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 
 from .models import InventoryItem, DailyStockData, PurchaseOrderTracking
-from tally_voucher.models import Voucher
+from tally_voucher.models import Voucher, VoucherStockItem
 
 
 def format_inr(val):
@@ -112,12 +112,14 @@ class InventoryExecutiveDashboardAPIView(APIView):
                 period_label = ref_date.strftime("%B %Y")
                 duration_days = max((end_date - start_date).days + 1, 1)
 
-        # Sales aggregates
-        sales_agg = DailyStockData.objects.filter(
-            date__gte=start_date, date__lte=end_date, outwards_quantity__gt=0
+        # Sales aggregates from verified Tax Invoices (VoucherStockItem)
+        sales_agg = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=start_date,
+            voucher__date__lte=end_date,
         ).aggregate(
-            total_val=Sum("outwards_value"),
-            total_qty=Sum("outwards_quantity")
+            total_val=Sum("amount"),
+            total_qty=Sum("quantity")
         )
         total_sales = float(sales_agg["total_val"] or 0)
         units_sold = int(round(sales_agg["total_qty"] or 0))
@@ -125,11 +127,13 @@ class InventoryExecutiveDashboardAPIView(APIView):
         # Previous period comparison for growth %
         prev_end_date = start_date - timedelta(days=1)
         prev_start_date = prev_end_date - timedelta(days=max(duration_days - 1, 0))
-        prev_sales_agg = DailyStockData.objects.filter(
-            date__gte=prev_start_date, date__lte=prev_end_date, outwards_quantity__gt=0
+        prev_sales_agg = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=prev_start_date,
+            voucher__date__lte=prev_end_date,
         ).aggregate(
-            total_val=Sum("outwards_value"),
-            total_qty=Sum("outwards_quantity")
+            total_val=Sum("amount"),
+            total_qty=Sum("quantity")
         )
         prev_sales = float(prev_sales_agg["total_val"] or 0)
         prev_units = int(round(prev_sales_agg["total_qty"] or 0))
@@ -171,17 +175,19 @@ class InventoryExecutiveDashboardAPIView(APIView):
         low_stock_count = low_stock_items_qs.count()
         total_products = InventoryItem.objects.count()
 
-        # Sales Trend Data
+        # Sales Trend Data (from VoucherStockItem)
         trend_qs = (
-            DailyStockData.objects.filter(
-                date__gte=start_date, date__lte=end_date, outwards_quantity__gt=0
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=start_date,
+                voucher__date__lte=end_date,
             )
-            .values("date")
+            .values("voucher__date")
             .annotate(
-                daily_val=Sum("outwards_value"),
-                daily_qty=Sum("outwards_quantity")
+                daily_val=Sum("amount"),
+                daily_qty=Sum("quantity")
             )
-            .order_by("date")
+            .order_by("voucher__date")
         )
 
         daily_orders_map = dict(
@@ -205,7 +211,7 @@ class InventoryExecutiveDashboardAPIView(APIView):
         for t in trend_qs:
             val = round(float(t["daily_val"] or 0), 2)
             qty = round(float(t["daily_qty"] or 0), 1)
-            t_date = t["date"]
+            t_date = t["voucher__date"]
             date_str = t_date.strftime("%d %b")
             orders_cnt = daily_orders_map.get(t_date, 0)
             trend_labels.append(date_str)
@@ -216,15 +222,18 @@ class InventoryExecutiveDashboardAPIView(APIView):
                 peak_val = val
                 peak_day_str = date_str
 
-        # Top 5 Categories
+        # Top 5 Categories (from VoucherStockItem)
         cat_qs = (
-            DailyStockData.objects.filter(
-                date__gte=start_date, date__lte=end_date, outwards_quantity__gt=0
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=start_date,
+                voucher__date__lte=end_date,
+                item__isnull=False,
             )
-            .values("product__category__name")
+            .values("item__category__name")
             .annotate(
-                cat_val=Sum("outwards_value"),
-                cat_qty=Sum("outwards_quantity")
+                cat_val=Sum("amount"),
+                cat_qty=Sum("quantity")
             )
             .order_by("-cat_val")[:5]
         )
@@ -236,31 +245,34 @@ class InventoryExecutiveDashboardAPIView(APIView):
             share_pct = round((val / total_sales * 100), 1) if total_sales > 0 else 0
             top_categories.append({
                 "rank": idx,
-                "name": cat["product__category__name"] or "Uncategorized",
+                "name": cat["item__category__name"] or "Uncategorized",
                 "sales_value": val,
                 "sales_value_display": format_inr(val),
                 "units_sold": f"{qty:,}",
                 "percent": share_pct,
             })
 
-        # Top Products & Low Stock Alerts
+        # Top Products & Low Stock Alerts (from VoucherStockItem)
         prod_qs = (
-            DailyStockData.objects.filter(
-                date__gte=start_date, date__lte=end_date, outwards_quantity__gt=0
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=start_date,
+                voucher__date__lte=end_date,
+                item__isnull=False,
             )
             .values(
-                "product__id",
-                "product__name",
-                "product__category__name",
-                "product__quantity",
-                "product__min_quantity_outwards",
-                "product__min_quantity_average",
-                "product__min_quantity",
-                "product__unit",
+                "item__id",
+                "item__name",
+                "item__category__name",
+                "item__quantity",
+                "item__min_quantity_outwards",
+                "item__min_quantity_average",
+                "item__min_quantity",
+                "item__unit",
             )
             .annotate(
-                prod_val=Sum("outwards_value"),
-                prod_qty=Sum("outwards_quantity")
+                prod_val=Sum("amount"),
+                prod_qty=Sum("quantity")
             )
             .order_by("-prod_val")[:5]
         )
@@ -272,14 +284,17 @@ class InventoryExecutiveDashboardAPIView(APIView):
         for idx, p in enumerate(prod_qs, 1):
             val = float(p["prod_val"] or 0)
             qty_sold = int(round(p["prod_qty"] or 0))
-            current_stock = p["product__quantity"] or 0
+            current_stock = p["item__quantity"]
+            if current_stock is None:
+                current_stock = 0
+
             threshold = (
-                p["product__min_quantity_outwards"]
-                if p["product__min_quantity_outwards"] and p["product__min_quantity_outwards"] > 0
+                p["item__min_quantity_outwards"]
+                if p["item__min_quantity_outwards"] and p["item__min_quantity_outwards"] > 0
                 else (
-                    p["product__min_quantity_average"]
-                    if p["product__min_quantity_average"] and p["product__min_quantity_average"] > 0
-                    else p["product__min_quantity"]
+                    p["item__min_quantity_average"]
+                    if p["item__min_quantity_average"] and p["item__min_quantity_average"] > 0
+                    else p["item__min_quantity"]
                 )
             )
 
@@ -298,11 +313,13 @@ class InventoryExecutiveDashboardAPIView(APIView):
             else:
                 stock_ratio = 100
 
+            p_name = p["item__name"] or "Item"
+
             top_products.append({
                 "rank": idx,
-                "id": p["product__id"],
-                "name": p["product__name"] or "Item",
-                "category": p["product__category__name"] or "Uncategorized",
+                "id": p["item__id"],
+                "name": p_name,
+                "category": p["item__category__name"] or "Uncategorized",
                 "sales_value": val,
                 "sales_value_display": format_inr(val),
                 "units_sold": f"{qty_sold:,}",
@@ -311,14 +328,14 @@ class InventoryExecutiveDashboardAPIView(APIView):
                 "stock_ratio": stock_ratio,
                 "is_running_low": is_running_low,
                 "is_critical": is_critical,
-                "unit": p["product__unit"] or "units",
+                "unit": p["item__unit"] or "units",
             })
 
             if is_running_low:
                 smart_alerts.append({
-                    "product_id": p["product__id"],
-                    "product_name": p["product__name"] or "Item",
-                    "category": p["product__category__name"] or "Uncategorized",
+                    "product_id": p["item__id"],
+                    "product_name": p_name,
+                    "category": p["item__category__name"] or "Uncategorized",
                     "current_stock": current_stock,
                     "min_threshold": threshold if (threshold and threshold > 0) else "N/A",
                     "severity": "critical" if is_critical else "warning",
