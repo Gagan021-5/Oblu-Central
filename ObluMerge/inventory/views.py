@@ -182,11 +182,11 @@ class Index(AccountantRequiredMixin, TemplateView):
         #     total_val=Sum("outwards_value"),
         #     total_qty=Sum("outwards_quantity")
         # )
-           # amount and quality
+        # amount and quality
         sales_agg = VoucherStockItem.objects.filter(
-        voucher__voucher_type__iexact="TAX INVOICE",
-        voucher__date__gte=start_date,
-        voucher__date__lte=end_date,
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=start_date,
+            voucher__date__lte=end_date,
         ).aggregate(
             total_val=Sum("amount"),
             total_qty=Sum("quantity")
@@ -255,18 +255,18 @@ class Index(AccountantRequiredMixin, TemplateView):
 
         # ── 3. Sales Trend Data (Chart.js) ──
         trend_qs = (
-    VoucherStockItem.objects.filter(
-        voucher__voucher_type__iexact="TAX INVOICE",
-        voucher__date__gte=start_date,
-        voucher__date__lte=end_date,
-    )
-    .values("voucher__date")
-    .annotate(
-        daily_val=Sum("amount"),
-        daily_qty=Sum("quantity")
-    )
-    .order_by("voucher__date")
-)
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=start_date,
+                voucher__date__lte=end_date,
+            )
+            .values("voucher__date")
+            .annotate(
+                daily_val=Sum("amount"),
+                daily_qty=Sum("quantity")
+            )
+            .order_by("voucher__date")
+        )
 
         # Daily dispatched orders mapping
         daily_orders_map = dict(
@@ -312,19 +312,19 @@ class Index(AccountantRequiredMixin, TemplateView):
 
         # ── 4. Top 5 Categories ──
         cat_qs = (
-        VoucherStockItem.objects.filter(
-            voucher__voucher_type__iexact="TAX INVOICE",
-            voucher__date__gte=start_date,
-            voucher__date__lte=end_date,
-            item__isnull=False,
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=start_date,
+                voucher__date__lte=end_date,
+                item__isnull=False,
+            )
+            .values("item__category__name")
+            .annotate(
+                cat_val=Sum("amount"),
+                cat_qty=Sum("quantity")
+            )
+            .order_by("-cat_val")[:5]   
         )
-        .values("item__category__name")
-        .annotate(
-            cat_val=Sum("amount"),
-            cat_qty=Sum("quantity")
-        )
-        .order_by("-cat_val")[:5]   
-     )
 
         category_colors = [
             {"bar": "#78c2ad", "bg": "rgba(120, 194, 173, 0.15)", "text": "#317865"},
@@ -355,28 +355,28 @@ class Index(AccountantRequiredMixin, TemplateView):
 
         # ── 5. Top 5 Products & Low Stock Alerts ──
         prod_qs = (
-        VoucherStockItem.objects.filter(
-            voucher__voucher_type__iexact="TAX INVOICE",
-            voucher__date__gte=start_date,
-            voucher__date__lte=end_date,
-            item__isnull=False,
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=start_date,
+                voucher__date__lte=end_date,
+                item__isnull=False,
+            )
+            .values(
+                "item__id",
+                "item__name",
+                "item__category__name",
+                "item__quantity",
+                "item__min_quantity_outwards",
+                "item__min_quantity_average",
+                "item__min_quantity",
+                "item__unit",
+            )
+            .annotate(
+                prod_val=Sum("amount"),
+                prod_qty=Sum("quantity")
+            )
+            .order_by("-prod_val")[:5]
         )
-        .values(
-            "item__id",
-            "item__name",
-            "item__category__name",
-            "item__quantity",
-            "item__min_quantity_outwards",
-            "item__min_quantity_average",
-            "item__min_quantity",
-            "item__unit",
-        )
-        .annotate(
-            prod_val=Sum("amount"),
-            prod_qty=Sum("quantity")
-        )
-        .order_by("-prod_val")[:5]
-    )
 
         top_products = []
         smart_alerts = []
@@ -11807,3 +11807,4 @@ class YearOnYearSalesComparisonView(AccountantRequiredMixin, View):
                 year=value.year + 1,
                 day=28,
             )
+
