@@ -1348,11 +1348,11 @@
         <div class="command-bar-card">
             <!-- Row 1: Full-Width Search Input with Autocomplete and Shortcut Badge -->
             <div class="command-search-row">
-                <form method="GET" action="" style="width: 100%; margin: 0;">
+                <form method="GET" action="{% url 'products' %}" style="width: 100%; margin: 0;">
                     {% if category %}<input type="hidden" name="category" value="{{ category.id }}">{% endif %}
                     {% if status_filter and status_filter != 'all' %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
                     <div id="autocomplete" class="search-input-box">
-                        <i class="bi bi-search search-icon"></i>
+                        <i class="bi bi-search search-icon" style="cursor: pointer;" title="Search"></i>
                         <input
                             id="catalogSearchInput"
                             class="autocomplete-input"
@@ -1364,7 +1364,7 @@
                         />
                         <div class="search-right-tools">
                             {% if search_query %}
-                            <a href="?{% if category %}category={{ category.id }}&{% endif %}{% if status_filter and status_filter != 'all' %}status={{ status_filter }}{% endif %}" id="searchClearBtn" class="search-clear-btn" style="display: flex; text-decoration: none;" title="Clear search">
+                            <a href="{% url 'products' %}?{% if category %}category={{ category.id }}&{% endif %}{% if status_filter and status_filter != 'all' %}status={{ status_filter }}{% endif %}" id="searchClearBtn" class="search-clear-btn" style="display: flex; text-decoration: none;" title="Clear search">
                                 <i class="bi bi-x-circle-fill"></i>
                             </a>
                             {% endif %}
@@ -1740,6 +1740,15 @@ function initCatalogApp() {
         });
     }
 
+    // Search icon click handler
+    const searchIcon = document.querySelector('.search-icon');
+    if (searchIcon) {
+        searchIcon.addEventListener('click', () => {
+            const form = searchInput ? searchInput.closest('form') : document.querySelector('.command-search-row form');
+            if (form) form.submit();
+        });
+    }
+
     // Server-side Trevor Eyre Autocomplete
     let itemMap = {};
     if (window.Autocomplete && document.getElementById('autocomplete')) {
@@ -1762,9 +1771,25 @@ function initCatalogApp() {
                     .catch(() => []);
             },
             onSubmit: result => {
-                const id = itemMap[result];
-                if (id) {
-                    window.location.href = `/inventory/predict/${id}/`;
+                const searchInput = document.getElementById('catalogSearchInput');
+                const query = (result !== undefined && result !== null && result !== '')
+                    ? result
+                    : (searchInput ? searchInput.value.trim() : '');
+                if (!query) return;
+                if (searchInput) {
+                    searchInput.value = query;
+                }
+                const form = searchInput ? searchInput.closest('form') : document.querySelector('.command-search-row form');
+                if (form) {
+                    if (result) {
+                        const catInput = form.querySelector('input[name="category"]');
+                        if (catInput) catInput.remove();
+                        const statusInput = form.querySelector('input[name="status"]');
+                        if (statusInput) statusInput.remove();
+                    }
+                    form.submit();
+                } else {
+                    window.location.href = `{% url 'products' %}?q=${encodeURIComponent(query)}`;
                 }
             }
         });

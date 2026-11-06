@@ -1179,13 +1179,36 @@ class PredictMinStockView(AccountantRequiredMixin,TemplateView):
         return context
 
 def search_items(request):
-    query = request.GET.get('item')
+    query = request.GET.get('item', '').strip()
     payload = []
 
     if query:
-        items = InventoryItem.objects.filter(
-            Q(name__icontains=query) | Q(category__name__icontains=query)
-        )
+        clean_id = re.sub(r'^(?:sku[-\s:]*|#)', '', query, flags=re.IGNORECASE).strip()
+        if clean_id.isdigit():
+            items = InventoryItem.objects.filter(id=int(clean_id))[:25]
+        else:
+            direct_qs = InventoryItem.objects.filter(
+                Q(name__icontains=query) | Q(category__name__icontains=query)
+            )
+            if direct_qs.exists():
+                items = direct_qs[:25]
+            else:
+                tokens = [t for t in re.split(r'[\s,_\-]+', query) if len(t) > 1]
+                if tokens:
+                    token_q = Q()
+                    for t in tokens:
+                        token_q &= (Q(name__icontains=t) | Q(category__name__icontains=t))
+                    fuzzy_qs = InventoryItem.objects.filter(token_q)
+                    if fuzzy_qs.exists():
+                        items = fuzzy_qs[:25]
+                    else:
+                        any_token_q = Q()
+                        for t in tokens:
+                            any_token_q |= (Q(name__icontains=t) | Q(category__name__icontains=t))
+                        items = InventoryItem.objects.filter(any_token_q)[:25]
+                else:
+                    items = direct_qs[:25]
+
         for item in items:
             payload.append([item.name, item.id])
 
@@ -10528,13 +10551,48 @@ class ProductListView(AccountantRequiredMixin, View):
         # Filters for query
         items_qs = base_items.select_related('category').order_by('name')
 
-        # 1. Text Search Filter
+        # 1. Text Search Filter (Smart search supporting SKU/ID, exact match, and punctuation-tolerant multi-token match)
         search_query = request.GET.get('q', '').strip()
         if search_query:
-            q_filter = Q(name__icontains=search_query) | Q(category__name__icontains=search_query)
-            if search_query.isdigit():
-                q_filter |= Q(id=int(search_query))
-            items_qs = items_qs.filter(q_filter)
+            clean_id = re.sub(r'^(?:sku[-\s:]*|#)', '', search_query, flags=re.IGNORECASE).strip()
+            if clean_id.isdigit():
+                q_filter = Q(id=int(clean_id))
+            else:
+                direct_filter = Q(name__icontains=search_query) | Q(category__name__icontains=search_query)
+                if base_items.filter(direct_filter).exists():
+                    q_filter = direct_filter
+                elif InventoryItem.objects.filter(direct_filter).exists():
+                    base_items = InventoryItem.objects.all()
+                    category_obj = None
+                    q_filter = direct_filter
+                else:
+                    tokens = [t for t in re.split(r'[\s,_\-]+', search_query) if len(t) > 1]
+                    if tokens:
+                        token_q = Q()
+                        for t in tokens:
+                            token_q &= (Q(name__icontains=t) | Q(category__name__icontains=t))
+                        if base_items.filter(token_q).exists():
+                            q_filter = token_q
+                        elif InventoryItem.objects.filter(token_q).exists():
+                            base_items = InventoryItem.objects.all()
+                            category_obj = None
+                            q_filter = token_q
+                        else:
+                            any_token_q = Q()
+                            for t in tokens:
+                                any_token_q |= (Q(name__icontains=t) | Q(category__name__icontains=t))
+                            if base_items.filter(any_token_q).exists():
+                                q_filter = any_token_q
+                            elif InventoryItem.objects.filter(any_token_q).exists():
+                                base_items = InventoryItem.objects.all()
+                                category_obj = None
+                                q_filter = any_token_q
+                            else:
+                                q_filter = direct_filter
+                    else:
+                        q_filter = direct_filter
+
+            items_qs = base_items.select_related('category').filter(q_filter).order_by('name')
 
         # 2. Stock Health Status Filter
         status_filter = request.GET.get('status', 'all').strip().lower()

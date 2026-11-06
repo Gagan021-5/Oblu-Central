@@ -6,6 +6,7 @@ and live searchable catalog items from PostgreSQL.
 
 from datetime import timedelta, date, datetime
 import calendar
+import re
 from django.utils import timezone
 from django.db.models import Sum, Count, Q, F, Max
 from rest_framework.views import APIView
@@ -453,10 +454,28 @@ class InventoryItemListAPIView(APIView):
         qs = InventoryItem.objects.select_related("category").all()
 
         if q:
-            qs = qs.filter(
-                Q(name__icontains=q) |
-                Q(category__name__icontains=q)
-            )
+            clean_id = re.sub(r'^(?:sku[-\s:]*|#)', '', q, flags=re.IGNORECASE).strip()
+            if clean_id.isdigit():
+                qs = qs.filter(id=int(clean_id))
+            else:
+                direct_filter = Q(name__icontains=q) | Q(category__name__icontains=q)
+                if qs.filter(direct_filter).exists():
+                    qs = qs.filter(direct_filter)
+                else:
+                    tokens = [t for t in re.split(r'[\s,_\-]+', q) if len(t) > 1]
+                    if tokens:
+                        token_q = Q()
+                        for t in tokens:
+                            token_q &= (Q(name__icontains=t) | Q(category__name__icontains=t))
+                        if qs.filter(token_q).exists():
+                            qs = qs.filter(token_q)
+                        else:
+                            any_token_q = Q()
+                            for t in tokens:
+                                any_token_q |= (Q(name__icontains=t) | Q(category__name__icontains=t))
+                            qs = qs.filter(any_token_q)
+                    else:
+                        qs = qs.filter(direct_filter)
 
         # Trailing 90-day active window for commercial viability (Excluding Dead Stock)
         latest_voucher_date = VoucherStockItem.objects.filter(
