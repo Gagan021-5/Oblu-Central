@@ -335,25 +335,15 @@ export function InventoryMainScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* ── Top Workspace Header ── */}
       <View style={[styles.topBar, { borderBottomColor: cardBorder }]}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
-            onPress={() =>
-              router.canGoBack() ? router.back() : router.replace(isAdmin ? "/(admin)/users" : "/(employee)")
-            }
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={18} color={foreground} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
-            onPress={() => setDrawerVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="menu" size={20} color="#00A879" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace(isAdmin ? "/(admin)/users" : "/(employee)")
+          }
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={18} color={foreground} />
+        </TouchableOpacity>
 
         <View style={styles.topBarCenter}>
           <Text style={[styles.screenHeading, { color: foreground }]}>
@@ -990,6 +980,19 @@ export function InventoryMainScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
           showsVerticalScrollIndicator={false}
         >
+          {/* Breadcrumb / Sidebar Toggle */}
+          <View style={{ marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => setDrawerVisible(true)}
+              style={[styles.sidebarTogglePill, { borderColor: cardBorder, backgroundColor: cardBg, alignSelf: "flex-start" }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="grid-outline" size={13} color="#00A879" style={{ marginRight: 6 }} />
+              <Text style={[styles.heroEyebrow, { color: "#00A879" }]}>Home / Inventory</Text>
+              <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          </View>
+
           {/* Header Action Banner */}
           <View style={styles.catalogTopBar}>
             <View>
@@ -1301,24 +1304,93 @@ export function InventoryMainScreen() {
 
       {/* ── CATEGORIES TAB ── */}
       {currentTab === "categories" && (
-        <InventoryCategoriesTab onSelectCategory={handleSelectCategoryFromTab} />
+        <View style={{ flex: 1 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+            <TouchableOpacity
+              onPress={() => setDrawerVisible(true)}
+              style={[styles.sidebarTogglePill, { borderColor: cardBorder, backgroundColor: cardBg, alignSelf: "flex-start" }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="grid-outline" size={13} color="#00A879" style={{ marginRight: 6 }} />
+              <Text style={[styles.heroEyebrow, { color: "#00A879" }]}>Home / Inventory</Text>
+              <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          </View>
+          <InventoryCategoriesTab onSelectCategory={handleSelectCategoryFromTab} />
+        </View>
       )}
 
       {/* ── LOW STOCK TAB ── */}
       {currentTab === "low_stock" && (
-        <InventoryLowStockTab onOpenProduct={handleOpenProduct} />
+        <View style={{ flex: 1 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+            <TouchableOpacity
+              onPress={() => setDrawerVisible(true)}
+              style={[styles.sidebarTogglePill, { borderColor: cardBorder, backgroundColor: cardBg, alignSelf: "flex-start" }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="grid-outline" size={13} color="#00A879" style={{ marginRight: 6 }} />
+              <Text style={[styles.heroEyebrow, { color: "#00A879" }]}>Home / Inventory</Text>
+              <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          </View>
+          <InventoryLowStockTab onOpenProduct={handleOpenProduct} />
+        </View>
       )}
 
       {/* ── DEAD STOCK TAB ── */}
       {currentTab === "dead_stock" && (
-        <InventoryDeadStockTab onOpenProduct={handleOpenProduct} />
+        <View style={{ flex: 1 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+            <TouchableOpacity
+              onPress={() => setDrawerVisible(true)}
+              style={[styles.sidebarTogglePill, { borderColor: cardBorder, backgroundColor: cardBg, alignSelf: "flex-start" }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="grid-outline" size={13} color="#00A879" style={{ marginRight: 6 }} />
+              <Text style={[styles.heroEyebrow, { color: "#00A879" }]}>Home / Inventory</Text>
+              <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          </View>
+          <InventoryDeadStockTab onOpenProduct={handleOpenProduct} />
+        </View>
       )}
 
       {/* ── PROCUREMENT & PO TRACKING TAB ── */}
-      {currentTab === "procurement" && <InventoryProcurementTab />}
+      {currentTab === "procurement" && (
+        <View style={{ flex: 1 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+            <TouchableOpacity
+              onPress={() => setDrawerVisible(true)}
+              style={[styles.sidebarTogglePill, { borderColor: cardBorder, backgroundColor: cardBg, alignSelf: "flex-start" }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="grid-outline" size={13} color="#00A879" style={{ marginRight: 6 }} />
+              <Text style={[styles.heroEyebrow, { color: "#00A879" }]}>Home / Inventory</Text>
+              <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          </View>
+          <InventoryProcurementTab />
+        </View>
+      )}
 
       {/* ── ANALYTICS & BI TAB ── */}
-      {currentTab === "analytics" && <InventoryAnalyticsTab />}
+      {currentTab === "analytics" && (
+        <View style={{ flex: 1 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+            <TouchableOpacity
+              onPress={() => setDrawerVisible(true)}
+              style={[styles.sidebarTogglePill, { borderColor: cardBorder, backgroundColor: cardBg, alignSelf: "flex-start" }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="grid-outline" size={13} color="#00A879" style={{ marginRight: 6 }} />
+              <Text style={[styles.heroEyebrow, { color: "#00A879" }]}>Home / Inventory</Text>
+              <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          </View>
+          <InventoryAnalyticsTab />
+        </View>
+      )}
 
       {/* ── Product Quick Action & Detail Modal ── */}
       <ProductDetailModal
