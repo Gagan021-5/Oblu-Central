@@ -13,7 +13,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { Typography, Radius } from "@/constants/theme";
 import { InventoryNavTab } from "./InventoryMainScreen";
 
@@ -42,7 +41,6 @@ export function InventoryNavDrawer({
 }: InventoryNavDrawerProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
-  const { user } = useAuth();
 
   const [catalogExpanded, setCatalogExpanded] = useState(true);
   const [poExpanded, setPoExpanded] = useState(true);
@@ -66,13 +64,6 @@ export function InventoryNavDrawer({
       onSelectTab("catalog");
     }
   };
-
-  const userInitials = (user?.name || user?.username || user?.email || "User")
-    .split(" ")
-    .map((w: string) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -597,24 +588,6 @@ export function InventoryNavDrawer({
               </View>
             )}
           </ScrollView>
-
-          {/* User Profile Card at Bottom (Matching Web Sidebar) */}
-          <View style={[styles.userCard, { backgroundColor: isDark ? "#111D19" : "#F8FAFC", borderColor: itemBorder }]}>
-            <View style={[styles.userAvatar, { backgroundColor: "#18312A" }]}>
-              <Text style={styles.userAvatarText}>{userInitials || "IN"}</Text>
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={[styles.userName, { color: foreground }]} numberOfLines={1}>
-                {user?.name || user?.username || "infected"}
-              </Text>
-              <Text style={[styles.userRole, { color: muted }]} numberOfLines={1}>
-                {user?.role || "Accountant"}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.userActionBtn}>
-              <Ionicons name="log-out-outline" size={18} color={muted} />
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </Modal>
@@ -746,37 +719,5 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     fontFamily: Typography.bold,
     color: "#F59E0B",
-  },
-  userCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 10,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    marginTop: 8,
-    gap: 10,
-  },
-  userAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  userAvatarText: {
-    color: "#FFFFFF",
-    fontFamily: Typography.bold,
-    fontSize: 12,
-  },
-  userName: {
-    fontFamily: Typography.bold,
-    fontSize: 12,
-  },
-  userRole: {
-    fontFamily: Typography.regular,
-    fontSize: 10.5,
-  },
-  userActionBtn: {
-    padding: 6,
   },
 });
