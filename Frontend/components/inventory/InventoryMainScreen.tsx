@@ -348,7 +348,7 @@ export function InventoryMainScreen() {
         <View style={styles.topBarCenter}>
           <Text style={[styles.screenHeading, { color: foreground }]}>
             {currentTab === "overview"
-              ? "Executive Dashboard"
+              ? "Dashboard"
               : currentTab === "catalog"
               ? "Product Catalog"
               : currentTab === "categories"
@@ -360,9 +360,6 @@ export function InventoryMainScreen() {
               : currentTab === "procurement"
               ? "PO & Tracking"
               : "Analytics & BI"}
-          </Text>
-          <Text style={[styles.screenSub, { color: muted }]}>
-            {dashboardData?.catalog_health?.total_skus || itemCounts.total || 793} Active SKUs · Live Telemetry
           </Text>
         </View>
 
@@ -397,10 +394,7 @@ export function InventoryMainScreen() {
                 <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
               </TouchableOpacity>
             </View>
-            <Text style={[styles.heroTitle, { color: foreground }]}>Inventory, made smarter.</Text>
-            <Text style={[styles.heroSubtitle, { color: muted }]}>
-              Real-time stock velocity, category performance, and purchase order tracking.
-            </Text>
+            <Text style={[styles.heroTitle, { color: foreground }]}>Inventory</Text>
 
             {/* Period Switcher */}
             <ScrollView

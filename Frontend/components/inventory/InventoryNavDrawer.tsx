@@ -148,7 +148,7 @@ export function InventoryNavDrawer({
                   activeTab === "overview" && { fontFamily: Typography.bold },
                 ]}
               >
-                Executive Dashboard
+                Dashboard
               </Text>
               {activeTab === "overview" ? (
                 <View style={styles.activeDot} />
