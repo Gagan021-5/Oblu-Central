@@ -356,7 +356,21 @@ export function InventoryMainScreen() {
         </View>
 
         <View style={styles.topBarCenter}>
-          <Text style={[styles.screenHeading, { color: foreground }]}>Inventory & Warehouse</Text>
+          <Text style={[styles.screenHeading, { color: foreground }]}>
+            {currentTab === "overview"
+              ? "Executive Dashboard"
+              : currentTab === "catalog"
+              ? "Product Catalog"
+              : currentTab === "categories"
+              ? "Categories"
+              : currentTab === "low_stock"
+              ? "Low Stock Alerts"
+              : currentTab === "dead_stock"
+              ? "Dead Stock Audit"
+              : currentTab === "procurement"
+              ? "PO & Tracking"
+              : "Analytics & BI"}
+          </Text>
           <Text style={[styles.screenSub, { color: muted }]}>
             {dashboardData?.catalog_health?.total_skus || itemCounts.total || 793} Active SKUs · Live Telemetry
           </Text>
@@ -369,53 +383,6 @@ export function InventoryMainScreen() {
         >
           <Ionicons name="refresh" size={18} color="#00A879" />
         </TouchableOpacity>
-      </View>
-
-      {/* ── Feature Navigation Bar (Tabs) ── */}
-      <View style={[styles.navTabsWrapper, { borderBottomColor: cardBorder, backgroundColor: cardBg }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.navTabsScroll}>
-          {[
-            { key: "overview", label: "Overview", icon: "pie-chart" },
-            { key: "catalog", label: "Catalog", icon: "cube" },
-            { key: "categories", label: "Categories", icon: "pricetag" },
-            { key: "low_stock", label: "Low Stock", icon: "alert-circle" },
-            { key: "dead_stock", label: "Dead Stock", icon: "hourglass" },
-            { key: "procurement", label: "PO & Tracking", icon: "boat" },
-            { key: "analytics", label: "Analytics & BI", icon: "trending-up" },
-          ].map((tab) => {
-            const isActive = currentTab === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                onPress={() => setCurrentTab(tab.key as InventoryNavTab)}
-                style={[
-                  styles.navTabPill,
-                  isActive && {
-                    backgroundColor: isDark ? "rgba(0,168,121,0.2)" : "#DDF4EA",
-                    borderColor: "#00A879",
-                  },
-                ]}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={tab.icon as any}
-                  size={14}
-                  color={isActive ? "#00A879" : muted}
-                  style={{ marginRight: 6 }}
-                />
-                <Text
-                  style={[
-                    styles.navTabLabel,
-                    { color: isActive ? "#00A879" : muted },
-                    isActive && { fontFamily: Typography.bold },
-                  ]}
-                >
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
       </View>
 
       {/* ── Tab Content Views ── */}
@@ -1432,27 +1399,6 @@ const styles = StyleSheet.create({
   topBarCenter: { flex: 1, alignItems: "center" },
   screenHeading: { fontFamily: Typography.bold, fontSize: 15 },
   screenSub: { fontFamily: Typography.regular, fontSize: 11, marginTop: 1 },
-  navTabsWrapper: {
-    borderBottomWidth: 1,
-    paddingVertical: 8,
-  },
-  navTabsScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  navTabPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  navTabLabel: {
-    fontSize: 12,
-    fontFamily: Typography.medium,
-  },
   content: { padding: 16, gap: 14 },
   heroSection: { gap: 6 },
   heroEyebrow: { fontFamily: Typography.semiBold, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
