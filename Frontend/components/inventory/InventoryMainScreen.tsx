@@ -29,6 +29,7 @@ import { InventoryLowStockTab } from "./InventoryLowStockTab";
 import { InventoryDeadStockTab } from "./InventoryDeadStockTab";
 import { InventoryProcurementTab } from "./InventoryProcurementTab";
 import { InventoryAnalyticsTab } from "./InventoryAnalyticsTab";
+import { InventoryNavDrawer } from "./InventoryNavDrawer";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -104,6 +105,27 @@ interface DashboardData {
   };
   top_categories?: any[];
   top_products?: any[];
+  top_customers?: {
+    rank: number;
+    name: string;
+    initials: string;
+    sales_value: number;
+    sales_value_display: string;
+    units_purchased: string;
+    order_count: number;
+    percent: number;
+  }[];
+  pending_supplier_orders?: {
+    id: number;
+    po_number: string;
+    voucher_number: string;
+    date: string;
+    party_name: string;
+    party_initials: string;
+    stage_name: string;
+    eta: string;
+    status: string;
+  }[];
 }
 
 export function InventoryMainScreen() {
@@ -114,6 +136,7 @@ export function InventoryMainScreen() {
 
   // Active feature tab navigation
   const [currentTab, setCurrentTab] = useState<InventoryNavTab>("overview");
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   // Overview / Dashboard state
   const [period, setPeriod] = useState<"3d" | "3w" | "1m" | "3m" | "custom">("1m");
@@ -312,15 +335,25 @@ export function InventoryMainScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* ── Top Workspace Header ── */}
       <View style={[styles.topBar, { borderBottomColor: cardBorder }]}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.replace(isAdmin ? "/(admin)/users" : "/(employee)")
-          }
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={18} color={foreground} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace(isAdmin ? "/(admin)/users" : "/(employee)")
+            }
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={18} color={foreground} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
+            onPress={() => setDrawerVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="menu" size={20} color="#00A879" />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.topBarCenter}>
           <Text style={[styles.screenHeading, { color: foreground }]}>Inventory & Warehouse</Text>
@@ -396,7 +429,17 @@ export function InventoryMainScreen() {
         >
           {/* Hero Section */}
           <View style={styles.heroSection}>
-            <Text style={[styles.heroEyebrow, { color: "#00A879" }]}>Home / Inventory</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <TouchableOpacity
+                onPress={() => setDrawerVisible(true)}
+                style={[styles.sidebarTogglePill, { borderColor: cardBorder, backgroundColor: cardBg }]}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="grid-outline" size={13} color="#00A879" style={{ marginRight: 6 }} />
+                <Text style={[styles.heroEyebrow, { color: "#00A879" }]}>Home / Inventory</Text>
+                <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            </View>
             <Text style={[styles.heroTitle, { color: foreground }]}>Inventory, made smarter.</Text>
             <Text style={[styles.heroSubtitle, { color: muted }]}>
               Real-time stock velocity, category performance, and purchase order tracking.
@@ -833,6 +876,141 @@ export function InventoryMainScreen() {
               </View>
             </View>
           </View>
+
+          {/* Top Moving Products */}
+          {dashboardData?.top_products && dashboardData.top_products.length > 0 && (
+            <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <View style={styles.sectionHeaderRow}>
+                <View>
+                  <Text style={[styles.sectionTitle, { color: foreground }]}>Top Moving Products</Text>
+                  <Text style={[styles.sectionSubtitle, { color: muted }]}>
+                    Fastest moving inventory by sales value
+                  </Text>
+                </View>
+              </View>
+              <View style={{ gap: 10 }}>
+                {dashboardData.top_products.map((p: any) => (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => handleOpenProduct(String(p.id))}
+                    style={[styles.topProdRow, { borderColor: cardBorder }]}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.topProdRank}>
+                      <Text style={[styles.topProdRankText, { color: "#00A879" }]}>#{p.rank}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.topProdName, { color: foreground }]} numberOfLines={1}>
+                        {p.name}
+                      </Text>
+                      <Text style={[styles.topProdCat, { color: muted }]}>
+                        {p.category} · {p.units_sold} units
+                      </Text>
+                    </View>
+                    <Text style={[styles.topProdVal, { color: foreground }]}>
+                      {p.sales_value_display}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Top Customers by Value (from verified Tax Invoices) */}
+          {dashboardData?.top_customers && dashboardData.top_customers.length > 0 && (
+            <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={[styles.sectionTitle, { color: foreground }]}>Top Customers by Value</Text>
+                  <Text style={[styles.sectionSubtitle, { color: muted }]}>
+                    Largest purchasing partners from verified Tax Invoices
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => router.push((isAdmin ? "/(admin)/customers" : "/(employee)/customers") as never)}
+                  style={styles.apiLinkRow}
+                >
+                  <Text style={[styles.apiLinkText, { color: "#00A879" }]}>Customer API</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#00A879" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ gap: 10 }}>
+                {dashboardData.top_customers.map((c) => (
+                  <View key={c.rank} style={[styles.customerItemCard, { borderColor: cardBorder }]}>
+                    <View style={styles.customerAvatarCircle}>
+                      <Text style={styles.customerAvatarInitials}>{c.initials}</Text>
+                    </View>
+                    <View style={{ flex: 1, marginHorizontal: 10 }}>
+                      <Text style={[styles.customerItemName, { color: foreground }]} numberOfLines={1}>
+                        {c.name}
+                      </Text>
+                      <Text style={[styles.customerItemSub, { color: muted }]}>
+                        {c.order_count} Tax Invoice{c.order_count > 1 ? "s" : ""} · {c.units_purchased} units
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={[styles.customerItemVal, { color: foreground }]}>{c.sales_value_display}</Text>
+                      <Text style={[styles.customerItemPct, { color: muted }]}>{c.percent}% of top 5</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Pending Supplier Orders (Awaiting Warehouse Delivery) */}
+          {dashboardData?.pending_supplier_orders && dashboardData.pending_supplier_orders.length > 0 && (
+            <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={[styles.sectionTitle, { color: foreground }]}>Pending Supplier Orders</Text>
+                  <Text style={[styles.sectionSubtitle, { color: muted }]}>
+                    Purchase orders placed with vendors awaiting warehouse delivery
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setCurrentTab("procurement")}
+                  style={styles.apiLinkRow}
+                >
+                  <Text style={[styles.apiLinkText, { color: "#00A879" }]}>All Orders</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#00A879" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ gap: 10 }}>
+                {dashboardData.pending_supplier_orders.map((po) => (
+                  <View key={po.id} style={[styles.supplierOrderCard, { borderColor: cardBorder }]}>
+                    <View style={styles.supplierOrderHeader}>
+                      <View>
+                        <Text style={[styles.supplierPoRef, { color: foreground }]}>{po.po_number}</Text>
+                        <Text style={[styles.supplierPoDate, { color: muted }]}>{po.date}</Text>
+                      </View>
+                      <View style={styles.onTrackPill}>
+                        <Text style={styles.onTrackPillText}>On Track</Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.supplierOrderDetails, { backgroundColor: isDark ? "#0A1310" : "#F8FAFC", borderColor: cardBorder }]}>
+                      <View style={styles.supplierPartyRow}>
+                        <View style={styles.supplierInitialsBadge}>
+                          <Text style={styles.supplierInitialsText}>{po.party_initials}</Text>
+                        </View>
+                        <Text style={[styles.supplierPartyName, { color: foreground }]} numberOfLines={1}>
+                          {po.party_name}
+                        </Text>
+                      </View>
+
+                      <View style={styles.supplierStageRow}>
+                        <Text style={[styles.supplierMetaLabel, { color: muted }]}>STAGE: <Text style={{ color: foreground, fontFamily: Typography.bold }}>{po.stage_name}</Text></Text>
+                        <Text style={[styles.supplierMetaLabel, { color: muted }]}>ETA: <Text style={{ color: foreground, fontFamily: Typography.bold }}>{po.eta}</Text></Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </ScrollView>
       )}
 
@@ -1213,6 +1391,22 @@ export function InventoryMainScreen() {
         }}
         onClose={() => setShowDateSheet(false)}
       />
+
+      {/* ── Left Sidebar Navigation Drawer (Matching Web Sidebar) ── */}
+      <InventoryNavDrawer
+        visible={drawerVisible}
+        activeTab={currentTab}
+        catalogCount={itemCounts.total || 793}
+        lowStockCount={itemCounts.low_stock}
+        deadStockCount={itemCounts.dead_stock}
+        onClose={() => setDrawerVisible(false)}
+        onSelectTab={(tab) => setCurrentTab(tab)}
+        onOpenAddProduct={() => setShowAddModal(true)}
+        onSearchSubmit={(q) => {
+          setSearchQuery(q);
+          setCurrentTab("catalog");
+        }}
+      />
     </View>
   );
 }
@@ -1533,4 +1727,161 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pageIndicatorText: { fontFamily: Typography.bold, fontSize: 12 },
+
+  sidebarTogglePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    alignSelf: "flex-start",
+    marginBottom: 6,
+  },
+  topProdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+  },
+  topProdRank: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,168,121,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topProdRankText: {
+    fontFamily: Typography.bold,
+    fontSize: 12,
+  },
+  topProdName: {
+    fontFamily: Typography.bold,
+    fontSize: 13,
+  },
+  topProdCat: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  topProdVal: {
+    fontFamily: Typography.bold,
+    fontSize: 13,
+  },
+  apiLinkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  apiLinkText: {
+    fontFamily: Typography.bold,
+    fontSize: 12,
+  },
+  customerItemCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  customerAvatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#00A879",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customerAvatarInitials: {
+    color: "#FFFFFF",
+    fontFamily: Typography.bold,
+    fontSize: 13,
+  },
+  customerItemName: {
+    fontFamily: Typography.bold,
+    fontSize: 13,
+  },
+  customerItemSub: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  customerItemVal: {
+    fontFamily: Typography.bold,
+    fontSize: 13,
+  },
+  customerItemPct: {
+    fontFamily: Typography.medium,
+    fontSize: 10.5,
+    marginTop: 2,
+  },
+  supplierOrderCard: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+  },
+  supplierOrderHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  supplierPoRef: {
+    fontFamily: Typography.bold,
+    fontSize: 13,
+  },
+  supplierPoDate: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  onTrackPill: {
+    backgroundColor: "rgba(16,185,129,0.12)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.pill,
+  },
+  onTrackPillText: {
+    color: "#10B981",
+    fontFamily: Typography.bold,
+    fontSize: 10,
+  },
+  supplierOrderDetails: {
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    padding: 8,
+    gap: 6,
+  },
+  supplierPartyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  supplierInitialsBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,168,121,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  supplierInitialsText: {
+    color: "#00A879",
+    fontFamily: Typography.bold,
+    fontSize: 10,
+  },
+  supplierPartyName: {
+    fontFamily: Typography.bold,
+    fontSize: 12,
+    flex: 1,
+  },
+  supplierStageRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  supplierMetaLabel: {
+    fontSize: 10.5,
+    fontFamily: Typography.regular,
+  },
 });

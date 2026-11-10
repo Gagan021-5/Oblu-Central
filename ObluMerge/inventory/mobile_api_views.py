@@ -373,6 +373,74 @@ class InventoryExecutiveDashboardAPIView(APIView):
                     ),
                 })
 
+        # Top 5 Customers by Value (from VoucherStockItem)
+        cust_qs = (
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=start_date,
+                voucher__date__lte=end_date,
+                voucher__party_name__isnull=False,
+            )
+            .values("voucher__party_name")
+            .annotate(
+                cust_val=Sum("amount"),
+                cust_qty=Sum("quantity"),
+                order_count=Count("voucher_id", distinct=True)
+            )
+            .order_by("-cust_val")[:5]
+        )
+        top_customers_total = sum(float(c["cust_val"] or 0) for c in cust_qs)
+        top_customers = []
+        for idx, c in enumerate(cust_qs, 1):
+            c_val = float(c["cust_val"] or 0)
+            c_qty = int(round(c["cust_qty"] or 0))
+            c_name = c["voucher__party_name"] or "Unknown Customer"
+            words = [w for w in c_name.replace(".", " ").replace("-", " ").split() if w]
+            initials = (words[0][:2] if len(words) == 1 else words[0][0] + words[1][0]).upper()
+            share_pct = round((c_val / top_customers_total * 100), 1) if top_customers_total > 0 else 0
+
+            top_customers.append({
+                "rank": idx,
+                "name": c_name,
+                "initials": initials,
+                "sales_value": c_val,
+                "sales_value_display": format_inr(c_val),
+                "units_purchased": f"{c_qty:,}",
+                "order_count": c["order_count"],
+                "percent": share_pct,
+            })
+
+        # Pending Supplier Orders (Active PurchaseOrderTracking)
+        pending_pos = []
+        try:
+            pos_qs = (
+                PurchaseOrderTracking.objects.filter(status="active")
+                .select_related("tally_voucher")
+                .prefetch_related("stage_logs__stage")
+                .order_by("-order_date")[:5]
+            )
+            for po in pos_qs:
+                v = po.tally_voucher
+                last_log = po.stage_logs.order_by("-id").first()
+                stage_name = last_log.stage.name if last_log and last_log.stage else "In Process..."
+                eta_str = po.expected_delivery.strftime("%d %b %Y") if po.expected_delivery else "TBD"
+                party = v.party_name if v else "Supplier"
+                p_words = [w for w in party.replace(".", " ").replace("-", " ").split() if w]
+                p_initials = (p_words[0][:2] if len(p_words) == 1 else p_words[0][0] + p_words[1][0]).upper()
+                pending_pos.append({
+                    "id": po.id,
+                    "po_number": f"#{po.id}",
+                    "voucher_number": v.voucher_number if v else f"PO-{po.id:04d}",
+                    "date": po.order_date.strftime("%d %b %Y") if po.order_date else "N/A",
+                    "party_name": party,
+                    "party_initials": p_initials,
+                    "stage_name": stage_name,
+                    "eta": eta_str,
+                    "status": "On Track",
+                })
+        except Exception:
+            pending_pos = []
+
         # Catalog health (Excluding Dead Stock)
         active_catalog_qs = InventoryItem.objects.filter(id__in=active_item_ids)
         catalog_total = active_catalog_qs.count() or 1
@@ -441,6 +509,8 @@ class InventoryExecutiveDashboardAPIView(APIView):
             },
             "top_categories": top_categories,
             "top_products": top_products,
+            "top_customers": top_customers,
+            "pending_supplier_orders": pending_pos,
             "smart_alerts": smart_alerts,
         })
 
