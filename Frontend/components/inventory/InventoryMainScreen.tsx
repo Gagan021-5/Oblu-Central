@@ -40,7 +40,15 @@ export type InventoryNavTab =
   | "low_stock"
   | "dead_stock"
   | "procurement"
-  | "analytics";
+  | "po_planner"
+  | "po_tally"
+  | "po_tracking"
+  | "po_stages"
+  | "analytics"
+  | "analytics_contribution"
+  | "analytics_category"
+  | "analytics_comparison"
+  | "analytics_report";
 
 interface InventoryItem {
   id: string;
@@ -357,8 +365,24 @@ export function InventoryMainScreen() {
               ? "Low Stock Alerts"
               : currentTab === "dead_stock"
               ? "Dead Stock Audit"
+              : currentTab === "po_planner"
+              ? "PO Planner"
+              : currentTab === "po_tally"
+              ? "Tally Purchase Orders"
+              : currentTab === "po_tracking"
+              ? "Tracked Shipments"
+              : currentTab === "po_stages"
+              ? "Pipeline Stages"
               : currentTab === "procurement"
-              ? "PO & Tracking"
+              ? "Purchase Orders"
+              : currentTab === "analytics_contribution"
+              ? "Sales Contribution"
+              : currentTab === "analytics_category"
+              ? "Category Analytics"
+              : currentTab === "analytics_comparison"
+              ? "Sales Comparison"
+              : currentTab === "analytics_report"
+              ? "Inventory Report"
               : "Analytics & BI"}
           </Text>
         </View>
@@ -1387,8 +1411,12 @@ export function InventoryMainScreen() {
         </View>
       )}
 
-      {/* ── PROCUREMENT & PO TRACKING TAB ── */}
-      {currentTab === "procurement" && (
+      {/* ── PROCUREMENT & PO SUB-TABS ── */}
+      {(currentTab === "procurement" ||
+        currentTab === "po_planner" ||
+        currentTab === "po_tally" ||
+        currentTab === "po_tracking" ||
+        currentTab === "po_stages") && (
         <View style={{ flex: 1 }}>
           <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
             <TouchableOpacity
@@ -1401,12 +1429,27 @@ export function InventoryMainScreen() {
               <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           </View>
-          <InventoryProcurementTab />
+          <InventoryProcurementTab
+            key={currentTab}
+            initialSection={
+              currentTab === "po_planner"
+                ? "planner"
+                : currentTab === "po_tally"
+                ? "tally"
+                : currentTab === "po_stages"
+                ? "stages"
+                : "tracked"
+            }
+          />
         </View>
       )}
 
-      {/* ── ANALYTICS & BI TAB ── */}
-      {currentTab === "analytics" && (
+      {/* ── INTELLIGENCE & REPORTS SUB-TABS ── */}
+      {(currentTab === "analytics" ||
+        currentTab === "analytics_contribution" ||
+        currentTab === "analytics_category" ||
+        currentTab === "analytics_comparison" ||
+        currentTab === "analytics_report") && (
         <View style={{ flex: 1 }}>
           <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
             <TouchableOpacity
@@ -1419,7 +1462,18 @@ export function InventoryMainScreen() {
               <Ionicons name="chevron-down" size={12} color="#00A879" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           </View>
-          <InventoryAnalyticsTab />
+          <InventoryAnalyticsTab
+            key={currentTab}
+            initialSection={
+              currentTab === "analytics_category"
+                ? "category"
+                : currentTab === "analytics_comparison"
+                ? "comparison"
+                : currentTab === "analytics_report"
+                ? "report"
+                : "contribution"
+            }
+          />
         </View>
       )}
 

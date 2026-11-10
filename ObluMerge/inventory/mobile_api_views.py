@@ -1273,12 +1273,52 @@ class InventoryPurchaseOrdersAPIView(APIView):
                 "item_count": tpo.stock_rows.count(),
             })
 
+        stages_qs = PurchaseOrderStage.objects.filter(is_active=True).order_by("sort_order")
+        stages_list = [
+            {
+                "id": s.id,
+                "name": s.name,
+                "estimated_days": s.estimated_days,
+                "is_final_stage": s.is_final_stage,
+                "active_pos_count": PurchaseOrderTracking.objects.filter(stage_logs__stage=s, status="active").distinct().count(),
+            }
+            for s in stages_qs
+        ]
+
+        planner_qs = (
+            InventoryItem.objects.filter(
+                quantity__lt=F("min_quantity_outwards"),
+                min_quantity_outwards__gt=0,
+            )
+            .select_related("category")
+            .order_by("quantity")[:30]
+        )
+        planner_list = []
+        for p in planner_qs:
+            threshold = p.min_quantity_outwards or p.min_quantity or 10
+            qty = p.quantity or 0
+            suggested_order = max(threshold * 2 - qty, 10)
+            planner_list.append({
+                "id": p.id,
+                "name": p.name,
+                "category": p.category.name if p.category else "Uncategorized",
+                "current_stock": qty,
+                "min_threshold": threshold,
+                "suggested_order": suggested_order,
+                "unit": p.unit or "pcs",
+                "status": "Out of Stock" if qty <= 0 else "Low Stock",
+            })
+
         return Response({
             "status": "success",
             "tracked_orders_count": len(tracked_list),
             "tracked_orders": tracked_list,
             "tally_orders_count": len(tally_list),
             "tally_orders": tally_list,
+            "stages_count": len(stages_list),
+            "stages": stages_list,
+            "planner_count": len(planner_list),
+            "planner_items": planner_list,
         })
 
 
@@ -1350,6 +1390,53 @@ class InventorySalesAnalyticsAPIView(APIView):
                 "percentage": pct,
             })
 
+        # Sales Comparison (current period vs prior period)
+        prev_start_date = start_date - timedelta(days=days)
+        prev_end_date = start_date - timedelta(days=1)
+        prev_stock_qs = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=prev_start_date,
+            voucher__date__lte=prev_end_date,
+        )
+        prev_grand_total = float(prev_stock_qs.aggregate(total=Sum("amount"))["total"] or 0)
+        prev_total_units = int(round(prev_stock_qs.aggregate(total=Sum("quantity"))["total"] or 0))
+
+        growth_pct = round(((grand_total - prev_grand_total) / prev_grand_total * 100), 1) if prev_grand_total > 0 else 0
+        units_growth_pct = round(((total_units - prev_total_units) / prev_total_units * 100), 1) if prev_total_units > 0 else 0
+
+        sales_comparison = {
+            "current_period_label": f"Last {days} Days",
+            "previous_period_label": f"Prior {days} Days",
+            "current_revenue": float(grand_total),
+            "current_revenue_display": format_inr(grand_total),
+            "previous_revenue": prev_grand_total,
+            "previous_revenue_display": format_inr(prev_grand_total),
+            "growth_pct": abs(growth_pct),
+            "is_growth_positive": growth_pct >= 0,
+            "current_units": int(round(total_units)),
+            "previous_units": prev_total_units,
+            "units_growth_pct": abs(units_growth_pct),
+            "is_units_growth_positive": units_growth_pct >= 0,
+        }
+
+        # Inventory Report summary
+        total_skus = InventoryItem.objects.count()
+        total_physical_units = InventoryItem.objects.aggregate(total=Sum("quantity"))["total"] or 0
+        healthy_skus = InventoryItem.objects.filter(quantity__gte=F("min_quantity_outwards")).count()
+        low_skus = InventoryItem.objects.filter(quantity__gt=0, quantity__lt=F("min_quantity_outwards"), min_quantity_outwards__gt=0).count()
+        out_skus = InventoryItem.objects.filter(Q(quantity__lte=0) | Q(quantity__isnull=True)).count()
+
+        inventory_report = {
+            "total_skus": total_skus,
+            "total_units": int(round(total_physical_units)),
+            "healthy_skus": healthy_skus,
+            "low_skus": low_skus,
+            "out_of_stock_skus": out_skus,
+            "healthy_pct": round((healthy_skus / total_skus * 100), 1) if total_skus > 0 else 0,
+            "low_pct": round((low_skus / total_skus * 100), 1) if total_skus > 0 else 0,
+            "out_pct": round((out_skus / total_skus * 100), 1) if total_skus > 0 else 0,
+        }
+
         return Response({
             "status": "success",
             "period_days": days,
@@ -1358,4 +1445,6 @@ class InventorySalesAnalyticsAPIView(APIView):
             "total_units_sold": int(round(total_units)),
             "products": products,
             "categories": categories,
+            "sales_comparison": sales_comparison,
+            "inventory_report": inventory_report,
         })

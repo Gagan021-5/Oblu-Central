@@ -51,15 +51,46 @@ interface TallyPO {
   item_count: number;
 }
 
-export function InventoryProcurementTab() {
+interface PipelineStage {
+  id: number;
+  name: string;
+  estimated_days: number;
+  is_final_stage: boolean;
+  active_pos_count: number;
+}
+
+interface PlannerItem {
+  id: number;
+  name: string;
+  category: string;
+  current_stock: number;
+  min_threshold: number;
+  suggested_order: number;
+  unit: string;
+  status: string;
+}
+
+interface InventoryProcurementTabProps {
+  initialSection?: "planner" | "tally" | "tracked" | "stages";
+}
+
+export function InventoryProcurementTab({ initialSection = "tracked" }: InventoryProcurementTabProps) {
   const { colors, isDark } = useTheme();
 
-  const [mode, setMode] = useState<"tracked" | "tally">("tracked");
+  const [mode, setMode] = useState<"planner" | "tally" | "tracked" | "stages">(initialSection);
   const [trackedOrders, setTrackedOrders] = useState<TrackedPO[]>([]);
   const [tallyOrders, setTallyOrders] = useState<TallyPO[]>([]);
+  const [stages, setStages] = useState<PipelineStage[]>([]);
+  const [plannerItems, setPlannerItems] = useState<PlannerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (initialSection) {
+      setMode(initialSection);
+    }
+  }, [initialSection]);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -68,6 +99,8 @@ export function InventoryProcurementTab() {
       if (res.data?.status === "success") {
         setTrackedOrders(res.data.tracked_orders || []);
         setTallyOrders(res.data.tally_orders || []);
+        setStages(res.data.stages || []);
+        setPlannerItems(res.data.planner_items || []);
       }
     } catch (err: any) {
       console.warn("[InventoryProcurementTab] Error:", err?.message);
@@ -113,26 +146,85 @@ export function InventoryProcurementTab() {
         </TouchableOpacity>
       </View>
 
-      {/* Segmented Switcher */}
-      <View style={styles.tabBar}>
+      {/* Segmented 4-Way Procurement Switcher */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabScroll}
+      >
         <TouchableOpacity
-          onPress={() => setMode("tracked")}
+          onPress={() => setMode("planner")}
           style={[
-            styles.tabItem,
-            mode === "tracked" && { backgroundColor: isDark ? "#1E332D" : "#E2E8F0" },
+            styles.tabPill,
+            mode === "planner" && { backgroundColor: "#00A879", borderColor: "#00A879" },
+            { borderColor: cardBorder },
           ]}
         >
           <Ionicons
-            name="cube-outline"
-            size={14}
-            color={mode === "tracked" ? "#00A879" : muted}
-            style={{ marginRight: 6 }}
+            name="clipboard-outline"
+            size={13}
+            color={mode === "planner" ? "#FFFFFF" : muted}
+            style={{ marginRight: 5 }}
           />
           <Text
             style={[
-              styles.tabText,
+              styles.tabPillText,
               {
-                color: mode === "tracked" ? foreground : muted,
+                color: mode === "planner" ? "#FFFFFF" : muted,
+                fontFamily: mode === "planner" ? Typography.bold : Typography.medium,
+              },
+            ]}
+          >
+            PO Planner ({plannerItems.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setMode("tally")}
+          style={[
+            styles.tabPill,
+            mode === "tally" && { backgroundColor: "#00A879", borderColor: "#00A879" },
+            { borderColor: cardBorder },
+          ]}
+        >
+          <Ionicons
+            name="receipt-outline"
+            size={13}
+            color={mode === "tally" ? "#FFFFFF" : muted}
+            style={{ marginRight: 5 }}
+          />
+          <Text
+            style={[
+              styles.tabPillText,
+              {
+                color: mode === "tally" ? "#FFFFFF" : muted,
+                fontFamily: mode === "tally" ? Typography.bold : Typography.medium,
+              },
+            ]}
+          >
+            Tally POs ({tallyOrders.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setMode("tracked")}
+          style={[
+            styles.tabPill,
+            mode === "tracked" && { backgroundColor: "#00A879", borderColor: "#00A879" },
+            { borderColor: cardBorder },
+          ]}
+        >
+          <Ionicons
+            name="bus-outline"
+            size={13}
+            color={mode === "tracked" ? "#FFFFFF" : muted}
+            style={{ marginRight: 5 }}
+          />
+          <Text
+            style={[
+              styles.tabPillText,
+              {
+                color: mode === "tracked" ? "#FFFFFF" : muted,
                 fontFamily: mode === "tracked" ? Typography.bold : Typography.medium,
               },
             ]}
@@ -142,31 +234,32 @@ export function InventoryProcurementTab() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => setMode("tally")}
+          onPress={() => setMode("stages")}
           style={[
-            styles.tabItem,
-            mode === "tally" && { backgroundColor: isDark ? "#1E332D" : "#E2E8F0" },
+            styles.tabPill,
+            mode === "stages" && { backgroundColor: "#00A879", borderColor: "#00A879" },
+            { borderColor: cardBorder },
           ]}
         >
           <Ionicons
-            name="receipt-outline"
-            size={14}
-            color={mode === "tally" ? "#00A879" : muted}
-            style={{ marginRight: 6 }}
+            name="git-network-outline"
+            size={13}
+            color={mode === "stages" ? "#FFFFFF" : muted}
+            style={{ marginRight: 5 }}
           />
           <Text
             style={[
-              styles.tabText,
+              styles.tabPillText,
               {
-                color: mode === "tally" ? foreground : muted,
-                fontFamily: mode === "tally" ? Typography.bold : Typography.medium,
+                color: mode === "stages" ? "#FFFFFF" : muted,
+                fontFamily: mode === "stages" ? Typography.bold : Typography.medium,
               },
             ]}
           >
-            Tally Orders ({tallyOrders.length})
+            Pipeline Stages ({stages.length})
           </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       {/* Content */}
       {loading && !refreshing ? (
@@ -174,6 +267,169 @@ export function InventoryProcurementTab() {
           <ActivityIndicator size="large" color="#00A879" />
           <Text style={[styles.loadingText, { color: muted }]}>Loading procurement orders...</Text>
         </View>
+      ) : mode === "planner" ? (
+        plannerItems.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <Ionicons name="checkmark-done-circle-outline" size={38} color="#10B981" />
+            <Text style={[styles.emptyTitle, { color: foreground }]}>All Catalog Lines Healthy</Text>
+            <Text style={[styles.emptySub, { color: muted }]}>
+              No items currently require immediate purchase orders.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ gap: 10 }}>
+            {plannerItems.map((item) => (
+              <View
+                key={item.id}
+                style={[styles.orderCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={[styles.poNumber, { color: foreground }]}>{item.name}</Text>
+                    <Text style={[styles.supplierText, { color: muted }]}>{item.category}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusPill,
+                      {
+                        backgroundColor:
+                          item.current_stock <= 0
+                            ? "rgba(239,68,68,0.12)"
+                            : "rgba(245,158,11,0.12)",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusPillText,
+                        { color: item.current_stock <= 0 ? "#EF4444" : "#F59E0B" },
+                      ]}
+                    >
+                      {item.status}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.metaRow}>
+                  <Text style={[styles.metaText, { color: muted }]}>
+                    Current Stock:{" "}
+                    <Text
+                      style={{
+                        color: item.current_stock <= 0 ? "#EF4444" : foreground,
+                        fontFamily: Typography.bold,
+                      }}
+                    >
+                      {item.current_stock} {item.unit}
+                    </Text>
+                  </Text>
+                  <Text style={[styles.metaText, { color: muted }]}>
+                    Threshold:{" "}
+                    <Text style={{ color: foreground, fontFamily: Typography.bold }}>
+                      {item.min_threshold} {item.unit}
+                    </Text>
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.metaRow,
+                    {
+                      marginTop: 8,
+                      paddingTop: 8,
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: cardBorder,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.metaText, { color: "#00A879", fontFamily: Typography.bold }]}>
+                    Suggested Order: +{item.suggested_order} {item.unit}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )
+      ) : mode === "stages" ? (
+        stages.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <Ionicons name="git-network-outline" size={38} color={muted} />
+            <Text style={[styles.emptyTitle, { color: foreground }]}>No Pipeline Stages</Text>
+            <Text style={[styles.emptySub, { color: muted }]}>No active workflow stages found.</Text>
+          </View>
+        ) : (
+          <View style={{ gap: 10 }}>
+            {stages.map((stage, idx) => (
+              <View
+                key={stage.id}
+                style={[styles.orderCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+                    <View
+                      style={[
+                        styles.stageBadgeCircle,
+                        {
+                          backgroundColor: stage.is_final_stage
+                            ? "rgba(16,185,129,0.15)"
+                            : "rgba(0,168,121,0.12)",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.stageBadgeNum,
+                          { color: stage.is_final_stage ? "#10B981" : "#00A879" },
+                        ]}
+                      >
+                        {idx + 1}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.poNumber, { color: foreground }]}>{stage.name}</Text>
+                      <Text style={[styles.supplierText, { color: muted }]}>
+                        Est. transit: {stage.estimated_days} days
+                      </Text>
+                    </View>
+                  </View>
+                  {stage.is_final_stage ? (
+                    <View
+                      style={[
+                        styles.statusPill,
+                        { backgroundColor: "rgba(16,185,129,0.12)" },
+                      ]}
+                    >
+                      <Text style={[styles.statusPillText, { color: "#10B981" }]}>Final Destination</Text>
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.statusPill,
+                        { backgroundColor: isDark ? "#1E293B" : "rgba(148,163,184,0.18)" },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusPillText,
+                          { color: isDark ? "#94A3B8" : "#475569" },
+                        ]}
+                      >
+                        In Pipeline
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.metaRow}>
+                  <Text style={[styles.metaText, { color: muted }]}>
+                    Active Orders in Stage:{" "}
+                    <Text style={{ color: "#00A879", fontFamily: Typography.bold }}>
+                      {stage.active_pos_count} Orders
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )
       ) : mode === "tracked" ? (
         trackedOrders.length === 0 ? (
           <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
@@ -366,6 +622,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  tabScroll: {
+    flexDirection: "row",
+    gap: 8,
+    paddingBottom: 14,
+  },
+  tabPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
+  tabPillText: {
+    fontSize: 12,
+  },
+  stageBadgeCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stageBadgeNum: {
+    fontFamily: Typography.bold,
+    fontSize: 13,
+  },
   tabBar: {
     flexDirection: "row",
     backgroundColor: "rgba(0,0,0,0.04)",
@@ -508,6 +791,21 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     padding: 14,
     ...Shadows.card,
+  },
+  orderCard: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: 14,
+    ...Shadows.card,
+  },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontFamily: Typography.bold,
   },
   poAmount: {
     fontSize: 16,

@@ -45,6 +45,8 @@ export function InventoryNavDrawer({
   const { user } = useAuth();
 
   const [catalogExpanded, setCatalogExpanded] = useState(true);
+  const [poExpanded, setPoExpanded] = useState(true);
+  const [analyticsExpanded, setAnalyticsExpanded] = useState(true);
   const [drawerSearch, setDrawerSearch] = useState("");
 
   const foreground = colors.textPrimary;
@@ -323,67 +325,277 @@ export function InventoryNavDrawer({
             <Text style={[styles.sectionTitle, { color: muted }]}>PROCUREMENT & SUPPLY</Text>
 
             <TouchableOpacity
-              onPress={() => handleSelect("procurement")}
+              onPress={() => setPoExpanded(!poExpanded)}
               style={[
                 styles.navEntry,
-                activeTab === "procurement" && {
-                  backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                (activeTab === "procurement" ||
+                  activeTab === "po_planner" ||
+                  activeTab === "po_tally" ||
+                  activeTab === "po_tracking" ||
+                  activeTab === "po_stages") && {
+                  backgroundColor: isDark ? "rgba(0,168,121,0.08)" : "#F0FDF4",
                 },
               ]}
               activeOpacity={0.7}
             >
-              <Ionicons
-                name="cart-outline"
-                size={18}
-                color={activeTab === "procurement" ? "#00A879" : muted}
-              />
-              <Text
-                style={[
-                  styles.navEntryText,
-                  { color: activeTab === "procurement" ? foreground : muted },
-                  activeTab === "procurement" && { fontFamily: Typography.bold },
-                ]}
-              >
-                Purchase Orders
-              </Text>
+              <Ionicons name="cart-outline" size={18} color={muted} />
+              <Text style={[styles.navEntryText, { color: foreground }]}>Purchase Orders</Text>
               <View style={[styles.tagBadge, { backgroundColor: "rgba(59,130,246,0.12)" }]}>
                 <Text style={[styles.tagBadgeText, { color: "#3B82F6" }]}>PO</Text>
               </View>
-              <Ionicons name="chevron-forward" size={14} color={muted} style={{ marginLeft: 6 }} />
+              <Ionicons
+                name={poExpanded ? "chevron-down" : "chevron-forward"}
+                size={14}
+                color={muted}
+                style={{ marginLeft: 6 }}
+              />
             </TouchableOpacity>
+
+            {poExpanded && (
+              <View style={styles.subMenuList}>
+                {/* PO Planner */}
+                <TouchableOpacity
+                  onPress={() => handleSelect("po_planner")}
+                  style={[
+                    styles.subEntry,
+                    activeTab === "po_planner" && {
+                      backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="clipboard-outline"
+                    size={16}
+                    color={activeTab === "po_planner" ? "#00A879" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.subEntryText,
+                      { color: activeTab === "po_planner" ? foreground : muted },
+                      activeTab === "po_planner" && { fontFamily: Typography.bold },
+                    ]}
+                  >
+                    PO Planner
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Tally Purchase Orders */}
+                <TouchableOpacity
+                  onPress={() => handleSelect("po_tally")}
+                  style={[
+                    styles.subEntry,
+                    activeTab === "po_tally" && {
+                      backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="receipt-outline"
+                    size={16}
+                    color={activeTab === "po_tally" ? "#00A879" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.subEntryText,
+                      { color: activeTab === "po_tally" ? foreground : muted },
+                      activeTab === "po_tally" && { fontFamily: Typography.bold },
+                    ]}
+                  >
+                    Tally Purchase Orders
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Tracked Shipments */}
+                <TouchableOpacity
+                  onPress={() => handleSelect("po_tracking")}
+                  style={[
+                    styles.subEntry,
+                    (activeTab === "po_tracking" || activeTab === "procurement") && {
+                      backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="bus-outline"
+                    size={16}
+                    color={activeTab === "po_tracking" || activeTab === "procurement" ? "#00A879" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.subEntryText,
+                      { color: activeTab === "po_tracking" || activeTab === "procurement" ? foreground : muted },
+                      (activeTab === "po_tracking" || activeTab === "procurement") && { fontFamily: Typography.bold },
+                    ]}
+                  >
+                    Tracked Shipments
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Pipeline Stages */}
+                <TouchableOpacity
+                  onPress={() => handleSelect("po_stages")}
+                  style={[
+                    styles.subEntry,
+                    activeTab === "po_stages" && {
+                      backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="git-network-outline"
+                    size={16}
+                    color={activeTab === "po_stages" ? "#00A879" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.subEntryText,
+                      { color: activeTab === "po_stages" ? foreground : muted },
+                      activeTab === "po_stages" && { fontFamily: Typography.bold },
+                    ]}
+                  >
+                    Pipeline Stages
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* ── INTELLIGENCE & REPORTS ── */}
             <Text style={[styles.sectionTitle, { color: muted }]}>INTELLIGENCE & REPORTS</Text>
 
             <TouchableOpacity
-              onPress={() => handleSelect("analytics")}
+              onPress={() => setAnalyticsExpanded(!analyticsExpanded)}
               style={[
                 styles.navEntry,
-                activeTab === "analytics" && {
-                  backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                (activeTab === "analytics" ||
+                  activeTab === "analytics_contribution" ||
+                  activeTab === "analytics_category" ||
+                  activeTab === "analytics_comparison" ||
+                  activeTab === "analytics_report") && {
+                  backgroundColor: isDark ? "rgba(0,168,121,0.08)" : "#F0FDF4",
                 },
               ]}
               activeOpacity={0.7}
             >
-              <Ionicons
-                name="bar-chart-outline"
-                size={18}
-                color={activeTab === "analytics" ? "#00A879" : muted}
-              />
-              <Text
-                style={[
-                  styles.navEntryText,
-                  { color: activeTab === "analytics" ? foreground : muted },
-                  activeTab === "analytics" && { fontFamily: Typography.bold },
-                ]}
-              >
-                Analytics & BI
-              </Text>
+              <Ionicons name="bar-chart-outline" size={18} color={muted} />
+              <Text style={[styles.navEntryText, { color: foreground }]}>Analytics & BI</Text>
               <View style={[styles.tagBadge, { backgroundColor: "rgba(139,92,246,0.12)" }]}>
                 <Text style={[styles.tagBadgeText, { color: "#8B5CF6" }]}>BI</Text>
               </View>
-              <Ionicons name="chevron-forward" size={14} color={muted} style={{ marginLeft: 6 }} />
+              <Ionicons
+                name={analyticsExpanded ? "chevron-down" : "chevron-forward"}
+                size={14}
+                color={muted}
+                style={{ marginLeft: 6 }}
+              />
             </TouchableOpacity>
+
+            {analyticsExpanded && (
+              <View style={styles.subMenuList}>
+                {/* Sales Contribution */}
+                <TouchableOpacity
+                  onPress={() => handleSelect("analytics_contribution")}
+                  style={[
+                    styles.subEntry,
+                    (activeTab === "analytics_contribution" || activeTab === "analytics") && {
+                      backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="pie-chart-outline"
+                    size={16}
+                    color={activeTab === "analytics_contribution" || activeTab === "analytics" ? "#00A879" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.subEntryText,
+                      { color: activeTab === "analytics_contribution" || activeTab === "analytics" ? foreground : muted },
+                      (activeTab === "analytics_contribution" || activeTab === "analytics") && { fontFamily: Typography.bold },
+                    ]}
+                  >
+                    Sales Contribution
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Category Analytics */}
+                <TouchableOpacity
+                  onPress={() => handleSelect("analytics_category")}
+                  style={[
+                    styles.subEntry,
+                    activeTab === "analytics_category" && {
+                      backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="bar-chart-outline"
+                    size={16}
+                    color={activeTab === "analytics_category" ? "#00A879" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.subEntryText,
+                      { color: activeTab === "analytics_category" ? foreground : muted },
+                      activeTab === "analytics_category" && { fontFamily: Typography.bold },
+                    ]}
+                  >
+                    Category Analytics
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Sales Comparison */}
+                <TouchableOpacity
+                  onPress={() => handleSelect("analytics_comparison")}
+                  style={[
+                    styles.subEntry,
+                    activeTab === "analytics_comparison" && {
+                      backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="swap-horizontal-outline"
+                    size={16}
+                    color={activeTab === "analytics_comparison" ? "#00A879" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.subEntryText,
+                      { color: activeTab === "analytics_comparison" ? foreground : muted },
+                      activeTab === "analytics_comparison" && { fontFamily: Typography.bold },
+                    ]}
+                  >
+                    Sales Comparison
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Inventory Report */}
+                <TouchableOpacity
+                  onPress={() => handleSelect("analytics_report")}
+                  style={[
+                    styles.subEntry,
+                    activeTab === "analytics_report" && {
+                      backgroundColor: isDark ? "rgba(0,168,121,0.15)" : "#DDF4EA",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="document-text-outline"
+                    size={16}
+                    color={activeTab === "analytics_report" ? "#00A879" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.subEntryText,
+                      { color: activeTab === "analytics_report" ? foreground : muted },
+                      activeTab === "analytics_report" && { fontFamily: Typography.bold },
+                    ]}
+                  >
+                    Inventory Report
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </ScrollView>
 
           {/* User Profile Card at Bottom (Matching Web Sidebar) */}
