@@ -570,12 +570,12 @@ export function InventoryMainScreen() {
             </View>
           ) : (
             <View style={styles.kpiGrid}>
-              {/* Outwards Sales */}
+              {/* 1. Outwards Sales Value */}
               <View style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
                 <View style={styles.kpiHeader}>
-                  <Text style={[styles.kpiLabel, { color: muted }]}>OUTWARDS SALES</Text>
+                  <Text style={[styles.kpiLabel, { color: muted }]}>OUTWARDS SALES VALUE</Text>
                   <View style={[styles.iconCircle, { backgroundColor: isDark ? "#12201C" : "#E2F7F1" }]}>
-                    <Ionicons name="trending-up" size={14} color="#00A879" />
+                    <Ionicons name="cash-outline" size={14} color="#00A879" />
                   </View>
                 </View>
                 <Text style={[styles.kpiValue, { color: foreground }]}>
@@ -586,99 +586,136 @@ export function InventoryMainScreen() {
                     style={[
                       styles.growthPill,
                       {
-                        backgroundColor: (dashboardData?.kpis.sales_growth_pct || 0) >= 0
+                        backgroundColor: dashboardData?.kpis.is_sales_growth_positive
                           ? "rgba(16,185,129,0.12)"
                           : "rgba(239,68,68,0.12)",
                       },
                     ]}
                   >
+                    <Ionicons
+                      name={dashboardData?.kpis.is_sales_growth_positive ? "arrow-up" : "arrow-down"}
+                      size={11}
+                      color={dashboardData?.kpis.is_sales_growth_positive ? "#059669" : "#DC2626"}
+                    />
                     <Text
                       style={[
                         styles.growthPillText,
                         {
-                          color: (dashboardData?.kpis.sales_growth_pct || 0) >= 0 ? "#10B981" : "#EF4444",
+                          color: dashboardData?.kpis.is_sales_growth_positive ? "#059669" : "#DC2626",
                         },
                       ]}
                     >
-                      {(dashboardData?.kpis.sales_growth_pct || 0) >= 0 ? "+" : ""}
                       {dashboardData?.kpis.sales_growth_pct || 0}%
                     </Text>
                   </View>
-                  <Text style={[styles.kpiSubtext, { color: muted }]}>vs prior period</Text>
+                  <Text style={[styles.kpiSubtext, { color: muted }]}>
+                    vs. previous period • Avg {dashboardData?.kpis.avg_daily_sales_display || "₹0"}/day
+                  </Text>
                 </View>
               </View>
 
-              {/* Orders Dispatched */}
+              {/* 2. Orders Dispatched */}
               <View style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
                 <View style={styles.kpiHeader}>
-                  <Text style={[styles.kpiLabel, { color: muted }]}>DISPATCH ORDERS</Text>
+                  <Text style={[styles.kpiLabel, { color: muted }]}>ORDERS DISPATCHED</Text>
                   <View style={[styles.iconCircle, { backgroundColor: isDark ? "#1A2234" : "#EFF6FF" }]}>
                     <Ionicons name="receipt-outline" size={14} color="#3B82F6" />
                   </View>
                 </View>
                 <Text style={[styles.kpiValue, { color: foreground }]}>
-                  {dashboardData?.kpis.orders_dispatched_display || "0"}
+                  {dashboardData?.kpis.orders_dispatched_display || "0 Orders"}
                 </Text>
                 <View style={styles.kpiFooter}>
                   <View
                     style={[
                       styles.growthPill,
                       {
-                        backgroundColor: (dashboardData?.kpis.orders_growth_pct || 0) >= 0
+                        backgroundColor: dashboardData?.kpis.is_orders_growth_positive
                           ? "rgba(16,185,129,0.12)"
                           : "rgba(239,68,68,0.12)",
                       },
                     ]}
                   >
+                    <Ionicons
+                      name={dashboardData?.kpis.is_orders_growth_positive ? "arrow-up" : "arrow-down"}
+                      size={11}
+                      color={dashboardData?.kpis.is_orders_growth_positive ? "#059669" : "#DC2626"}
+                    />
                     <Text
                       style={[
                         styles.growthPillText,
                         {
-                          color: (dashboardData?.kpis.orders_growth_pct || 0) >= 0 ? "#10B981" : "#EF4444",
+                          color: dashboardData?.kpis.is_orders_growth_positive ? "#059669" : "#DC2626",
                         },
                       ]}
                     >
-                      {(dashboardData?.kpis.orders_growth_pct || 0) >= 0 ? "+" : ""}
                       {dashboardData?.kpis.orders_growth_pct || 0}%
                     </Text>
                   </View>
-                  <Text style={[styles.kpiSubtext, { color: muted }]}>fulfilled</Text>
+                  <Text style={[styles.kpiSubtext, { color: muted }]}>
+                    across {dashboardData?.kpis.units_sold_display || "0 units"} in {dashboardData?.period_label || "period"}
+                  </Text>
                 </View>
               </View>
 
-              {/* Units Sold */}
-              <View style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              {/* 3. Pending Supplier Orders */}
+              <TouchableOpacity
+                onPress={() => setCurrentTab("procurement")}
+                style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
+                activeOpacity={0.8}
+              >
                 <View style={styles.kpiHeader}>
-                  <Text style={[styles.kpiLabel, { color: muted }]}>UNITS SOLD</Text>
-                  <View style={[styles.iconCircle, { backgroundColor: isDark ? "#2A1F36" : "#FAF5FF" }]}>
-                    <Ionicons name="cube-outline" size={14} color="#8B5CF6" />
+                  <Text style={[styles.kpiLabel, { color: muted }]}>PENDING SUPPLIER ORDERS</Text>
+                  <View style={[styles.iconCircle, { backgroundColor: isDark ? "#2A2215" : "rgba(245, 158, 11, 0.15)" }]}>
+                    <Ionicons name="bus-outline" size={14} color="#F59E0B" />
                   </View>
                 </View>
                 <Text style={[styles.kpiValue, { color: foreground }]}>
-                  {dashboardData?.kpis.units_sold_display || "0"}
+                  {dashboardData?.kpis.pending_supplier_orders ?? 0} Orders
                 </Text>
                 <View style={styles.kpiFooter}>
-                  <Text style={[styles.kpiSubtext, { color: muted }]}>Dispatched units</Text>
+                  <View style={[styles.growthPill, { backgroundColor: isDark ? "#1E293B" : "rgba(148, 163, 184, 0.18)" }]}>
+                    <Ionicons name="time-outline" size={11} color={isDark ? "#94A3B8" : "#475569"} />
+                    <Text style={[styles.growthPillText, { color: isDark ? "#94A3B8" : "#475569" }]}>In Transit</Text>
+                  </View>
+                  <Text style={[styles.kpiSubtext, { color: muted }]}>awaiting delivery to warehouse</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
-              {/* Reorder Attention */}
+              {/* 4. Low Stock SKUs */}
               <TouchableOpacity
                 onPress={() => setCurrentTab("low_stock")}
                 style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
                 activeOpacity={0.8}
               >
                 <View style={styles.kpiHeader}>
-                  <Text style={[styles.kpiLabel, { color: "#EF4444" }]}>REORDER ATTENTION</Text>
-                  <View style={[styles.iconCircle, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
-                    <Ionicons name="alert-circle" size={14} color="#EF4444" />
+                  <Text style={[styles.kpiLabel, { color: "#EF4444" }]}>LOW STOCK SKUS</Text>
+                  <View style={[styles.iconCircle, { backgroundColor: "rgba(244, 63, 94, 0.12)" }]}>
+                    <Ionicons name="warning-outline" size={14} color="#F43F5E" />
                   </View>
                 </View>
                 <Text style={[styles.kpiValue, { color: "#EF4444" }]}>
-                  {dashboardData?.kpis.low_stock_skus || 0}
+                  {dashboardData?.kpis.low_stock_skus ?? 0} SKUs
                 </Text>
                 <View style={styles.kpiFooter}>
-                  <Text style={[styles.kpiSubtext, { color: muted }]}>Tap to view alerts</Text>
+                  {(dashboardData?.kpis.low_stock_fast_movers || 0) > 0 ? (
+                    <View style={[styles.growthPill, { backgroundColor: "rgba(239, 68, 68, 0.12)" }]}>
+                      <Ionicons name="notifications" size={11} color="#DC2626" />
+                      <Text style={[styles.growthPillText, { color: "#DC2626" }]}>
+                        {dashboardData?.kpis.low_stock_fast_movers} Top Movers
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.growthPill, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
+                      <Ionicons name="checkmark-circle" size={11} color="#059669" />
+                      <Text style={[styles.growthPillText, { color: "#059669" }]}>Healthy</Text>
+                    </View>
+                  )}
+                  <Text style={[styles.kpiSubtext, { color: muted }]}>
+                    {(dashboardData?.kpis.low_stock_fast_movers || 0) > 0
+                      ? "require urgent reordering"
+                      : "active demand in stock"}
+                  </Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -1569,14 +1606,17 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   kpiFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+    gap: 4,
+    marginTop: 2,
   },
   growthPill: {
-    borderRadius: 6,
+    borderRadius: Radius.pill,
     paddingHorizontal: 6,
     paddingVertical: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    alignSelf: "flex-start",
   },
   growthPillText: {
     fontFamily: Typography.bold,
@@ -1585,7 +1625,7 @@ const styles = StyleSheet.create({
   kpiSubtext: {
     fontFamily: Typography.regular,
     fontSize: 10,
-    flex: 1,
+    lineHeight: 13,
   },
   sectionCard: {
     borderWidth: 1,
