@@ -7,15 +7,29 @@ and live searchable catalog items from PostgreSQL.
 from datetime import timedelta, date, datetime
 import calendar
 import re
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from dateutil.relativedelta import relativedelta
 from django.utils import timezone
 from django.db.models import Sum, Count, Q, F, Max
+from django.shortcuts import get_object_or_404
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 
-from .models import InventoryItem, DailyStockData, PurchaseOrderTracking
+from .models import (
+    InventoryItem,
+    Category,
+    DailyStockData,
+    PurchaseOrderTracking,
+    PurchaseOrderTrackingItem,
+    PurchaseOrderStage,
+    PurchaseOrderStageLog,
+)
 from tally_voucher.models import Voucher, VoucherStockItem
 
 
@@ -442,6 +456,7 @@ class InventoryItemListAPIView(APIView):
     def get(self, request):
         q = request.GET.get("q", "").strip()
         status_filter = request.GET.get("status", "all").strip().lower()
+        category_id = request.GET.get("category", "").strip()
         try:
             page = max(1, int(request.GET.get("page", 1)))
         except (ValueError, TypeError):
@@ -452,6 +467,9 @@ class InventoryItemListAPIView(APIView):
             page_size = 30
 
         qs = InventoryItem.objects.select_related("category").all()
+
+        if category_id and category_id.isdigit():
+            qs = qs.filter(category_id=int(category_id))
 
         if q:
             clean_id = re.sub(r'^(?:sku[-\s:]*|#)', '', q, flags=re.IGNORECASE).strip()
@@ -549,4 +567,725 @@ class InventoryItemListAPIView(APIView):
             "has_prev": page > 1,
             "counts": counts,
             "items": results,
+        })
+
+    def post(self, request):
+        name = request.data.get("name", "").strip()
+        if not name:
+            return Response(
+                {"status": "error", "message": "Product name is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        category_id = request.data.get("category_id")
+        category = None
+        if category_id:
+            try:
+                category = Category.objects.get(id=int(category_id))
+            except (Category.DoesNotExist, ValueError):
+                pass
+
+        unit = request.data.get("unit", "pcs").strip()
+        try:
+            quantity = int(request.data.get("quantity", 0))
+        except (ValueError, TypeError):
+            quantity = 0
+
+        try:
+            min_quantity = int(request.data.get("min_quantity", 0))
+        except (ValueError, TypeError):
+            min_quantity = 0
+
+        try:
+            delivery_days = int(request.data.get("expected_delivery_days", 7))
+        except (ValueError, TypeError):
+            delivery_days = 7
+
+        try:
+            moq = int(request.data.get("minimum_order_quantity", 1))
+        except (ValueError, TypeError):
+            moq = 1
+
+        item = InventoryItem.objects.create(
+            name=name,
+            category=category,
+            quantity=quantity,
+            unit=unit,
+            min_quantity=min_quantity,
+            min_quantity_outwards=min_quantity,
+            expected_delivery_days=delivery_days,
+            minimum_order_quantity=moq,
+        )
+
+        return Response({
+            "status": "success",
+            "message": "Product added successfully.",
+            "item": {
+                "id": str(item.id),
+                "name": item.name,
+                "sku": f"SKU-{item.id:04d}",
+                "category": item.category.name if item.category else "Uncategorized",
+                "stock": item.quantity or 0,
+                "unit": item.unit or "pcs",
+                "reorderLevel": item.min_quantity or 0,
+                "status": "In Stock" if (item.quantity or 0) > 0 else "Critical",
+            }
+        }, status=status.HTTP_201_CREATED)
+
+
+class InventoryItemDetailAPIView(APIView):
+    """
+    GET /api/inventory/items/<int:pk>/
+    Returns rich metadata for a single product.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        item = get_object_or_404(InventoryItem.objects.select_related("category"), pk=pk)
+
+        # Determine status
+        latest_voucher_date = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE"
+        ).aggregate(m=Max("voucher__date"))["m"] or timezone.now().date()
+        cutoff_90 = latest_voucher_date - timedelta(days=90)
+        is_active = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=cutoff_90,
+            item_id=item.id,
+        ).exists()
+
+        qty = item.quantity or 0
+        reorder = item.min_quantity_outwards or item.min_quantity or 0
+        if not is_active:
+            item_status = "Dead Stock"
+        elif qty <= 0:
+            item_status = "Critical"
+        elif reorder > 0 and qty < reorder:
+            item_status = "Low Stock"
+        else:
+            item_status = "In Stock"
+
+        # Recent 30 days outwards and revenue
+        cutoff_30 = latest_voucher_date - timedelta(days=30)
+        recent_sales = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=cutoff_30,
+            item_id=item.id,
+        ).aggregate(
+            qty=Sum("quantity"),
+            val=Sum("amount")
+        )
+
+        return Response({
+            "status": "success",
+            "item": {
+                "id": str(item.id),
+                "name": item.name,
+                "sku": f"SKU-{item.id:04d}",
+                "category": {
+                    "id": item.category.id if item.category else None,
+                    "name": item.category.name if item.category else "Uncategorized",
+                },
+                "stock": qty,
+                "unit": item.unit or "pcs",
+                "reorder_threshold": reorder,
+                "min_quantity": item.min_quantity or 0,
+                "min_quantity_outwards": item.min_quantity_outwards or 0,
+                "min_quantity_average": item.min_quantity_average or 0,
+                "expected_delivery_days": item.expected_delivery_days or 7,
+                "minimum_order_quantity": item.minimum_order_quantity or 1,
+                "landing_date": item.landing_date.strftime("%Y-%m-%d") if item.landing_date else None,
+                "status": item_status,
+                "is_active_mover": is_active,
+                "recent_30d_units_sold": int(round(recent_sales["qty"] or 0)),
+                "recent_30d_revenue": float(recent_sales["val"] or 0),
+                "recent_30d_revenue_display": format_inr(recent_sales["val"] or 0),
+            }
+        })
+
+
+class InventoryItemForecastAPIView(APIView):
+    """
+    GET /api/inventory/items/<int:pk>/forecast/
+    Returns predictive demand forecasting, safety buffer, and 3-month outlook.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        product = get_object_or_404(InventoryItem, pk=pk)
+        daily_data = DailyStockData.objects.filter(product_id=pk).order_by("date")
+
+        if not daily_data.exists():
+            return Response({
+                "status": "success",
+                "product_id": str(product.id),
+                "product_name": product.name,
+                "current_stock": product.quantity or 0,
+                "reorder_threshold": product.min_quantity_outwards or product.min_quantity or 0,
+                "min_stock_trend": 0,
+                "min_stock_demand": 0,
+                "min_stock_demand_buffered": product.min_quantity_outwards or 0,
+                "safety_buffer_pct": 10,
+                "future_predictions": [],
+                "monthly_history": [],
+                "message": "No historical daily records found for this product.",
+            })
+
+        df = pd.DataFrame.from_records(
+            daily_data.values(
+                "date",
+                "inwards_quantity",
+                "inwards_value",
+                "outwards_quantity",
+                "outwards_value",
+                "closing_quantity",
+                "closing_value"
+            )
+        )
+
+        df["date"] = pd.to_datetime(df["date"])
+        df["month"] = df["date"].dt.month
+        df["year"] = df["date"].dt.year
+
+        monthly_summary = df.groupby(["year", "month"]).agg({
+            "inwards_quantity": "sum",
+            "inwards_value": "sum",
+            "outwards_quantity": "sum",
+            "outwards_value": "sum",
+            "closing_quantity": "last",
+            "closing_value": "last",
+        }).reset_index()
+
+        monthly_summary["Month"] = monthly_summary.apply(
+            lambda row: f"{calendar.month_name[int(row['month'])]} {int(row['year'])}",
+            axis=1
+        )
+        monthly_summary.reset_index(drop=True, inplace=True)
+        monthly_summary["MonthIndex"] = np.arange(len(monthly_summary)).reshape(-1, 1)
+
+        history_list = []
+        for _, row in monthly_summary.iterrows():
+            history_list.append({
+                "month": row["Month"],
+                "inwards_qty": int(round(row["inwards_quantity"] or 0)),
+                "outwards_qty": int(round(row["outwards_quantity"] or 0)),
+                "closing_qty": int(round(row["closing_quantity"] or 0)),
+            })
+
+        future_predictions = []
+        min_stock_trend = 0
+        min_stock_demand = 0
+        min_stock_demand_buffered = product.min_quantity_outwards or 0
+
+        if len(monthly_summary) >= 2:
+            model_trend = LinearRegression()
+            model_trend.fit(monthly_summary[["MonthIndex"]], monthly_summary["closing_quantity"])
+            future_indices = np.array([len(monthly_summary), len(monthly_summary)+1, len(monthly_summary)+2]).reshape(-1, 1)
+            trend_predictions = model_trend.predict(future_indices)
+
+            model_demand = LinearRegression()
+            model_demand.fit(monthly_summary[["MonthIndex"]], monthly_summary["outwards_quantity"])
+            demand_predictions = model_demand.predict(future_indices)
+
+            min_stock_trend = int(max(0, round(min(trend_predictions))))
+            min_stock_demand = int(max(0, round(max(demand_predictions))))
+            min_stock_demand_buffered = int(round(min_stock_demand * 1.1))
+
+            last_year = int(monthly_summary.iloc[-1]["year"])
+            last_month = int(monthly_summary.iloc[-1]["month"])
+            last_date = date(last_year, last_month, 1)
+
+            for i in range(3):
+                future_date = last_date + relativedelta(months=i+1)
+                lbl = f"{calendar.month_name[future_date.month]} {future_date.year}"
+                future_predictions.append({
+                    "month": lbl,
+                    "trend_closing": int(max(0, round(trend_predictions[i]))),
+                    "demand_outwards": int(max(0, round(demand_predictions[i]))),
+                })
+        else:
+            avg_outwards = monthly_summary["outwards_quantity"].mean() or 0
+            min_stock_demand = int(round(avg_outwards))
+            min_stock_demand_buffered = int(round(avg_outwards * 1.1))
+
+        return Response({
+            "status": "success",
+            "product_id": str(product.id),
+            "product_name": product.name,
+            "current_stock": product.quantity or 0,
+            "reorder_threshold": product.min_quantity_outwards or product.min_quantity or 0,
+            "min_stock_trend": min_stock_trend,
+            "min_stock_demand": min_stock_demand,
+            "min_stock_demand_buffered": min_stock_demand_buffered,
+            "safety_buffer_pct": 10,
+            "future_predictions": future_predictions,
+            "monthly_history": history_list,
+        })
+
+
+class InventoryItemTrendsAPIView(APIView):
+    """
+    GET /api/inventory/items/<int:pk>/trends/
+    Returns daily stock movement series (inwards, outwards, closing) for charts.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        product = get_object_or_404(InventoryItem, pk=pk)
+        days = min(180, max(14, int(request.GET.get("days", 60))))
+
+        qs = DailyStockData.objects.filter(product=product).order_by("date")
+        total_count = qs.count()
+        if total_count > days:
+            qs = qs[total_count - days:]
+
+        labels = []
+        outwards = []
+        closing = []
+        inwards = []
+
+        for entry in qs:
+            labels.append(entry.date.strftime("%d %b"))
+            outwards.append(int(round(entry.outwards_quantity or 0)))
+            closing.append(int(round(entry.closing_quantity or 0)))
+            inwards.append(int(round(entry.inwards_quantity or 0)))
+
+        return Response({
+            "status": "success",
+            "product_id": str(product.id),
+            "product_name": product.name,
+            "current_stock": product.quantity or 0,
+            "days_returned": len(labels),
+            "labels": labels,
+            "outwards": outwards,
+            "closing": closing,
+            "inwards": inwards,
+            "total_outwards": sum(outwards),
+            "total_inwards": sum(inwards),
+            "avg_daily_velocity": round(sum(outwards) / max(len(outwards), 1), 1),
+        })
+
+
+class InventoryItemLedgerAPIView(APIView):
+    """
+    GET /api/inventory/items/<int:pk>/ledger/
+    Returns chronological transaction entries from Tally vouchers for this item.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        product = get_object_or_404(InventoryItem, pk=pk)
+        limit = min(100, max(10, int(request.GET.get("limit", 40))))
+
+        vouchers = (
+            VoucherStockItem.objects.filter(item=product)
+            .select_related("voucher")
+            .order_by("-voucher__date", "-id")[:limit]
+        )
+
+        entries = []
+        for v in vouchers:
+            v_obj = v.voucher
+            entries.append({
+                "id": v.id,
+                "voucher_number": v_obj.voucher_number if v_obj else "N/A",
+                "voucher_type": v_obj.voucher_type if v_obj else "VOUCHER",
+                "date": v_obj.date.strftime("%Y-%m-%d") if v_obj and v_obj.date else None,
+                "date_display": v_obj.date.strftime("%d %b %Y") if v_obj and v_obj.date else "N/A",
+                "party_name": v_obj.party_name if v_obj else "Direct Customer",
+                "quantity": float(v.quantity or 0),
+                "unit": product.unit or "pcs",
+                "rate": float(v.rate or 0),
+                "amount": float(v.amount or 0),
+                "amount_display": format_inr(v.amount or 0),
+            })
+
+        return Response({
+            "status": "success",
+            "product_id": str(product.id),
+            "product_name": product.name,
+            "total_entries": len(entries),
+            "entries": entries,
+        })
+
+
+class InventoryCategoryListAPIView(APIView):
+    """
+    GET /api/inventory/categories/
+    Returns all product categories with SKU counts and stock health metrics.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        categories = (
+            Category.objects.annotate(
+                sku_count=Count("inventoryitem"),
+                total_units=Sum("inventoryitem__quantity")
+            )
+            .order_by("-sku_count")
+        )
+
+        latest_voucher_date = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE"
+        ).aggregate(m=Max("voucher__date"))["m"] or timezone.now().date()
+        cutoff_90 = latest_voucher_date - timedelta(days=90)
+        active_item_ids = set(
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=cutoff_90,
+                item_id__isnull=False,
+            ).values_list("item_id", flat=True).distinct()
+        )
+
+        results = []
+        for cat in categories:
+            items_qs = cat.inventoryitem_set.all()
+            total_skus = cat.sku_count or 0
+            low_count = items_qs.filter(id__in=active_item_ids, quantity__gt=0, quantity__lt=F("min_quantity_outwards")).count()
+            crit_count = items_qs.filter(id__in=active_item_ids).filter(Q(quantity__lte=0) | Q(quantity__isnull=True)).count()
+            dead_count = items_qs.exclude(id__in=active_item_ids).count()
+            optimal_count = max(0, total_skus - low_count - crit_count - dead_count)
+
+            results.append({
+                "id": cat.id,
+                "name": cat.name,
+                "sku_count": total_skus,
+                "total_units": cat.total_units or 0,
+                "optimal_stock": optimal_count,
+                "low_stock": low_count,
+                "critical_stock": crit_count,
+                "dead_stock": dead_count,
+            })
+
+        return Response({
+            "status": "success",
+            "total_categories": len(results),
+            "categories": results,
+        })
+
+
+class InventoryLowStockAlertsAPIView(APIView):
+    """
+    GET /api/inventory/alerts/low-stock/
+    Returns prioritized stockout deficits and safety threshold alerts for active products.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        latest_voucher_date = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE"
+        ).aggregate(m=Max("voucher__date"))["m"] or timezone.now().date()
+        cutoff_90 = latest_voucher_date - timedelta(days=90)
+        active_item_ids = set(
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=cutoff_90,
+                item_id__isnull=False,
+            ).values_list("item_id", flat=True).distinct()
+        )
+
+        cutoff_30 = latest_voucher_date - timedelta(days=30)
+        recent_sales = dict(
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=cutoff_30,
+                item_id__in=active_item_ids,
+            )
+            .values("item_id")
+            .annotate(qty=Sum("quantity"), val=Sum("amount"))
+            .values_list("item_id", "qty")
+        )
+
+        low_items = (
+            InventoryItem.objects.filter(id__in=active_item_ids)
+            .filter(
+                Q(quantity__lte=0) |
+                Q(quantity__isnull=True) |
+                Q(quantity__lt=F("min_quantity_outwards"))
+            )
+            .select_related("category")
+            .order_by("quantity")
+        )
+
+        critical_list = []
+        warning_list = []
+
+        for item in low_items:
+            qty = item.quantity or 0
+            threshold = item.min_quantity_outwards or item.min_quantity or 0
+            sold_30 = recent_sales.get(item.id, 0) or 0
+            daily_run_rate = round(sold_30 / 30.0, 1)
+
+            deficit = max(0, threshold - qty) if threshold > 0 else (1 if qty <= 0 else 0)
+            days_left = round(qty / daily_run_rate, 1) if (daily_run_rate > 0 and qty > 0) else (0 if qty <= 0 else 999)
+
+            alert_data = {
+                "id": str(item.id),
+                "name": item.name,
+                "sku": f"SKU-{item.id:04d}",
+                "category": item.category.name if item.category else "Uncategorized",
+                "stock": qty,
+                "unit": item.unit or "pcs",
+                "threshold": threshold,
+                "deficit": deficit,
+                "daily_run_rate": daily_run_rate,
+                "days_left": days_left,
+                "severity": "critical" if qty <= 0 else "warning",
+                "severity_label": "CRITICAL STOCKOUT" if qty <= 0 else "SAFETY DEFICIT",
+            }
+
+            if qty <= 0:
+                critical_list.append(alert_data)
+            else:
+                warning_list.append(alert_data)
+
+        return Response({
+            "status": "success",
+            "total_alerts": len(critical_list) + len(warning_list),
+            "critical_count": len(critical_list),
+            "warning_count": len(warning_list),
+            "critical_alerts": critical_list,
+            "warning_alerts": warning_list,
+        })
+
+
+class InventoryDeadStockAPIView(APIView):
+    """
+    GET /api/inventory/alerts/dead-stock/
+    Returns non-moving inventory products with tied-up capital and last sold timestamps.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        latest_voucher_date = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE"
+        ).aggregate(m=Max("voucher__date"))["m"] or timezone.now().date()
+        cutoff_90 = latest_voucher_date - timedelta(days=90)
+
+        active_item_ids = set(
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                voucher__date__gte=cutoff_90,
+                item_id__isnull=False,
+            ).values_list("item_id", flat=True).distinct()
+        )
+
+        dead_items_qs = InventoryItem.objects.exclude(id__in=active_item_ids).select_related("category")
+        total_dead_skus = dead_items_qs.count()
+        total_dead_units = dead_items_qs.aggregate(t=Sum("quantity"))["t"] or 0
+
+        last_sales = dict(
+            VoucherStockItem.objects.filter(
+                voucher__voucher_type__iexact="TAX INVOICE",
+                item_id__isnull=False
+            )
+            .values("item_id")
+            .annotate(last_date=Max("voucher__date"))
+            .values_list("item_id", "last_date")
+        )
+
+        page = max(1, int(request.GET.get("page", 1)))
+        page_size = min(100, max(10, int(request.GET.get("page_size", 40))))
+        start_idx = (page - 1) * page_size
+
+        paginated = dead_items_qs.order_by("name")[start_idx : start_idx + page_size]
+
+        items_list = []
+        for item in paginated:
+            qty = item.quantity or 0
+            last_date = last_sales.get(item.id)
+            days_inactive = (latest_voucher_date - last_date).days if last_date else 365
+
+            items_list.append({
+                "id": str(item.id),
+                "name": item.name,
+                "sku": f"SKU-{item.id:04d}",
+                "category": item.category.name if item.category else "Uncategorized",
+                "stock": qty,
+                "unit": item.unit or "pcs",
+                "last_sale_date": last_date.strftime("%d %b %Y") if last_date else "Never Sold",
+                "days_inactive": days_inactive,
+            })
+
+        return Response({
+            "status": "success",
+            "total_dead_skus": total_dead_skus,
+            "total_dead_units": total_dead_units,
+            "page": page,
+            "total_pages": max(1, (total_dead_skus + page_size - 1) // page_size),
+            "items": items_list,
+        })
+
+
+class InventoryPurchaseOrdersAPIView(APIView):
+    """
+    GET /api/inventory/purchase-orders/
+    Returns Tally purchase orders and tracked shipments with live stages and arrival quantities.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tracked_qs = (
+            PurchaseOrderTracking.objects.select_related("tally_voucher")
+            .prefetch_related("items", "stage_logs__stage")
+            .order_by("-order_date")[:40]
+        )
+
+        tracked_list = []
+        for po in tracked_qs:
+            items = []
+            total_ordered = 0
+            total_arrived = 0
+
+            for it in po.items.all():
+                ord_qty = it.ordered_quantity or 0
+                arr_qty = it.arrived_quantity or 0
+                total_ordered += ord_qty
+                total_arrived += arr_qty
+                items.append({
+                    "id": it.id,
+                    "item_name": it.item_name_text or (it.inventory_item.name if it.inventory_item else "Item"),
+                    "ordered_quantity": ord_qty,
+                    "arrived_quantity": arr_qty,
+                })
+
+            stages = []
+            for sl in po.stage_logs.all():
+                stages.append({
+                    "stage_name": sl.stage.name if sl.stage else "Stage",
+                    "status": sl.status,
+                    "notes": sl.notes,
+                    "timestamp": sl.created_at.strftime("%d %b %Y, %I:%M %p") if sl.created_at else None,
+                })
+
+            completion_pct = round((total_arrived / total_ordered * 100), 1) if total_ordered > 0 else 0
+
+            v = po.tally_voucher
+            tracked_list.append({
+                "id": po.id,
+                "voucher_number": v.voucher_number if v else f"PO-{po.id:04d}",
+                "party_name": v.party_name if v else "Supplier",
+                "order_date": po.order_date.strftime("%d %b %Y") if po.order_date else "N/A",
+                "expected_delivery": po.expected_delivery.strftime("%d %b %Y") if po.expected_delivery else "TBD",
+                "total_ordered": total_ordered,
+                "total_arrived": total_arrived,
+                "completion_pct": completion_pct,
+                "items": items,
+                "stage_history": stages,
+            })
+
+        tally_pos = (
+            Voucher.objects.filter(voucher_category__iexact="Purchase Order")
+            .prefetch_related("stock_rows")
+            .order_by("-date")[:30]
+        )
+
+        tally_list = []
+        for tpo in tally_pos:
+            total_val = sum(r.amount or 0 for r in tpo.stock_rows.all())
+            total_qty = sum(r.quantity or 0 for r in tpo.stock_rows.all())
+            tally_list.append({
+                "id": tpo.id,
+                "voucher_number": tpo.voucher_number or "N/A",
+                "party_name": tpo.party_name or "Supplier",
+                "date": tpo.date.strftime("%d %b %Y") if tpo.date else "N/A",
+                "total_value": float(total_val),
+                "total_value_display": format_inr(total_val),
+                "total_quantity": float(total_qty),
+                "item_count": tpo.stock_rows.count(),
+            })
+
+        return Response({
+            "status": "success",
+            "tracked_orders_count": len(tracked_list),
+            "tracked_orders": tracked_list,
+            "tally_orders_count": len(tally_list),
+            "tally_orders": tally_list,
+        })
+
+
+class InventorySalesAnalyticsAPIView(APIView):
+    """
+    GET /api/inventory/analytics/?days=90
+    Returns product revenue contributions (Pareto 80/20 ABC classification) and category shares.
+    """
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        days = min(365, max(14, int(request.GET.get("days", 90))))
+        latest_voucher_date = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE"
+        ).aggregate(m=Max("voucher__date"))["m"] or timezone.now().date()
+        start_date = latest_voucher_date - timedelta(days=days)
+
+        stock_qs = VoucherStockItem.objects.filter(
+            voucher__voucher_type__iexact="TAX INVOICE",
+            voucher__date__gte=start_date,
+            voucher__date__lte=latest_voucher_date,
+        )
+
+        grand_total = stock_qs.aggregate(total=Sum("amount"))["total"] or 0
+        total_units = stock_qs.aggregate(total=Sum("quantity"))["total"] or 0
+
+        product_stats = (
+            stock_qs.values("item__id", "item__name", "item__category__name")
+            .annotate(sales=Sum("amount"), units=Sum("quantity"))
+            .order_by("-sales")[:50]
+        )
+
+        products = []
+        cumulative = 0
+        for p in product_stats:
+            val = float(p["sales"] or 0)
+            pct = round((val / grand_total * 100), 2) if grand_total > 0 else 0
+            cumulative += pct
+            tier = "A" if cumulative <= 80 else ("B" if cumulative <= 95 else "C")
+
+            products.append({
+                "id": str(p["item__id"] or ""),
+                "name": p["item__name"] or "Product",
+                "category": p["item__category__name"] or "Uncategorized",
+                "sales_value": val,
+                "sales_value_display": format_inr(val),
+                "units_sold": int(round(p["units"] or 0)),
+                "percentage": pct,
+                "cumulative_pct": round(cumulative, 1),
+                "tier": tier,
+            })
+
+        cat_stats = (
+            stock_qs.values("item__category__name")
+            .annotate(sales=Sum("amount"), units=Sum("quantity"))
+            .order_by("-sales")[:10]
+        )
+
+        categories = []
+        for c in cat_stats:
+            val = float(c["sales"] or 0)
+            pct = round((val / grand_total * 100), 1) if grand_total > 0 else 0
+            categories.append({
+                "category": c["item__category__name"] or "Uncategorized",
+                "sales_value": val,
+                "sales_value_display": format_inr(val),
+                "units_sold": int(round(c["units"] or 0)),
+                "percentage": pct,
+            })
+
+        return Response({
+            "status": "success",
+            "period_days": days,
+            "grand_total": float(grand_total),
+            "grand_total_display": format_inr(grand_total),
+            "total_units_sold": int(round(total_units)),
+            "products": products,
+            "categories": categories,
         })
