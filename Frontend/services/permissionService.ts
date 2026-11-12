@@ -38,6 +38,7 @@ export interface UserPermissionProfile {
     username: string;
     name: string;
     role: string;
+    gender?: string | null;
     reporting_to?: string | null;
   };
   allowed_apps: AllowedApp[];
@@ -47,6 +48,7 @@ export interface UserPermissionProfile {
   scopes?: Record<string, string[]>;
   user_id?: number;
   full_name?: string;
+  gender?: string | null;
   email?: string;
 }
 

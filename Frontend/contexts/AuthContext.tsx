@@ -34,6 +34,7 @@ export interface AuthUser {
   username: string;
   name?: string;
   email?: string;
+  gender?: string;
   role: string;
   consent_given?: boolean;
   roleKey?: string;
@@ -116,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username: profile.user?.username || baseUser.username || "",
         name: profile.user?.name || profile.full_name || baseUser.name || (profile.user?.username ? profile.user.username.replace(/_/g, " ") : "Employee"),
         email: profile.email || baseUser.email,
+        gender: profile.user?.gender || profile.gender || baseUser.gender || "",
         role: profile.user?.role || baseUser.role || "Employee",
         consent_given: baseUser.consent_given ?? true,
         permissions: profile.permissions || [],

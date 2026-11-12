@@ -7,7 +7,7 @@
  * 3. Sign Out button
  */
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -22,11 +22,28 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
+import { PersonAvatar3D } from "@/components/employee/SubAppLogo";
+import { fetchHRMSSelfProfileApi } from "@/services/hrmsService";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const { isDark, colors, setMode } = useTheme();
+  const [empGender, setEmpGender] = useState<string>(user?.gender || "");
+
+  useEffect(() => {
+    let mounted = true;
+    fetchHRMSSelfProfileApi()
+      .then((res) => {
+        if (mounted && res?.employee?.gender) {
+          setEmpGender(res.employee.gender);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -105,16 +122,12 @@ export default function ProfileScreen() {
             },
           ]}
         >
-          <View
-            style={[
-              styles.avatarLarge,
-              { backgroundColor: colors.mintTintedSurface },
-            ]}
-          >
-            <Text style={[styles.avatarText, { color: colors.primary }]}>
-              {initials}
-            </Text>
-          </View>
+          <PersonAvatar3D
+            gender={empGender || user?.gender}
+            size={60}
+            borderWidth={2}
+            borderColor={colors.primaryBorder}
+          />
           <View style={styles.userInfo}>
             <Text style={[styles.userName, { color: colors.textPrimary }]}>
               {username}

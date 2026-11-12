@@ -2245,11 +2245,11 @@ const styles = StyleSheet.create({
     marginHorizontal: -16,
   },
   exploreAppsHeading: {
-    fontFamily: Typography.headingSemi,
-    fontSize: 15,
-    letterSpacing: -0.2,
+    fontFamily: Typography.bold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     paddingHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   categoriesList: {
     paddingHorizontal: 16,

@@ -165,6 +165,14 @@ class MeProfileView(APIView):
     def get(self, request):
         user = request.user
         emp = getattr(user, "employee_profile", None)
+        if emp is None and getattr(user, "email", None):
+            try:
+                from hrms.models import Employee
+                emp = Employee.objects.filter(
+                    email__iexact=user.email.strip()
+                ).select_related("designation", "company", "department").first()
+            except Exception:
+                emp = None
         sp = get_salesperson_profile(user)
         effective_perms = get_user_effective_permissions(user)
 
@@ -221,12 +229,15 @@ class MeProfileView(APIView):
         allowed_apps = get_allowed_apps_for_user(user, effective_perms)
         hierarchy_scope = get_hierarchy_scope_for_user(user, effective_perms)
 
+        emp_gender = (getattr(emp, "gender", "") or "") if emp else ""
+
         return Response({
             "user": {
                 "id": user.id,
                 "username": user.username,
                 "name": user_name,
                 "role": user_role,
+                "gender": emp_gender,
                 "reporting_to": reporting_to,
             },
             "allowed_apps": allowed_apps,
@@ -235,6 +246,7 @@ class MeProfileView(APIView):
             "user_id": user.id,
             "username": user.username,
             "full_name": user_name,
+            "gender": emp_gender,
             "email": emp.email if emp else user.email,
             "employee_code": emp.employee_code if emp else None,
             "roles": roles_list,

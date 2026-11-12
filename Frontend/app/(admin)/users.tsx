@@ -1413,10 +1413,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   exploreAppsHeading: {
-    fontFamily: Typography.headingSemi,
-    fontSize: 15,
-    letterSpacing: -0.2,
-    marginBottom: 10,
+    fontFamily: Typography.bold,
+    fontSize: 22,
+    letterSpacing: -0.4,
+    marginBottom: 12,
   },
   categoriesList: {
     paddingHorizontal: 0,

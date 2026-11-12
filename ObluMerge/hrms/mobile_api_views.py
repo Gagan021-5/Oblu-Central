@@ -168,6 +168,10 @@ class HRMSSelfProfileAPIView(APIView):
 
     def get(self, request):
         employee = getattr(request.user, "employee_profile", None)
+        if not employee and getattr(request.user, "email", None):
+            employee = Employee.objects.filter(
+                email__iexact=request.user.email.strip()
+            ).first()
         if not employee:
             return Response({"employee": None})
 
@@ -179,6 +183,7 @@ class HRMSSelfProfileAPIView(APIView):
                 "id": employee.pk,
                 "employee_code": employee.employee_code,
                 "name": employee.full_name,
+                "gender": employee.gender or "",
                 "department": employee.department.name if employee.department else "",
                 "designation": employee.designation.title if employee.designation else "",
                 "email": employee.email or "",

@@ -1,8 +1,9 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography } from "@/constants/theme";
+import { MetricBadge3D } from "@/components/employee/SubAppLogo";
 
 interface MetricCardProps {
   label: string;
@@ -63,24 +64,7 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
             {label.toUpperCase()}
           </Text>
         </View>
-        {icon && (
-          <View
-            style={[
-              styles.iconBox,
-              {
-                backgroundColor: isHighlight
-                  ? isDark ? "rgba(53, 214, 160, 0.18)" : "rgba(0, 168, 121, 0.12)"
-                  : isDark ? "rgba(53, 214, 160, 0.10)" : "rgba(0, 168, 121, 0.08)",
-              },
-            ]}
-          >
-            <Ionicons
-              name={icon}
-              size={18}
-              color={isHighlight ? (isDark ? "#35D6A0" : "#00A879") : (isDark ? "#35D6A0" : "#00A879")}
-            />
-          </View>
-        )}
+        {icon && <MetricBadge3D icon={String(icon)} label={label} size={36} borderRadius={11} isHighlight={isHighlight} />}
       </View>
 
       <Text
@@ -138,13 +122,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: Typography.bold,
     letterSpacing: 0.8,
-  },
-  iconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
   },
   valueText: {
     fontSize: 26,

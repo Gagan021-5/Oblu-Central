@@ -76,6 +76,7 @@ export interface HRMSSelfProfile {
     id: number;
     employee_code: string;
     name: string;
+    gender?: string | null;
     department: string;
     designation: string;
     email: string;

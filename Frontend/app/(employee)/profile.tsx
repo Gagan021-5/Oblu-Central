@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes, Shadows } from "@/constants/theme";
+import { PersonAvatar3D } from "@/components/employee/SubAppLogo";
 import { fetchHRMSSelfProfileApi, HRMSSelfProfile } from "@/services/hrmsService";
 import {
   fetchUserPermissionsApi,
@@ -78,13 +79,12 @@ export default function EmployeeProfileScreen() {
     return username.charAt(0).toUpperCase() + username.slice(1);
   }, [dbEmployee?.name, profile, user, username]);
 
-  const avatarInitials = useMemo(() => {
-    const parts = displayName.split(" ").filter(Boolean);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return displayName.slice(0, 2).toUpperCase();
-  }, [displayName]);
+  const employeeGender =
+    dbEmployee?.gender ||
+    profile?.user?.gender ||
+    profile?.gender ||
+    user?.gender ||
+    "";
 
   // Purely dynamic department and employee code from database record
   const empDetails = useMemo(() => {
@@ -214,24 +214,12 @@ export default function EmployeeProfileScreen() {
           ]}
         >
           <View style={styles.heroTopRow}>
-            <View
-              style={[
-                styles.avatarCircle,
-                {
-                  backgroundColor: isDark ? "#1A2B25" : "#E8F5EE",
-                  borderColor: isDark ? "#35D6A0" : "#00A879",
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.avatarInitials,
-                  { color: isDark ? "#35D6A0" : "#00A879" },
-                ]}
-              >
-                {avatarInitials}
-              </Text>
-            </View>
+            <PersonAvatar3D
+              gender={employeeGender}
+              size={62}
+              borderWidth={2}
+              borderColor={isDark ? "#35D6A0" : "#00A879"}
+            />
 
             <View style={styles.heroInfo}>
               <View
