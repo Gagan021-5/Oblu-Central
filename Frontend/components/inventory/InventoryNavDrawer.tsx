@@ -8,7 +8,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,7 +24,6 @@ interface InventoryNavDrawerProps {
   onClose: () => void;
   onSelectTab: (tab: InventoryNavTab) => void;
   onOpenAddProduct: () => void;
-  onSearchSubmit?: (query: string) => void;
 }
 
 export function InventoryNavDrawer({
@@ -37,7 +35,6 @@ export function InventoryNavDrawer({
   onClose,
   onSelectTab,
   onOpenAddProduct,
-  onSearchSubmit,
 }: InventoryNavDrawerProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -45,7 +42,6 @@ export function InventoryNavDrawer({
   const [catalogExpanded, setCatalogExpanded] = useState(true);
   const [poExpanded, setPoExpanded] = useState(true);
   const [analyticsExpanded, setAnalyticsExpanded] = useState(true);
-  const [drawerSearch, setDrawerSearch] = useState("");
 
   const foreground = colors.textPrimary;
   const muted = isDark ? "#94A3B8" : "#64748B";
@@ -55,14 +51,6 @@ export function InventoryNavDrawer({
   const handleSelect = (tab: InventoryNavTab) => {
     onClose();
     onSelectTab(tab);
-  };
-
-  const handleSearchCommit = () => {
-    if (drawerSearch.trim() && onSearchSubmit) {
-      onClose();
-      onSearchSubmit(drawerSearch.trim());
-      onSelectTab("catalog");
-    }
   };
 
   return (
@@ -92,25 +80,6 @@ export function InventoryNavDrawer({
             <TouchableOpacity accessibilityLabel="Close menu" onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={22} color={muted} />
             </TouchableOpacity>
-          </View>
-
-          {/* Quick Search */}
-          <View style={[styles.searchBox, { backgroundColor: isDark ? "#111D19" : "#F8FAFC", borderColor: itemBorder }]}>
-            <Ionicons name="search" size={16} color={muted} style={{ marginRight: 8 }} />
-            <TextInput
-              placeholder="Search catalog..."
-              placeholderTextColor={muted}
-              value={drawerSearch}
-              onChangeText={setDrawerSearch}
-              onSubmitEditing={handleSearchCommit}
-              returnKeyType="search"
-              style={[styles.searchInput, { color: foreground }]}
-            />
-            {drawerSearch.length > 0 && (
-              <TouchableOpacity onPress={() => setDrawerSearch("")}>
-                <Ionicons name="close-circle" size={16} color={muted} />
-              </TouchableOpacity>
-            )}
           </View>
 
           {/* Scrollable Navigation Sections */}
@@ -637,20 +606,6 @@ const styles = StyleSheet.create({
   },
   brandSubtitle: { fontFamily: Typography.regular, fontSize: 10.5, marginTop: 2 },
   closeBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
-  searchBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginVertical: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: Typography.regular,
-  },
   sectionTitle: {
     fontFamily: Typography.bold,
     marginTop: 18,

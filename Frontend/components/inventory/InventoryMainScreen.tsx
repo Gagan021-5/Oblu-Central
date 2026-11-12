@@ -1527,10 +1527,6 @@ export function InventoryMainScreen() {
         onClose={() => setDrawerVisible(false)}
         onSelectTab={(tab) => setCurrentTab(tab)}
         onOpenAddProduct={() => setShowAddModal(true)}
-        onSearchSubmit={(q) => {
-          setSearchQuery(q);
-          setCurrentTab("catalog");
-        }}
       />
     </View>
   );
