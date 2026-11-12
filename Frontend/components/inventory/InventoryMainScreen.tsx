@@ -1464,6 +1464,7 @@ export function InventoryMainScreen() {
           </View>
           <InventoryAnalyticsTab
             key={currentTab}
+            onOpenProduct={handleOpenProduct}
             initialSection={
               currentTab === "analytics_category"
                 ? "category"

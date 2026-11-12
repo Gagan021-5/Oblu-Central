@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Welcome to Oblu Tools</title>
   <link rel="icon" type="image/png" href="https://oblu-static-media.s3.ap-south-1.amazonaws.com/vector_panda_logo.png">
   <style>
@@ -14,7 +15,12 @@
 
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #0e0e0e, #838383); {#changed the color#}
+      background: linear-gradient(135deg, #0e0e0e, #838383);
+
+        {
+        #changed the color#
+      }
+
       color: #ffffff;
       min-height: 100vh;
       display: flex;
@@ -30,7 +36,7 @@
       justify-content: space-between;
       padding: 15px 30px;
       flex-wrap: wrap;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
     }
 
     nav a {
@@ -42,10 +48,20 @@
     }
 
     nav a:hover {
-      color: #bdbdbd; {# changed the color  #}
+      color: #bdbdbd;
+
+        {
+        # changed the color #
+      }
     }
+
     .nav-links button {
-      background: #fff; {# changed the color #}
+      background: #fff;
+
+        {
+        # changed the color #
+      }
+
       border: none;
       padding: 8px 16px;
       border-radius: 20px;
@@ -54,19 +70,25 @@
       color: #000;
       cursor: pointer;
       transition: all 0.3s ease;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
       text-decoration: none;
     }
+
     .nav-links button:hover {
       transform: scale(1.05);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
 
 
 
     nav .brand {
       font-size: 1.5rem;
-      background: white; {# changed the color from linear gradient to white #}
+      background: white;
+
+        {
+        # changed the color from linear gradient to white #
+      }
+
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -81,7 +103,12 @@
     .container {
       text-align: center;
       padding: 60px 20px;
-      background: white; {# from rgba(255, 255, 255, 0.05) to white #}
+      background: white;
+
+        {
+        # from rgba(255, 255, 255, 0.05) to white #
+      }
+
       border-radius: 16px;
       box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
       backdrop-filter: blur(10px);
@@ -94,7 +121,12 @@
     h1 {
       font-size: 2.5rem;
       margin-bottom: 20px;
-      background: #222; {# Changed the color from linear gradient to black #}
+      background: #222;
+
+        {
+        # Changed the color from linear gradient to black #
+      }
+
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
@@ -102,7 +134,11 @@
     p {
       font-size: 1.1rem;
       margin-bottom: 30px;
-      color: #222; {# from #ccc to #222 #}
+      color: #222;
+
+        {
+        # from #ccc to #222 #
+      }
     }
 
     .btn-group {
@@ -113,21 +149,31 @@
     }
 
     .btn {
-      background: #222; {# changed the color from linear gradient to black #}
+      background: #222;
+
+        {
+        # changed the color from linear gradient to black #
+      }
+
       border: none;
       padding: 14px 28px;
       border-radius: 50px;
       font-size: 1rem;
       font-weight: bold;
-      color: #fff; {#  color changed from black to white #}
+      color: #fff;
+
+        {
+        # color changed from black to white #
+      }
+
       cursor: pointer;
       transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
 
     .btn:hover {
       transform: scale(1.05);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
     }
 
     footer {
@@ -142,6 +188,7 @@
         opacity: 0;
         transform: translateY(30px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -172,6 +219,7 @@
     }
   </style>
 </head>
+
 <body>
 
   <nav>
@@ -180,15 +228,15 @@
     </div>
     <div class="nav-links">
       {% if user.is_authenticated %}
-        <a href="#">Hi, {{ user.username }}</a>
-        <form action="{% url 'logout' %}" method="POST">
-                            {% csrf_token %}
-                            <button type="submit" class="nav-link">
-                                Logout
-                            </button>
-        </form>
+      <a href="#">Hi, {{ user.username }}</a>
+      <form action="{% url 'logout' %}" method="POST">
+        {% csrf_token %}
+        <button type="submit" class="nav-link">
+          Logout
+        </button>
+      </form>
       {% else %}
-        <a href="{% url 'login' %}">Login</a>
+      <a href="{% url 'login' %}">Login</a>
       {% endif %}
     </div>
   </nav>
@@ -198,8 +246,8 @@
     <p>Your internal suite of productivity tools.</p>
     <div class="btn-group">
       {% if request.user.is_accountant %}
-        <button class="btn" onclick="redirectTo('inventory')">Inventory Management</button>
-        <button class="btn" onclick="location.href='/meta/dashboard/'">Meta Dashboard</button>
+      <button class="btn" onclick="redirectTo('inventory')">Inventory Management</button>
+      <button class="btn" onclick="location.href='/meta/dashboard/'">Meta Dashboard</button>
       {% endif %}
       <button class="btn" onclick="redirectTo('customer_data')">Customer and Sales Dashboard</button>
       <button class="btn" onclick="location.href='/proforma/'">Proforma Invoice & Quotation Maker</button>
@@ -207,7 +255,7 @@
   </div>
 
   <footer>
-    © 2025 Oblu | Internal Use Only
+    © 2026 Oblu | Internal Use Only
   </footer>
 
   <script>
@@ -219,9 +267,10 @@
       }
       else if (tool === 'customer_data') {
         window.location.href = "/customers/";
-        }
+      }
     }
   </script>
 
 </body>
+
 </html>
