@@ -129,8 +129,8 @@ export const SubAppLogo: React.FC<SubAppLogoProps> = React.memo(
   }) => {
     const { isDark } = useTheme();
     const resolvedBorder =
-      borderColor ?? (isDark ? "#294039" : "rgba(13, 43, 32, 0.10)");
-    const backdrop = isDark ? "#12201B" : "#F4F7F5";
+      borderColor ?? (isDark ? "#2D493F" : "rgba(13, 43, 32, 0.10)");
+    const backdrop = isDark ? "#192D25" : "#EEF7F1";
 
     return (
       <View
@@ -149,8 +149,8 @@ export const SubAppLogo: React.FC<SubAppLogoProps> = React.memo(
       >
         <Image
           source={getSubAppLogoSource(appId)}
-          style={styles.image}
-          resizeMode="cover"
+          style={styles.subappImage}
+          resizeMode="contain"
         />
       </View>
     );
@@ -173,10 +173,10 @@ export const MetricBadge3D: React.FC<MetricBadge3DProps> = React.memo(
     const { isDark } = useTheme();
     const borderColor = isHighlight
       ? isDark
-        ? "rgba(53, 214, 160, 0.35)"
+        ? "rgba(53, 214, 160, 0.38)"
         : "rgba(0, 168, 121, 0.28)"
       : isDark
-      ? "#294039"
+      ? "#2D493F"
       : "rgba(13, 43, 32, 0.10)";
 
     return (
@@ -189,14 +189,14 @@ export const MetricBadge3D: React.FC<MetricBadge3DProps> = React.memo(
             borderRadius,
             borderWidth: 1,
             borderColor,
-            backgroundColor: isDark ? "#12201B" : "#EEF7F1",
+            backgroundColor: isDark ? "#192D25" : "#EEF7F1",
           },
         ]}
       >
         <Image
           source={getMetricLogoSource(icon, label)}
-          style={styles.image}
-          resizeMode="cover"
+          style={styles.badgeImage}
+          resizeMode="contain"
         />
       </View>
     );
@@ -228,13 +228,13 @@ export const PersonAvatar3D: React.FC<PersonAvatar3DProps> = React.memo(
             borderRadius: size / 2,
             borderWidth,
             borderColor: resolvedBorder,
-            backgroundColor: isDark ? "#1A2B25" : "#E8F5EE",
+            backgroundColor: isDark ? "#1E342B" : "#E8F5EE",
           },
         ]}
       >
         <Image
           source={getPersonAvatarSource(gender)}
-          style={styles.image}
+          style={styles.avatarImage}
           resizeMode="cover"
         />
       </View>
@@ -248,8 +248,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  image: {
-    width: "100%",
-    height: "100%",
+  subappImage: {
+    width: "88%",
+    height: "88%",
+  },
+  badgeImage: {
+    width: "86%",
+    height: "86%",
+  },
+  avatarImage: {
+    width: "96%",
+    height: "96%",
   },
 });

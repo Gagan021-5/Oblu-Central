@@ -491,7 +491,7 @@ export default function UsersScreen() {
                           borderColor: isSelected
                             ? accentColor
                             : isDark
-                            ? "#294039"
+                            ? "#2D493F"
                             : "#D8E0DC",
                           borderWidth: isSelected ? 2 : 1,
                         },
@@ -816,7 +816,7 @@ export default function UsersScreen() {
                     </Text>
                   </View>
                   <TouchableOpacity
-                    style={[styles.moduleActionBtn, { backgroundColor: isDark ? "#121F1B" : "#DDF4EA" }]}
+                    style={[styles.moduleActionBtn, { backgroundColor: isDark ? "#192D25" : "#DDF4EA" }]}
                     onPress={() => router.push("/(admin)/customers")}
                   >
                     <Text style={[styles.moduleActionBtnText, { color: colors.primary }]}>
@@ -849,7 +849,7 @@ export default function UsersScreen() {
                     </Text>
                   </View>
                   <TouchableOpacity
-                    style={[styles.moduleActionBtn, { backgroundColor: isDark ? "#121F1B" : "#DDF4EA" }]}
+                    style={[styles.moduleActionBtn, { backgroundColor: isDark ? "#192D25" : "#DDF4EA" }]}
                     onPress={() => router.push("/(admin)/call-logs")}
                   >
                     <Text style={[styles.moduleActionBtnText, { color: colors.primary }]}>
@@ -899,7 +899,7 @@ export default function UsersScreen() {
                     </Text>
                   </View>
                   <TouchableOpacity
-                    style={[styles.moduleActionBtn, { backgroundColor: isDark ? "#121F1B" : "#FEF3C7" }]}
+                    style={[styles.moduleActionBtn, { backgroundColor: isDark ? "#192D25" : "#FEF3C7" }]}
                     onPress={() => router.push("/(admin)/leads")}
                   >
                     <Text style={[styles.moduleActionBtnText, { color: isDark ? "#FBBF24" : "#D97706" }]}>

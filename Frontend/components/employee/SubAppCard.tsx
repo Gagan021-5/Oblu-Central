@@ -140,12 +140,12 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
       style={[
         styles.outwardContainer,
         {
-          backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-          borderColor: isDark ? "rgba(53, 214, 160, 0.18)" : "rgba(13, 43, 32, 0.08)",
-          borderTopColor: isDark ? "rgba(53, 214, 160, 0.38)" : "rgba(255, 255, 255, 0.98)",
-          borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
+          backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+          borderColor: isDark ? "rgba(53, 214, 160, 0.22)" : "rgba(13, 43, 32, 0.08)",
+          borderTopColor: isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
+          borderBottomColor: isDark ? "#0C1612" : "rgba(13, 43, 32, 0.14)",
           shadowColor: isDark ? "#000000" : "#0D2B20",
-          shadowOpacity: isDark ? 0.48 : 0.09,
+          shadowOpacity: isDark ? 0.36 : 0.09,
         },
       ]}
       onPress={onPress}

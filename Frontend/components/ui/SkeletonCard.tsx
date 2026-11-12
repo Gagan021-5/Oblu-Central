@@ -29,7 +29,7 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ height = 110 }) => {
     return () => loop.stop();
   }, [animatedValue]);
 
-  const blockBg = isDark ? "#1C2D26" : "#E4ECE8";
+  const blockBg = isDark ? "#21382F" : "#E4ECE8";
 
   return (
     <Animated.View
@@ -37,8 +37,8 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ height = 110 }) => {
         styles.card,
         {
           height,
-          backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-          borderColor: isDark ? "#294039" : "#D8E0DC",
+          backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+          borderColor: isDark ? "#2D493F" : "#D8E0DC",
           opacity: animatedValue,
         },
       ]}

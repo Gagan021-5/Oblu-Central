@@ -80,18 +80,18 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
       style={[
         styles.outwardCard,
         {
-          backgroundColor: isDark ? "#12201B" : "#FFFFFF",
+          backgroundColor: isDark ? "#15251F" : "#FFFFFF",
           borderColor: isHighlight
-            ? isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(0, 168, 121, 0.35)"
-            : isDark ? "rgba(53, 214, 160, 0.18)" : "rgba(13, 43, 32, 0.08)",
+            ? isDark ? "rgba(53, 214, 160, 0.42)" : "rgba(0, 168, 121, 0.35)"
+            : isDark ? "rgba(53, 214, 160, 0.22)" : "rgba(13, 43, 32, 0.08)",
           borderTopColor: isHighlight
             ? isDark ? "rgba(53, 214, 160, 0.65)" : "rgba(0, 168, 121, 0.50)"
-            : isDark ? "rgba(53, 214, 160, 0.36)" : "rgba(255, 255, 255, 0.98)",
-          borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
+            : isDark ? "rgba(53, 214, 160, 0.38)" : "rgba(255, 255, 255, 0.98)",
+          borderBottomColor: isDark ? "#0C1612" : "rgba(13, 43, 32, 0.14)",
           shadowColor: isHighlight
             ? isDark ? "#35D6A0" : "#00A879"
             : isDark ? "#000000" : "#0D2B20",
-          shadowOpacity: isHighlight ? (isDark ? 0.35 : 0.15) : (isDark ? 0.48 : 0.09),
+          shadowOpacity: isHighlight ? (isDark ? 0.30 : 0.15) : (isDark ? 0.36 : 0.09),
         },
         cardMotionStyle,
       ]}

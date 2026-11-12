@@ -50,9 +50,9 @@ export const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({
   onPressCall,
 }) => {
   const { isDark, colors } = useTheme();
-  const mutedColor = isDark ? "#8FA09A" : "#5E6964";
-  const cardBg = isDark ? "#0E1714" : "#FFFFFF";
-  const cardBorder = isDark ? "#294039" : "#D8E0DC";
+  const mutedColor = isDark ? "#9CB3AA" : "#5E6964";
+  const cardBg = isDark ? "#15251F" : "#FFFFFF";
+  const cardBorder = isDark ? "#2D493F" : "#D8E0DC";
   const accent = isDark ? "#35D6A0" : "#00A879";
 
   return (

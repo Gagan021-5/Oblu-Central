@@ -91,11 +91,11 @@ export const LightTheme = {
     tabIconSelected: "#00A879",
   },
   dark: {
-    text: "#F1F7F4",
-    background: "#080C0B",
+    text: "#F2F8F5",
+    background: "#0E1A16",
     tint: "#35D6A0",
-    icon: "#8FA09A",
-    tabIconDefault: "#65756F",
+    icon: "#9CB3AA",
+    tabIconDefault: "#738A81",
     tabIconSelected: "#35D6A0",
   },
 };
@@ -103,24 +103,24 @@ export const LightTheme = {
 // ── Dark Theme Palette ─────────────────────────────────────────────────
 export const DarkTheme = {
   isDark: true,
-  background: "#080C0B",
-  primarySurface: "#0E1714",
-  secondarySurface: "#15221D",
-  mintTintedSurface: "rgba(53, 214, 160, 0.12)",
-  strongSurface: "#1B2B25",
-  card: "#0E1714",
-  cardSecondary: "#15221D",
-  cardElevated: "#182621",
-  cardBorder: "#294039",
-  border: "#294039",
-  borderLight: "#1F332C",
-  borderDark: "#37554C",
+  background: "#0E1A16",
+  primarySurface: "#15251F",
+  secondarySurface: "#1C3028",
+  mintTintedSurface: "rgba(53, 214, 160, 0.14)",
+  strongSurface: "#223930",
+  card: "#15251F",
+  cardSecondary: "#1B2E27",
+  cardElevated: "#20362E",
+  cardBorder: "#2D493F",
+  border: "#2D493F",
+  borderLight: "#233B32",
+  borderDark: "#3D5E52",
 
   // Text
-  textPrimary: "#F1F7F4",
-  textSecondary: "#8FA09A",
-  textMuted: "#65756F",
-  textLight: "#485752",
+  textPrimary: "#F2F8F5",
+  textSecondary: "#9CB3AA",
+  textMuted: "#738A81",
+  textLight: "#536860",
 
   // Mint & Accent
   strongGraphite: "#1B2B25",
@@ -167,14 +167,14 @@ export const DarkTheme = {
   secondaryGlow: "rgba(32, 227, 173, 0.20)",
 
   // UI Elements
-  inputBg: "#0E1714",
-  inputBorder: "#294039",
-  tabBarBg: "#0E1714",
-  tabBarBorder: "#294039",
+  inputBg: "#14241E",
+  inputBorder: "#2D493F",
+  tabBarBg: "#13231D",
+  tabBarBorder: "#2D493F",
   tabActive: "#35D6A0",
-  tabInactive: "#65756F",
-  overlay: "rgba(0, 0, 0, 0.7)",
-  dockSurface: "#0E1714",
+  tabInactive: "#738A81",
+  overlay: "rgba(6, 12, 10, 0.72)",
+  dockSurface: "#13231D",
 
   // Expo Theme Compatibility
   light: {
@@ -186,11 +186,11 @@ export const DarkTheme = {
     tabIconSelected: "#00A879",
   },
   dark: {
-    text: "#F1F7F4",
-    background: "#080C0B",
+    text: "#F2F8F5",
+    background: "#0E1A16",
     tint: "#35D6A0",
-    icon: "#8FA09A",
-    tabIconDefault: "#65756F",
+    icon: "#9CB3AA",
+    tabIconDefault: "#738A81",
     tabIconSelected: "#35D6A0",
   },
 };

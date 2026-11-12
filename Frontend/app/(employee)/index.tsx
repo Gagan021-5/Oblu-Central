@@ -585,7 +585,7 @@ export default function EmployeeHomeScreen() {
                           borderColor: isSelected
                             ? accentColor
                             : isDark
-                            ? "#294039"
+                            ? "#2D493F"
                             : "#D8E0DC",
                           borderWidth: isSelected ? 2 : 1,
                         },
@@ -714,8 +714,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                      borderColor: isDark ? "#294039" : "#D8E0DC",
+                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("hrms")}
@@ -742,8 +742,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                      borderColor: isDark ? "#294039" : "#D8E0DC",
+                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("hrms")}
@@ -770,8 +770,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                      borderColor: isDark ? "#294039" : "#D8E0DC",
+                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("hrms")}
@@ -806,8 +806,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.bentoModuleCard,
                     {
-                      backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                      borderColor: isDark ? "#294039" : "#D8E0DC",
+                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("incentives")}
@@ -837,8 +837,8 @@ export default function EmployeeHomeScreen() {
                         style={[
                           styles.bentoArrowCircle,
                           {
-                            backgroundColor: isDark ? "#15221D" : "#F7F9F8",
-                            borderColor: isDark ? "#294039" : "#D8E0DC",
+                            backgroundColor: isDark ? "#1C3028" : "#F7F9F8",
+                            borderColor: isDark ? "#2D493F" : "#D8E0DC",
                           },
                         ]}
                       >
@@ -858,8 +858,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.bentoModuleCard,
                     {
-                      backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                      borderColor: isDark ? "#294039" : "#D8E0DC",
+                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("inventory")}
@@ -889,8 +889,8 @@ export default function EmployeeHomeScreen() {
                         style={[
                           styles.bentoArrowCircle,
                           {
-                            backgroundColor: isDark ? "#15221D" : "#F7F9F8",
-                            borderColor: isDark ? "#294039" : "#D8E0DC",
+                            backgroundColor: isDark ? "#1C3028" : "#F7F9F8",
+                            borderColor: isDark ? "#2D493F" : "#D8E0DC",
                           },
                         ]}
                       >
@@ -910,8 +910,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.bentoModuleCard,
                     {
-                      backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                      borderColor: isDark ? "#294039" : "#D8E0DC",
+                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("proforma")}
@@ -941,8 +941,8 @@ export default function EmployeeHomeScreen() {
                         style={[
                           styles.bentoArrowCircle,
                           {
-                            backgroundColor: isDark ? "#15221D" : "#F7F9F8",
-                            borderColor: isDark ? "#294039" : "#D8E0DC",
+                            backgroundColor: isDark ? "#1C3028" : "#F7F9F8",
+                            borderColor: isDark ? "#2D493F" : "#D8E0DC",
                           },
                         ]}
                       >
@@ -1735,8 +1735,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                      borderColor: isDark ? "#294039" : "#D8E0DC",
+                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
                       padding: 14,
                     },
                   ]}
@@ -1821,8 +1821,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                      borderColor: isDark ? "#294039" : "#D8E0DC",
+                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
                       padding: 14,
                     },
                   ]}

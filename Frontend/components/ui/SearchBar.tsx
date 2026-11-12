@@ -102,8 +102,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-          borderColor: isDark ? "#294039" : "#D8E0DC",
+          backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+          borderColor: isDark ? "#2D493F" : "#D8E0DC",
         },
       ]}
     >

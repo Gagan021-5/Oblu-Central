@@ -230,9 +230,9 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
         style={[
           styles.dockContainer,
           {
-            backgroundColor: isDark ? "#0C1411" : "#121A16",
+            backgroundColor: isDark ? "#13231D" : "#121A16",
             borderColor: isDark
-              ? "rgba(53, 214, 160, 0.22)"
+              ? "rgba(53, 214, 160, 0.26)"
               : "rgba(255, 255, 255, 0.12)",
           },
           Shadows.floatingDock,

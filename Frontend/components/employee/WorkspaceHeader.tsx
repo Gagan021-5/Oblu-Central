@@ -114,8 +114,8 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
             style={[
               styles.actionButton,
               {
-                backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: isDark ? "#192D25" : "#FFFFFF",
+                borderColor: isDark ? "#2D493F" : "#D8E0DC",
               },
             ]}
             onPress={toggleTheme}
@@ -133,8 +133,8 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
             style={[
               styles.actionButton,
               {
-                backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: isDark ? "#192D25" : "#FFFFFF",
+                borderColor: isDark ? "#2D493F" : "#D8E0DC",
               },
             ]}
             onPress={handleNotificationClick}
