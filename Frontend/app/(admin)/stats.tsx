@@ -22,6 +22,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AppLineChart from "@/components/charts/AppLineChart";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList, SkeletonBlock } from "@/components/ui/SkeletonCard";
 
 interface StatsData {
   user_id: number;
@@ -251,8 +252,10 @@ export default function StatsScreen() {
       </ScrollView>
 
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
+          <SkeletonBlock height={100} borderRadius={16} />
+          <SkeletonBlock height={200} borderRadius={18} />
+          <SkeletonCardList count={3} height={78} />
         </View>
       ) : (
         <>

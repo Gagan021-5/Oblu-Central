@@ -326,7 +326,13 @@ export default function LeadsDashboardScreen() {
           <SearchBar
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search leads by company, contact, source..."
+            placeholders={[
+              'Search "company or lead"',
+              'Search "contact name"',
+              'Search "lead source"',
+              'Search "city"',
+            ]}
+            intervalMs={2000}
           />
         </View>
       )}

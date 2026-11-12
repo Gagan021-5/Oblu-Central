@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList, SkeletonBlock } from "@/components/ui/SkeletonCard";
 import AppLineChart from "@/components/charts/AppLineChart";
 import api from "@/services/api";
 
@@ -209,10 +210,7 @@ export function CategoryAnalyticsSection() {
       </View>
 
       {loading ? (
-        <View style={{ padding: 40, alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Loading category analytics...</Text>
-        </View>
+        <SkeletonCardList count={4} height={92} />
       ) : products === null ? (
         <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Ionicons name="bar-chart-outline" size={38} color={colors.primary} />
@@ -343,7 +341,11 @@ export function CategoryAnalyticsSection() {
           </View>
 
           {detailLoading || !detail ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 50 }} />
+            <View style={{ padding: 16, gap: 12 }}>
+              <SkeletonBlock height={90} borderRadius={16} />
+              <SkeletonBlock height={180} borderRadius={16} />
+              <SkeletonCardList count={2} height={80} />
+            </View>
           ) : (
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 14 }}>
               <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>

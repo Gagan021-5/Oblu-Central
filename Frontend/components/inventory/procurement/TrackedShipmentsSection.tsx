@@ -14,6 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList, SkeletonBlock } from "@/components/ui/SkeletonCard";
+import { SearchBar } from "@/components/ui/SearchBar";
 import api from "@/services/api";
 import { TrackedPO, PipelineStage, StageLogItem } from "./types";
 
@@ -182,8 +184,9 @@ export function TrackedPODetailModal({
         </View>
 
         {loading || !po ? (
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-            <ActivityIndicator size="large" color={colors.primary} />
+          <View style={{ padding: 16, gap: 12 }}>
+            <SkeletonBlock height={116} borderRadius={16} />
+            <SkeletonCardList count={3} height={86} />
           </View>
         ) : (
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 14 }}>
@@ -571,16 +574,17 @@ export function TrackedShipmentsSection({ orders, onRefresh }: TrackedShipmentsS
         })}
       </View>
 
-      <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-        <Ionicons name="search" size={16} color={colors.textMuted} />
-        <TextInput
-          placeholder="Search PO number or supplier..."
-          placeholderTextColor={colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-          style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
-        />
-      </View>
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        placeholders={[
+          'Search "PO number"',
+          'Search "supplier name"',
+          'Search "shipment status"',
+        ]}
+        intervalMs={2000}
+        onClear={() => setSearch("")}
+      />
 
       {filtered.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>

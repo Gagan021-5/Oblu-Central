@@ -22,6 +22,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes, Radius, Shadows } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import {
   ProformaFilterSheet,
   ProformaDocTypeFilter,
@@ -455,7 +456,13 @@ export default function AdminProformaScreen() {
               <SearchBar
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Search proforma by client, PI# or rep..."
+                placeholders={[
+                  'Search "client name"',
+                  'Search "PI number"',
+                  'Search "quotation#"',
+                  'Search "sales rep"',
+                ]}
+                intervalMs={2000}
                 onClear={() => setSearchQuery("")}
                 onFilterPress={() => setFilterSheetVisible(true)}
                 filterActive={isFilterActive}
@@ -469,6 +476,7 @@ export default function AdminProformaScreen() {
                 value={stats.pipeline_value || "₹0"}
                 subValue={`${stats.total_count} active orders`}
                 icon="document-text-outline"
+                loading={loading && items.length === 0}
               />
               <MetricCard
                 label="Pending Approvals"
@@ -476,6 +484,7 @@ export default function AdminProformaScreen() {
                 subValue="rate clearance"
                 icon="time-outline"
                 isHighlight={stats.pending_approvals > 0}
+                loading={loading && items.length === 0}
               />
             </View>
 
@@ -508,12 +517,7 @@ export default function AdminProformaScreen() {
         }
         ListEmptyComponent={
           loading ? (
-            <View style={styles.emptyState}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Loading live proforma invoices...
-              </Text>
-            </View>
+            <SkeletonCardList count={5} height={116} style={{ paddingTop: 4 }} />
           ) : (
             <View style={styles.emptyState}>
               <Ionicons name="document-text-outline" size={48} color={colors.textMuted} />
@@ -654,12 +658,7 @@ export default function AdminProformaScreen() {
             </View>
 
             {detailLoading ? (
-              <View style={styles.detailLoadingState}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                  Loading live line items & calculations...
-                </Text>
-              </View>
+              <SkeletonCardList count={3} height={88} style={{ padding: 16 }} />
             ) : detailData ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
                 {/* Customer Contact Banner */}
@@ -868,12 +867,7 @@ export default function AdminProformaScreen() {
             </View>
 
             {dispatchLoading ? (
-              <View style={styles.detailLoadingState}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                  Loading dispatch history & photos...
-                </Text>
-              </View>
+              <SkeletonCardList count={2} height={96} style={{ padding: 16 }} />
             ) : dispatchInfo ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
                 {/* Step Progress Bar */}

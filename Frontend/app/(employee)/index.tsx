@@ -1129,7 +1129,13 @@ export default function EmployeeHomeScreen() {
                   setSearchQuery(text);
                   setHrmsSearch(text);
                 }}
-                placeholder="Search staff by name, code or department..."
+                placeholders={[
+                  'Search "employee name"',
+                  'Search "employee code"',
+                  'Search "department"',
+                  'Search "designation"',
+                ]}
+                intervalMs={2000}
                 onClear={() => {
                   setSearchQuery("");
                   setHrmsSearch("");

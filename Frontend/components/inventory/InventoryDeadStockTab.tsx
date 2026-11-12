@@ -12,6 +12,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
+import { SearchBar } from "@/components/ui/SearchBar";
 import api from "@/services/api";
 
 interface DeadStockItem {
@@ -130,28 +132,21 @@ export function InventoryDeadStockTab({ onOpenProduct }: InventoryDeadStockTabPr
       </View>
 
       {/* Search Input */}
-      <View style={[styles.searchBox, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-        <Ionicons name="search" size={18} color={muted} style={{ marginRight: 8 }} />
-        <TextInput
-          placeholder="Search non-moving SKUs..."
-          placeholderTextColor={muted}
-          value={search}
-          onChangeText={setSearch}
-          style={[styles.searchInput, { color: foreground }]}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch("")}>
-            <Ionicons name="close-circle" size={18} color={muted} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        placeholders={[
+          'Search "non-moving SKUs"',
+          'Search "product name"',
+          'Search "category"',
+        ]}
+        intervalMs={2000}
+        onClear={() => setSearch("")}
+      />
 
       {/* Content */}
       {loading && !refreshing ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#00A879" />
-          <Text style={[styles.loadingText, { color: muted }]}>Auditing inactive inventory...</Text>
-        </View>
+        <SkeletonCardList count={4} height={98} />
       ) : filteredItems.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
           <Ionicons name="checkmark-done-circle-outline" size={38} color="#10B981" />

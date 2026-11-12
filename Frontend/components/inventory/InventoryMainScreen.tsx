@@ -16,6 +16,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { FilterChip } from "@/components/ui/FilterChip";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { InventoryDateFilterSheet } from "@/components/ui/InventoryDateFilterSheet";
@@ -1145,7 +1146,13 @@ export function InventoryMainScreen() {
           <SearchBar
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search by SKU, product name..."
+            placeholders={[
+              'Search "SKU code"',
+              'Search "product name"',
+              'Search "category"',
+              'Search "stock status"',
+            ]}
+            intervalMs={2000}
             onClear={() => setSearchQuery("")}
           />
 
@@ -1185,10 +1192,7 @@ export function InventoryMainScreen() {
 
           {/* SKU Items List */}
           {loadingItems ? (
-            <View style={[styles.loadingBox, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-              <ActivityIndicator size="small" color="#00A879" />
-              <Text style={[styles.loadingText, { color: muted }]}>Loading warehouse SKUs…</Text>
-            </View>
+            <SkeletonCardList count={4} height={92} />
           ) : items.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
               <Ionicons name="cube-outline" size={36} color="#00A879" />

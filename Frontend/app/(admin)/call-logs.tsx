@@ -31,6 +31,8 @@ import { Ionicons } from "@expo/vector-icons";
 import AppLineChart from "@/components/charts/AppLineChart";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
+import { SearchBar } from "@/components/ui/SearchBar";
+import { SkeletonCardList, SkeletonBlock } from "@/components/ui/SkeletonCard";
 
 interface CallLogItem {
   id: number;
@@ -405,29 +407,17 @@ export default function CallLogsScreen() {
 
           {/* ── Search Bar ─────────────────────────────────────────── */}
           <View style={styles.searchSection}>
-            <View
-              style={[
-                styles.searchBox,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.cardBorder,
-                },
+            <SearchBar
+              value={searchPhone}
+              onChangeText={setSearchPhone}
+              placeholders={[
+                'Search "contact"',
+                'Search "company"',
+                'Search "phone number"',
               ]}
-            >
-              <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-              <TextInput
-                style={[styles.searchInput, { color: colors.textPrimary }]}
-                placeholder="Search by contact, company or phone..."
-                placeholderTextColor={colors.textMuted}
-                value={searchPhone}
-                onChangeText={setSearchPhone}
-              />
-              {searchPhone.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchPhone("")}>
-                  <Ionicons name="close-circle" size={17} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
+              intervalMs={2000}
+              onClear={() => setSearchPhone("")}
+            />
           </View>
 
           {/* ── Filter Chips ───────────────────────────────────────── */}
@@ -465,9 +455,7 @@ export default function CallLogsScreen() {
 
           {/* ── Call List Timeline ─────────────────────────────────── */}
           {loading ? (
-            <View style={styles.centered}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
+            <SkeletonCardList count={5} height={86} style={{ paddingHorizontal: 16, paddingTop: 6 }} />
           ) : filteredLogs.length === 0 ? (
             <View style={styles.emptyWrap}>
               <Ionicons name="call-outline" size={44} color={colors.textMuted} />
@@ -664,8 +652,10 @@ export default function CallLogsScreen() {
           </ScrollView>
 
           {statsLoading ? (
-            <View style={styles.centered}>
-              <ActivityIndicator size="large" color={colors.primary} />
+            <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
+              <SkeletonBlock height={94} borderRadius={16} />
+              <SkeletonBlock height={210} borderRadius={18} />
+              <SkeletonCardList count={3} height={76} />
             </View>
           ) : (
             <>

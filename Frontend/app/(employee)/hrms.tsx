@@ -620,7 +620,13 @@ export default function HRMSScreen() {
               <SearchBar
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Search staff by name, code or department..."
+                placeholders={[
+                  'Search "employee name"',
+                  'Search "employee code"',
+                  'Search "department"',
+                  'Search "designation"',
+                ]}
+                intervalMs={2000}
                 onClear={() => setSearchQuery("")}
               />
             </View>

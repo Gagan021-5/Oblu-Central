@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius } from "@/constants/theme";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import api from "@/services/api";
 import { TrackedPO, TallyPO, PipelineStage } from "./procurement/types";
 import { POPlannerSection } from "./procurement/POPlannerSection";
@@ -26,7 +27,6 @@ export function InventoryProcurementTab({
   initialSection = "tracked",
 }: InventoryProcurementTabProps) {
   const { colors } = useTheme();
-  const mode = initialSection;
 
   const [trackedOrders, setTrackedOrders] = useState<TrackedPO[]>([]);
   const [tallyOrders, setTallyOrders] = useState<TallyPO[]>([]);
@@ -35,11 +35,6 @@ export function InventoryProcurementTab({
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchOrders = useCallback(async () => {
-    if (mode === "planner") {
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
     try {
       setLoading(true);
       const res = await api.get("/inventory/purchase-orders/");
@@ -54,13 +49,16 @@ export function InventoryProcurementTab({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [mode]);
+  }, []);
 
   useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+    if (initialSection !== "planner") {
+      fetchOrders();
+    }
+  }, [initialSection, fetchOrders]);
 
   const onRefresh = () => {
+    if (initialSection === "planner") return;
     setRefreshing(true);
     fetchOrders();
   };
@@ -68,32 +66,36 @@ export function InventoryProcurementTab({
   return (
     <ScrollView
       contentContainerStyle={[styles.container, { paddingBottom: 120 }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={
+        initialSection !== "planner" ? (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        ) : undefined
+      }
       showsVerticalScrollIndicator={false}
     >
-      {/* Title */}
+      {/* Header */}
       <View style={styles.headerRow}>
         <View style={{ flex: 1, paddingRight: 8 }}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            {mode === "planner"
+            {initialSection === "planner"
               ? "PO Planner"
-              : mode === "tally"
+              : initialSection === "tally"
               ? "Tally Purchase Orders"
-              : mode === "stages"
+              : initialSection === "stages"
               ? "Pipeline Stages"
               : "Tracked Shipments"}
           </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {mode === "planner"
-              ? "Category-based demand forecast & reorder generator"
-              : mode === "tally"
-              ? "Synced Tally purchase orders & shipment tracking activation"
-              : mode === "stages"
-              ? "Manage workflow milestones & estimated transit lead times"
-              : "Live inbound shipments, stage logs & arrived quantities"}
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+            {initialSection === "planner"
+              ? "Category demand forecast & reorder generator"
+              : initialSection === "tally"
+              ? `${tallyOrders.length} synced Tally purchase orders`
+              : initialSection === "stages"
+              ? `${stages.length} workflow milestones & transit lead times`
+              : `${trackedOrders.length} tracked shipments & stage progress`}
           </Text>
         </View>
-        {mode !== "planner" && (
+        {initialSection !== "planner" && (
           <TouchableOpacity
             onPress={onRefresh}
             style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
@@ -103,19 +105,14 @@ export function InventoryProcurementTab({
         )}
       </View>
 
-      {/* Content */}
-      {mode === "planner" ? (
+      {/* Active Section */}
+      {initialSection === "planner" ? (
         <POPlannerSection />
       ) : loading && !refreshing ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading procurement orders...
-          </Text>
-        </View>
-      ) : mode === "tally" ? (
+        <SkeletonCardList count={4} height={106} />
+      ) : initialSection === "tally" ? (
         <TallyPOsSection orders={tallyOrders} onRefresh={fetchOrders} />
-      ) : mode === "stages" ? (
+      ) : initialSection === "stages" ? (
         <PipelineStagesSection stages={stages} onRefresh={fetchOrders} />
       ) : (
         <TrackedShipmentsSection orders={trackedOrders} onRefresh={fetchOrders} />
@@ -150,3 +147,4 @@ const styles = StyleSheet.create({
   },
   loadingText: { fontSize: 13, fontFamily: Typography.medium },
 });
+

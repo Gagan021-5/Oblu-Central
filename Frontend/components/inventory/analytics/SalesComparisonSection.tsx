@@ -11,6 +11,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
+import { SearchBar } from "@/components/ui/SearchBar";
 import api from "@/services/api";
 
 interface ComparisonItem {
@@ -101,27 +103,21 @@ export function SalesComparisonSection() {
           Category-Wise Sales Comparison
         </Text>
 
-        <View style={[styles.searchRow, { backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder }]}>
-          <Ionicons name="search" size={16} color={colors.textMuted} />
-          <TextInput
-            placeholder="Search category or product..."
-            placeholderTextColor={colors.textMuted}
-            value={search}
-            onChangeText={setSearch}
-            onSubmitEditing={applyFilter}
-            style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity
-              onPress={() => {
-                setSearch("");
-                fetchComparison(fromDate, toDate, "");
-              }}
-            >
-              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholders={[
+            'Search "category"',
+            'Search "product name"',
+            'Search "sales trend"',
+          ]}
+          intervalMs={2000}
+          onSubmitEditing={applyFilter}
+          onClear={() => {
+            setSearch("");
+            fetchComparison(fromDate, toDate, "");
+          }}
+        />
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <View style={{ flex: 1 }}>
@@ -199,10 +195,7 @@ export function SalesComparisonSection() {
       )}
 
       {loading ? (
-        <View style={{ padding: 40, alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Comparing category and product velocities...</Text>
-        </View>
+        <SkeletonCardList count={4} height={102} />
       ) : categories.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Ionicons name="swap-horizontal-outline" size={38} color={colors.textMuted} />

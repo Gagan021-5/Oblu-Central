@@ -15,6 +15,7 @@ import api from "@/services/api";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography } from "@/constants/theme";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 
 type IncentiveRow = {
   id: string;
@@ -233,7 +234,7 @@ export default function IncentivesScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator color="#159A7C" style={{ marginVertical: 20 }} />
+          <SkeletonCardList count={4} height={82} />
         ) : rows.length > 0 ? (
           rows.map((row) => (
             <View key={row.id} style={[styles.trxCard, { borderColor: card.borderColor }]}>

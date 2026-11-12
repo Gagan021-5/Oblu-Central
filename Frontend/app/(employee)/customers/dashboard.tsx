@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { DashboardStats, fetchDashboardStatsApi, fetchCustomerChartsApi } from "@/services/customerService";
 import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
+import { SkeletonBlock } from "@/components/ui/SkeletonCard";
 import { Typography } from "@/constants/theme";
 
 const links = [
@@ -250,7 +251,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
           </TouchableOpacity>
         ))}
 
-        {loading && <ActivityIndicator style={{ marginTop: 12 }} color="#20B99A" />}
+        {loading && <SkeletonBlock height={96} borderRadius={16} style={{ marginTop: 4 }} />}
       </ScrollView>
       <CustomerNavDrawer
         visible={drawerVisible}

@@ -8,6 +8,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography } from "@/constants/theme";
+import { SkeletonBlock } from "@/components/ui/SkeletonCard";
 import { CustomerChartsData, fetchCustomerChartsApi } from "@/services/customerService";
 
 const PIE_COLORS = [
@@ -208,7 +209,7 @@ export default function CustomerAnalyticsScreen() {
           <Text style={[styles.sectionSubtitle, { color: muted }]}>Customer account allocation</Text>
         </View>
         {loading ? (
-          <ActivityIndicator color="#20B99A" />
+          <SkeletonBlock height={190} borderRadius={16} />
         ) : salespersonPieData.length > 0 ? (
           <>
             <View style={styles.chartBox}>
@@ -241,7 +242,7 @@ export default function CustomerAnalyticsScreen() {
           <Text style={[styles.sectionSubtitle, { color: muted }]}>Geographic presence breakdown</Text>
         </View>
         {loading ? (
-          <ActivityIndicator color="#20B99A" />
+          <SkeletonBlock height={190} borderRadius={16} />
         ) : statePieData.length > 0 ? (
           <>
             <View style={styles.chartBox}>

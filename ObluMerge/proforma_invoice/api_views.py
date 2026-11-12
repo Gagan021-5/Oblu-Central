@@ -4,7 +4,7 @@ Provides real-time access to Proforma Invoices, Quotations, Line Items, Approval
 and Full Warehouse Dispatch Photo & Docket Upload Workflows.
 """
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import Q, Count, Sum
@@ -36,6 +36,7 @@ from .models import (
     DispatchRemark,
     DispatchStateHistory,
     DispatchInvoice,
+    CourierCharge,
 )
 
 
@@ -83,21 +84,194 @@ def _format_inr(val):
         return f"₹{v:.2f}"
 
 
+_SHEET_CATEGORIES = {"THERMOFORMING SHEETS", "BAY MATERIALS"}
+_PER_UNIT_KEYWORDS = ("PRINTER", "RESIN", "ANYCUBIC", "FILAMENT", "MACHINE")
+
+
+def _fast_invoice_status(inv):
+    """Determine unified status from prefetched caches without extra SQL queries."""
+    if getattr(inv, "dispatch_status", "") == "dispatched":
+        return "Billed"
+    if any(r.status == "pending" for r in inv.price_requests.all()):
+        return "Pending"
+    if any(r.status == "pending" for r in inv.stock_requests.all()):
+        return "Pending"
+    return "Approved"
+
+
+def _fast_quotation_status(q):
+    """Determine unified status from prefetched caches without extra SQL queries."""
+    if getattr(q, "is_converted_to_proforma", False):
+        return "Billed"
+    if any(r.status == "pending" for r in q.price_requests.all()):
+        return "Pending"
+    return "Approved"
+
+
+def _fast_unit_price_incl_tax(item, customer_id=None, approved_mem_map=None, is_quotation=False):
+    if is_quotation and getattr(item, "requested_price", None) and item.requested_price > 0:
+        return Decimal(str(item.requested_price))
+    product = getattr(item, "product", None)
+    if not product:
+        return Decimal("0.00")
+    price_obj = getattr(product, "proforma_price", None)
+    if is_quotation and approved_mem_map is not None:
+        mem = approved_mem_map.get((customer_id, product.id))
+        if mem and price_obj and mem.base_price_at_approval == price_obj.price:
+            return Decimal(str(mem.min_approved_price))
+    if not price_obj:
+        return Decimal("0.00")
+    unit_price = Decimal(str(price_obj.price or 0))
+    if price_obj.has_dynamic_price:
+        tiers = sorted(price_obj.price_tiers.all(), key=lambda t: t.min_quantity, reverse=True)
+        for t in tiers:
+            if t.min_quantity <= (item.quantity or 0):
+                unit_price = Decimal(str(t.unit_price))
+                break
+    return unit_price
+
+
+def _fast_courier_charge(items, courier_mode, courier_tiers_map, allow_zero_max=False):
+    total_courier = Decimal("0.00")
+    total_sheet_qty = Decimal("0")
+    sheet_product_id = None
+
+    for item in items:
+        qty = Decimal(str(item.quantity or 0))
+        if allow_zero_max and qty <= 0:
+            continue
+        product = getattr(item, "product", None)
+        cat_name = product.category.name.upper() if (product and product.category) else ""
+        if cat_name in _SHEET_CATEGORIES:
+            total_sheet_qty += qty
+            if sheet_product_id is None and product:
+                sheet_product_id = product.id
+
+    if total_sheet_qty > 0 and sheet_product_id:
+        for t in courier_tiers_map.get((sheet_product_id, courier_mode), ()):
+            if t.min_quantity <= total_sheet_qty and (t.max_quantity is None or t.max_quantity >= total_sheet_qty):
+                total_courier += Decimal(str(t.charge))
+                break
+
+    for item in items:
+        qty = Decimal(str(item.quantity or 0))
+        if allow_zero_max and qty <= 0:
+            continue
+        product = getattr(item, "product", None)
+        if not product:
+            continue
+        cat_name = product.category.name.upper() if product.category else ""
+        if cat_name in _SHEET_CATEGORIES:
+            continue
+        for t in courier_tiers_map.get((product.id, courier_mode), ()):
+            max_ok = t.max_quantity is None or t.max_quantity >= qty or (allow_zero_max and t.max_quantity == 0)
+            if t.min_quantity <= qty and max_ok:
+                is_per_unit = any(kw in cat_name for kw in _PER_UNIT_KEYWORDS)
+                total_courier += (qty * Decimal(str(t.charge))) if is_per_unit else Decimal(str(t.charge))
+                break
+
+    return total_courier
+
+
+def _fast_proforma_totals(pi, items, price_reqs, courier_tiers_map):
+    altered_prices = {}
+    courier_req = None
+    for req in price_reqs:
+        if req.status == "approved":
+            if req.is_product_request and req.product_id:
+                altered_prices[str(req.product_id)] = Decimal(str(req.requested_price))
+            if courier_req is None and req.requested_courier_charge is not None:
+                courier_req = req
+
+    subtotal_excl = Decimal("0.00")
+    total_product_gst = Decimal("0.00")
+    raw_items_total = Decimal("0.00")
+    item_entries = []
+
+    for item in items:
+        qty = Decimal(str(item.quantity or 0))
+        product = getattr(item, "product", None)
+        price_obj = getattr(product, "proforma_price", None) if product else None
+        gst_rate = Decimal(str(price_obj.tax_rate or 0)) if price_obj else Decimal("0")
+        base_incl = _fast_unit_price_incl_tax(item, is_quotation=False)
+        item_val = base_incl * qty
+        raw_items_total += item_val
+        item_entries.append((item_val, gst_rate))
+
+        if product and str(product.id) in altered_prices:
+            unit_price_incl = altered_prices[str(product.id)]
+        elif getattr(item, "current_price", None):
+            unit_price_incl = Decimal(str(item.current_price))
+        else:
+            unit_price_incl = base_incl
+
+        divisor = Decimal("1.00") + (gst_rate / Decimal("100"))
+        unit_price_excl = (unit_price_incl / divisor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        taxable_value = (unit_price_excl * qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        product_gst = (taxable_value * gst_rate / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        subtotal_excl += taxable_value
+        total_product_gst += product_gst
+
+    base_courier = _fast_courier_charge(items, pi.courier_mode, courier_tiers_map, allow_zero_max=True)
+    courier_charge = Decimal(str(courier_req.requested_courier_charge)) if courier_req else base_courier
+
+    if subtotal_excl > 0:
+        combined_gst_rate = (total_product_gst / subtotal_excl * Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    else:
+        combined_gst_rate = Decimal("0.00")
+
+    final_courier_gst = (courier_charge * combined_gst_rate / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    total_gst = (total_product_gst + final_courier_gst).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    gross_total = (subtotal_excl + courier_charge + total_gst).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    final_total = float(gross_total.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+    courier_gst_display = Decimal("0.00")
+    if base_courier > 0 and raw_items_total > 0:
+        for item_val, gst_rate in item_entries:
+            courier_gst_display += (base_courier * (item_val / raw_items_total)) * gst_rate / Decimal("100")
+
+    return final_total, float(courier_gst_display)
+
+
+def _fast_quotation_totals(q, items, courier_tiers_map, approved_mem_map):
+    items_incl = Decimal("0.00")
+    item_entries = []
+    for item in items:
+        product = getattr(item, "product", None)
+        price_obj = getattr(product, "proforma_price", None) if product else None
+        gst_rate = Decimal(str(price_obj.tax_rate or 0)) if price_obj else Decimal("0")
+        unit_incl = _fast_unit_price_incl_tax(
+            item,
+            customer_id=q.customer_id,
+            approved_mem_map=approved_mem_map,
+            is_quotation=True,
+        )
+        item_val = unit_incl * Decimal(str(item.quantity or 0))
+        items_incl += item_val
+        item_entries.append((item_val, gst_rate))
+
+    total_courier = _fast_courier_charge(items, q.courier_mode, courier_tiers_map, allow_zero_max=False)
+    courier_gst = Decimal("0.00")
+    if total_courier > 0 and items_incl > 0:
+        gst_sum = Decimal("0.00")
+        for item_val, gst_rate in item_entries:
+            gst_sum += (total_courier * (item_val / items_incl)) * gst_rate / Decimal("100")
+        courier_gst = gst_sum.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    grand = (items_incl + total_courier + courier_gst).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return float(grand), float(courier_gst)
+
+
 def _get_invoice_status(inv):
     """Determine unified status for mobile display: Approved | Pending | Billed."""
     if getattr(inv, "dispatch_status", "") == "dispatched":
         return "Billed"
-
-    # Check pending price requests
     if hasattr(inv, "price_requests"):
-        if inv.price_requests.filter(status="pending").exists():
+        if any(r.status == "pending" for r in inv.price_requests.all()):
             return "Pending"
-
-    # Check pending stock requests
     if hasattr(inv, "stock_requests"):
-        if inv.stock_requests.filter(status="pending").exists():
+        if any(r.status == "pending" for r in inv.stock_requests.all()):
             return "Pending"
-
     return "Approved"
 
 
@@ -105,7 +279,7 @@ def _get_quotation_status(q):
     if getattr(q, "is_converted_to_proforma", False):
         return "Billed"
     if hasattr(q, "price_requests"):
-        if q.price_requests.filter(status="pending").exists():
+        if any(r.status == "pending" for r in q.price_requests.all()):
             return "Pending"
     return "Approved"
 
@@ -125,16 +299,37 @@ class ProformaListCreateAPIView(APIView):
         search_query = request.query_params.get("search", "").strip()
         doc_type = request.query_params.get("type", "all").strip().lower()
         status_filter = request.query_params.get("status", "all").strip().lower()
-        page = int(request.query_params.get("page", 1))
-        page_size = int(request.query_params.get("page_size", 40))
+        page = max(1, int(request.query_params.get("page", 1)))
+        page_size = min(100, max(1, int(request.query_params.get("page_size", 40))))
+
+        # Preload courier rules & tiers once in 2 queries (eliminates thousands of per-item queries)
+        courier_tiers_map = {}
+        for cc in CourierCharge.objects.prefetch_related("tiers").all():
+            courier_tiers_map[(cc.product_id, cc.mode)] = sorted(
+                cc.tiers.all(), key=lambda t: t.min_quantity, reverse=True
+            )
+
+        approved_mem_map = {}
+        if doc_type in ["all", "quotation"]:
+            for mem in ApprovedPriceMemory.objects.all():
+                approved_mem_map[(mem.customer_id, mem.product_id)] = mem
 
         # ── 1. Query Proformas ──────────────────────────────────────────
-        pi_qs = ProformaInvoice.objects.select_related("customer").prefetch_related("price_requests", "items")
+        pi_qs = ProformaInvoice.objects.select_related("customer").prefetch_related(
+            "price_requests",
+            "stock_requests",
+            "items__product__category",
+            "items__product__proforma_price__price_tiers",
+        )
         if not (user.is_superuser or is_admin(user) or is_finance(user)):
             pi_qs = scope_queryset(user, "proforma.view", pi_qs)
 
         # ── 2. Query Quotations ─────────────────────────────────────────
-        q_qs = QuotationMaker.objects.select_related("customer").prefetch_related("price_requests", "items")
+        q_qs = QuotationMaker.objects.select_related("customer").prefetch_related(
+            "price_requests",
+            "items__product__category",
+            "items__product__proforma_price__price_tiers",
+        )
         if not (user.is_superuser or is_admin(user) or is_finance(user)):
             q_qs = scope_queryset(user, "proforma.view", q_qs)
 
@@ -153,22 +348,19 @@ class ProformaListCreateAPIView(APIView):
 
         items_list = []
 
-        # Include Proformas
+        # Include Proformas (single pass over prefetched caches)
         if doc_type in ["all", "proforma"]:
             for pi in pi_qs.order_by("-date_created")[:150]:
-                status = _get_invoice_status(pi)
+                status = _fast_invoice_status(pi)
                 if status_filter != "all" and status.lower() != status_filter:
                     continue
 
+                pi_items = list(pi.items.all())
+                pi_reqs = list(pi.price_requests.all())
                 try:
-                    total_amt = float(pi.calculate_final_total() or 0)
+                    total_amt, gst_amt = _fast_proforma_totals(pi, pi_items, pi_reqs, courier_tiers_map)
                 except Exception:
-                    total_amt = 0.0
-
-                try:
-                    gst_amt = float(pi.courier_gst() or 0)
-                except Exception:
-                    gst_amt = 0.0
+                    total_amt, gst_amt = 0.0, 0.0
 
                 items_list.append({
                     "id": str(pi.id),
@@ -183,26 +375,22 @@ class ProformaListCreateAPIView(APIView):
                     "rep": pi.created_by or "Sales Rep",
                     "status": status,
                     "dispatch_status": pi.dispatch_status,
-                    "items_count": pi.items.count() if hasattr(pi, "items") else 0,
+                    "items_count": len(pi_items),
                     "created_at": pi.date_created.isoformat() if pi.date_created else "",
                 })
 
-        # Include Quotations
+        # Include Quotations (single pass over prefetched caches)
         if doc_type in ["all", "quotation"]:
             for q in q_qs.order_by("-date_created")[:150]:
-                status = _get_quotation_status(q)
+                status = _fast_quotation_status(q)
                 if status_filter != "all" and status.lower() != status_filter:
                     continue
 
+                q_items = list(q.items.all())
                 try:
-                    total_amt = float(q.grand_total() or 0)
+                    total_amt, gst_amt = _fast_quotation_totals(q, q_items, courier_tiers_map, approved_mem_map)
                 except Exception:
-                    total_amt = 0.0
-
-                try:
-                    gst_amt = float(q.courier_gst() or 0)
-                except Exception:
-                    gst_amt = 0.0
+                    total_amt, gst_amt = 0.0, 0.0
 
                 items_list.append({
                     "id": str(q.id),
@@ -217,7 +405,7 @@ class ProformaListCreateAPIView(APIView):
                     "rep": q.created_by or "Sales Rep",
                     "status": status,
                     "dispatch_status": "quotation",
-                    "items_count": q.items.count() if hasattr(q, "items") else 0,
+                    "items_count": len(q_items),
                     "created_at": q.date_created.isoformat() if q.date_created else "",
                 })
 
@@ -327,7 +515,11 @@ class ProformaDetailAPIView(APIView):
 
         if doc_type == "quotation":
             doc = get_object_or_404(
-                QuotationMaker.objects.select_related("customer").prefetch_related("items__product", "price_requests"),
+                QuotationMaker.objects.select_related("customer").prefetch_related(
+                    "items__product__category",
+                    "items__product__proforma_price__price_tiers",
+                    "price_requests__product",
+                ),
                 pk=pk
             )
             if not (user.is_superuser or is_admin(user) or is_finance(user) or can(user, "proforma.view", doc)):
@@ -335,12 +527,17 @@ class ProformaDetailAPIView(APIView):
 
             status = _get_quotation_status(doc)
             prefix = "QT"
-            items_qs = doc.items.select_related("product")
+            items_qs = doc.items.all()
             can_convert = not getattr(doc, "is_converted_to_proforma", False) and can(user, "proforma.create")
             web_url = f"/proforma/quotation/{doc.id}/"
         else:
             doc = get_object_or_404(
-                ProformaInvoice.objects.select_related("customer").prefetch_related("items__product", "price_requests"),
+                ProformaInvoice.objects.select_related("customer").prefetch_related(
+                    "items__product__category",
+                    "items__product__proforma_price__price_tiers",
+                    "price_requests__product",
+                    "stock_requests",
+                ),
                 pk=pk
             )
             if not (user.is_superuser or is_admin(user) or is_finance(user) or can(user, "proforma.view", doc)):
@@ -348,12 +545,12 @@ class ProformaDetailAPIView(APIView):
 
             status = _get_invoice_status(doc)
             prefix = "PI"
-            items_qs = doc.items.select_related("product")
+            items_qs = doc.items.all()
             can_convert = False
             web_url = f"/proforma/{doc.id}/"
 
         items_list = []
-        for itm in items_qs.all():
+        for itm in items_qs:
             p = itm.product
             unit_price = float(getattr(itm, "unit_price", lambda: 0)() if callable(getattr(itm, "unit_price", None)) else getattr(itm, "current_price", 0) or 0)
             total_price = float(getattr(itm, "total_price", lambda: 0)() if callable(getattr(itm, "total_price", None)) else (unit_price * itm.quantity))

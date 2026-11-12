@@ -14,6 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList, SkeletonBlock } from "@/components/ui/SkeletonCard";
+import { SearchBar } from "@/components/ui/SearchBar";
 import api from "@/services/api";
 
 interface CategoryStat {
@@ -145,28 +147,22 @@ export function SalesContributionSection() {
   return (
     <View style={{ gap: 12 }}>
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, gap: 10 }]}>
-        <View style={[styles.searchRow, { backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder }]}>
-          <Ionicons name="search" size={16} color={colors.textMuted} />
-          <TextInput
-            placeholder="Search product..."
-            placeholderTextColor={colors.textMuted}
-            value={search}
-            onChangeText={setSearch}
-            onSubmitEditing={handleUpdate}
-            style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity
-              onPress={() => {
-                setSearch("");
-                setAppliedSearch("");
-                fetchData(startDate, endDate, "");
-              }}
-            >
-              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholders={[
+            'Search "product name"',
+            'Search "category share"',
+            'Search "sales ledger"',
+          ]}
+          intervalMs={2000}
+          onSubmitEditing={handleUpdate}
+          onClear={() => {
+            setSearch("");
+            setAppliedSearch("");
+            fetchData(startDate, endDate, "");
+          }}
+        />
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <View style={{ flex: 1 }}>
@@ -227,9 +223,9 @@ export function SalesContributionSection() {
       </View>
 
       {loading ? (
-        <View style={{ padding: 40, alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Calculating Tax Invoice sales rankings...</Text>
+        <View style={{ gap: 12 }}>
+          <SkeletonBlock height={175} borderRadius={16} />
+          <SkeletonCardList count={4} height={82} />
         </View>
       ) : (
         <>
@@ -332,7 +328,7 @@ export function SalesContributionSection() {
           </View>
 
           {ledgerLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+            <SkeletonCardList count={4} height={86} style={{ padding: 16 }} />
           ) : (
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 10 }}>
               <View style={[styles.card, { backgroundColor: colors.strongGraphite, borderColor: colors.cardBorder, flexDirection: "row", justifyContent: "space-between" }]}>

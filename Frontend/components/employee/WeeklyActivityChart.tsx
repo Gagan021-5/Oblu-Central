@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { ActivityIndicator, View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { SkeletonBlock } from "@/components/ui/SkeletonCard";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes } from "@/constants/theme";
 
@@ -47,7 +48,7 @@ export const WeeklyActivityChart: React.FC<WeeklyActivityChartProps> = ({ activi
         </View> : null}
       </View>
 
-      {loading ? <View style={styles.state}><ActivityIndicator color="#00A879" /><Text style={[styles.stateText, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Loading activity from the server…</Text></View>
+      {loading ? <SkeletonBlock height={116} borderRadius={14} style={{ marginVertical: 4 }} />
         : unavailable ? <View style={styles.state}><Text style={[styles.stateText, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Activity not fetched. Refresh to try again.</Text></View>
           : weekData.length === 0 || weekData.every((item) => item.interactions === 0 && item.followups === 0)
             ? <View style={styles.state}><Text style={[styles.stateText, { color: isDark ? "#8FA09A" : "#5E6964" }]}>No customer activity recorded for these seven days.</Text></View>

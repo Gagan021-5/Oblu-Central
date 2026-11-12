@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography } from "@/constants/theme";
 import { MetricCard } from "@/components/employee/MetricCard";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 
 type ToolRow = Record<string, any>;
 type RsmOption = { id: number | string; name: string };
@@ -1415,7 +1416,7 @@ export default function CustomerToolScreen() {
 
         {/* Main Records List / View Switching */}
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 24 }} color="#20B99A" size="large" />
+          <SkeletonCardList count={5} height={96} style={{ marginTop: 12 }} />
         ) : tool === "team-customers" ? (
           portfolioEntries.map((entry, index) => {
             if (entry.kind === "customer") return renderPortfolioCustomer(entry.row, index);

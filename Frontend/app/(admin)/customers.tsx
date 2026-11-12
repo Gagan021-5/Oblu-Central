@@ -26,6 +26,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { SearchBar } from "@/components/ui/SearchBar";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { Customer } from "@/data/customerTypes";
 import {
   CustomerEditOptions,
@@ -539,47 +541,24 @@ export default function CustomersScreen() {
 
       {/* Search */}
       <View style={styles.searchWrap}>
-        <View
-          style={[
-            styles.searchBox,
-            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholders={[
+            'Search "company name"',
+            'Search "contact person"',
+            'Search "city"',
+            'Search "phone number"',
           ]}
-        >
-          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.textPrimary }]}
-            placeholder="Search customers, contacts, city..."
-            placeholderTextColor={colors.textMuted}
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={() => setFilterVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Filter and sort customers"
-            style={styles.filterButton}
-          >
-            <Ionicons
-              name="options-outline"
-              size={21}
-              color={filtersActive ? colors.primary : colors.textMuted}
-            />
-          </TouchableOpacity>
-        </View>
+          intervalMs={2000}
+          onClear={() => setSearch("")}
+          onFilterPress={() => setFilterVisible(true)}
+          filterActive={filtersActive}
+        />
       </View>
 
       {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textMuted }]}>
-            Loading customers from database...
-          </Text>
-        </View>
+        <SkeletonCardList count={5} height={112} style={{ paddingHorizontal: 16, paddingTop: 6 }} />
       ) : filteredCustomers.length === 0 ? (
         <View style={styles.loadingWrap}>
           <Ionicons name={loadError ? "cloud-offline-outline" : "people-outline"} size={48} color={colors.textMuted} />

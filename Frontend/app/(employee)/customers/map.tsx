@@ -19,6 +19,8 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography } from "@/constants/theme";
+import { SkeletonBlock } from "@/components/ui/SkeletonCard";
+import { SearchBar } from "@/components/ui/SearchBar";
 import { Customer } from "@/data/customerTypes";
 import { fetchCustomerMapPointsFromApi } from "@/services/customerService";
 
@@ -361,21 +363,17 @@ export default function CustomerMapScreen() {
         </View>
 
         {/* Search District / Client */}
-        <View style={[styles.searchBox, card]}>
-          <Ionicons name="search-outline" size={18} color="#159A7C" />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search district, state, or client name…"
-            placeholderTextColor={muted}
-            style={[styles.searchInput, { color: foreground }]}
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
-              <Ionicons name="close-circle" size={18} color={muted} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholders={[
+            'Search "district"',
+            'Search "state"',
+            'Search "client name"',
+          ]}
+          intervalMs={2000}
+          onClear={() => setSearchQuery("")}
+        />
 
         {/* Interactive Marked Map Container */}
         <View style={[styles.mapContainer, card]}>
@@ -397,10 +395,7 @@ export default function CustomerMapScreen() {
           </View>
 
           {loading ? (
-            <View style={styles.mapLoading}>
-              <ActivityIndicator color="#20B99A" size="large" />
-              <Text style={{ color: muted, marginTop: 8, fontSize: 12 }}>Loading map coordinates…</Text>
-            </View>
+            <SkeletonBlock height={360} borderRadius={16} />
           ) : (
             <View style={styles.canvasWrapper}>
               {Platform.OS === "web" ? (

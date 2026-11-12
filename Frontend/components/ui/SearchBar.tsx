@@ -19,6 +19,7 @@ interface SearchBarProps {
   placeholders?: string[];
   intervalMs?: number;
   onClear?: () => void;
+  onSubmitEditing?: () => void;
   onFilterPress?: () => void;
   filterActive?: boolean;
 }
@@ -30,6 +31,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   placeholders,
   intervalMs = 2000,
   onClear,
+  onSubmitEditing,
   onFilterPress,
   filterActive = false,
 }) => {
@@ -151,6 +153,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           ]}
           value={value}
           onChangeText={onChangeText}
+          onSubmitEditing={onSubmitEditing}
           placeholder={hasRotatingPlaceholders ? "" : placeholder}
           placeholderTextColor={placeholderColor}
           autoCapitalize="none"

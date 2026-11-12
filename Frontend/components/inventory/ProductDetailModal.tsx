@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes, Radius, Shadows } from "@/constants/theme";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { SkeletonCardList, SkeletonBlock } from "@/components/ui/SkeletonCard";
 import AppLineChart from "@/components/charts/AppLineChart";
 import api from "@/services/api";
 
@@ -181,9 +182,10 @@ export function ProductDetailModal({ visible, itemId, initialTab, onClose }: Pro
         </View>
 
         {loading ? (
-          <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color="#159A7C" />
-            <Text style={[styles.loadingText, { color: muted }]}>Loading product analytics…</Text>
+          <View style={{ padding: 16, gap: 12 }}>
+            <SkeletonBlock height={110} borderRadius={16} />
+            <SkeletonBlock height={175} borderRadius={16} />
+            <SkeletonCardList count={2} height={76} />
           </View>
         ) : error || !detail ? (
           <View style={styles.centerBox}>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { View, Animated, StyleSheet } from "react-native";
+import { View, Animated, StyleSheet, StyleProp, ViewStyle, DimensionValue } from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 
 interface SkeletonCardProps {
@@ -8,19 +8,19 @@ interface SkeletonCardProps {
 
 export const SkeletonCard: React.FC<SkeletonCardProps> = ({ height = 110 }) => {
   const { isDark } = useTheme();
-  const animatedValue = useRef(new Animated.Value(0.3)).current;
+  const animatedValue = useRef(new Animated.Value(0.35)).current;
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(animatedValue, {
-          toValue: 0.8,
-          duration: 750,
+          toValue: 0.85,
+          duration: 720,
           useNativeDriver: true,
         }),
         Animated.timing(animatedValue, {
-          toValue: 0.3,
-          duration: 750,
+          toValue: 0.35,
+          duration: 720,
           useNativeDriver: true,
         }),
       ])
@@ -59,7 +59,88 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ height = 110 }) => {
   );
 };
 
+interface SkeletonCardListProps {
+  count?: number;
+  height?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+/**
+ * Stack of pulsing skeleton cards to replace full-screen/list spinners cleanly.
+ */
+export const SkeletonCardList: React.FC<SkeletonCardListProps> = ({
+  count = 4,
+  height = 104,
+  style,
+}) => {
+  return (
+    <View style={[styles.listWrap, style]}>
+      {Array.from({ length: count }).map((_, idx) => (
+        <SkeletonCard key={`skel-${idx}`} height={height} />
+      ))}
+    </View>
+  );
+};
+
+interface SkeletonBlockProps {
+  width?: DimensionValue;
+  height?: number;
+  borderRadius?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+/**
+ * Single pulsing shimmer block for charts, modals, and inline loading placeholders.
+ */
+export const SkeletonBlock: React.FC<SkeletonBlockProps> = ({
+  width = "100%",
+  height = 120,
+  borderRadius = 16,
+  style,
+}) => {
+  const { isDark } = useTheme();
+  const animatedValue = useRef(new Animated.Value(0.35)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 0.85,
+          duration: 720,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0.35,
+          duration: 720,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [animatedValue]);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          borderRadius,
+          backgroundColor: isDark ? "#172721" : "#E6EEE9",
+          opacity: animatedValue,
+        },
+        style,
+      ]}
+    />
+  );
+};
+
 const styles = StyleSheet.create({
+  listWrap: {
+    width: "100%",
+    paddingTop: 4,
+  },
   card: {
     borderRadius: 18,
     borderWidth: 1,

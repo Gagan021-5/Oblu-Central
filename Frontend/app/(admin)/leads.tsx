@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { fetchLeadsFromApi, updateLeadStageApi } from "@/services/leadService";
 import { Lead, LeadStage } from "@/data/mockLeads";
 
@@ -158,12 +159,7 @@ export default function LeadsScreen() {
       </View>
 
       {loading && !refreshing ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Connecting to Leads Database...
-          </Text>
-        </View>
+        <SkeletonCardList count={5} height={106} style={{ paddingHorizontal: 16, paddingTop: 12 }} />
       ) : !selectedLead ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}

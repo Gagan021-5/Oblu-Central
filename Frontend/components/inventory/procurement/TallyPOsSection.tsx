@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
+import { SearchBar } from "@/components/ui/SearchBar";
 import api from "@/services/api";
 import { TallyPO } from "./types";
 import { TrackedPODetailModal } from "./TrackedShipmentsSection";
@@ -57,21 +58,17 @@ export function TallyPOsSection({ orders, onRefresh }: TallyPOsSectionProps) {
 
   return (
     <View style={{ gap: 12 }}>
-      <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-        <Ionicons name="search" size={16} color={colors.textMuted} />
-        <TextInput
-          placeholder="Search voucher no, supplier, or item..."
-          placeholderTextColor={colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-          style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch("")}>
-            <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        placeholders={[
+          'Search "voucher no"',
+          'Search "supplier"',
+          'Search "order item"',
+        ]}
+        intervalMs={2000}
+        onClear={() => setSearch("")}
+      />
 
       {filtered.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>

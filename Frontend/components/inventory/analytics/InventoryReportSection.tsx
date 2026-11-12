@@ -13,6 +13,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
+import { SearchBar } from "@/components/ui/SearchBar";
 import api from "@/services/api";
 
 interface ReportItem {
@@ -179,26 +181,22 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
         </View>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <View style={[styles.searchRow, { flex: 1, backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder }]}>
-            <Ionicons name="search" size={16} color={colors.textMuted} />
-            <TextInput
-              placeholder="Search product name..."
-              placeholderTextColor={colors.textMuted}
+          <View style={{ flex: 1 }}>
+            <SearchBar
               value={search}
               onChangeText={setSearch}
+              placeholders={[
+                'Search "product name"',
+                'Search "low threshold"',
+                'Search "category"',
+              ]}
+              intervalMs={2000}
               onSubmitEditing={handleApply}
-              style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
+              onClear={() => {
+                setSearch("");
+                fetchReport("", selectedCatId, lowOnly);
+              }}
             />
-            {search.length > 0 && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSearch("");
-                  fetchReport("", selectedCatId, lowOnly);
-                }}
-              >
-                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-            )}
           </View>
           <TouchableOpacity
             onPress={handleToggleLow}
@@ -309,10 +307,7 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
       )}
 
       {loading ? (
-        <View style={{ padding: 40, alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Loading full threshold report...</Text>
-        </View>
+        <SkeletonCardList count={4} height={100} />
       ) : categories.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Ionicons name="document-text-outline" size={38} color={colors.textMuted} />

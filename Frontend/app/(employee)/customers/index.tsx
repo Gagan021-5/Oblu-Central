@@ -358,7 +358,13 @@ export default function CustomerDashboardScreen() {
             <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search by company, contact person, city..."
+              placeholders={[
+                'Search "company name"',
+                'Search "contact person"',
+                'Search "city"',
+                'Search "phone number"',
+              ]}
+              intervalMs={2000}
             />
           </View>
           <TouchableOpacity

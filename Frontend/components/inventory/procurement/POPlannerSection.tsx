@@ -15,6 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
+import { SearchBar } from "@/components/ui/SearchBar";
 import api from "@/services/api";
 import { CategoryOption, POPlannerProduct, POPlannerSummary } from "./types";
 import {
@@ -257,21 +259,19 @@ export function POPlannerSection() {
           </TouchableOpacity>
         </View>
 
-        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-          <View style={[styles.searchInputWrap, { flex: 1, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}>
-            <Ionicons name="search" size={15} color={colors.textMuted} />
-            <TextInput
-              placeholder="Filter products..."
-              placeholderTextColor={colors.textMuted}
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 10, alignItems: "center" }}>
+          <View style={{ flex: 1 }}>
+            <SearchBar
               value={prodSearch}
               onChangeText={setProdSearch}
-              style={{ flex: 1, color: colors.textPrimary, fontSize: 12.5, paddingVertical: 6 }}
+              placeholders={[
+                'Search "product name"',
+                'Search "SKU code"',
+                'Search "reorder item"',
+              ]}
+              intervalMs={2000}
+              onClear={() => setProdSearch("")}
             />
-            {prodSearch.length > 0 && (
-              <TouchableOpacity onPress={() => setProdSearch("")}>
-                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-            )}
           </View>
 
           <TouchableOpacity
@@ -304,10 +304,7 @@ export function POPlannerSection() {
       )}
 
       {loading ? (
-        <View style={{ padding: 40, alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Running PO demand simulation...</Text>
-        </View>
+        <SkeletonCardList count={4} height={106} />
       ) : visibleProducts.length === 0 ? (
         <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Ionicons name="cube-outline" size={34} color={colors.textMuted} />

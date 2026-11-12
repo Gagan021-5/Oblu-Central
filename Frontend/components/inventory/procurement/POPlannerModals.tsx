@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius, Shadows } from "@/constants/theme";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import AppLineChart from "@/components/charts/AppLineChart";
 import api from "@/services/api";
 import { POPlannerProduct, DailySaleRow } from "./types";
@@ -450,7 +451,7 @@ export function POPlannerTopCustomersModal({
 
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
           {loading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+            <SkeletonCardList count={4} height={86} />
           ) : customers.length === 0 ? (
             <Text style={{ color: colors.textMuted, textAlign: "center", marginTop: 40 }}>
               No customer purchase history found.
