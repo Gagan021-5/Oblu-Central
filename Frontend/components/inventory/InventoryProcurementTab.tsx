@@ -25,22 +25,21 @@ interface InventoryProcurementTabProps {
 export function InventoryProcurementTab({
   initialSection = "tracked",
 }: InventoryProcurementTabProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
+  const mode = initialSection;
 
-  const [mode, setMode] = useState<"planner" | "tally" | "tracked" | "stages">(initialSection);
   const [trackedOrders, setTrackedOrders] = useState<TrackedPO[]>([]);
   const [tallyOrders, setTallyOrders] = useState<TallyPO[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialSection !== "planner");
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (initialSection) {
-      setMode(initialSection);
-    }
-  }, [initialSection]);
-
   const fetchOrders = useCallback(async () => {
+    if (mode === "planner") {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       setLoading(true);
       const res = await api.get("/inventory/purchase-orders/");
@@ -55,7 +54,7 @@ export function InventoryProcurementTab({
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     fetchOrders();
@@ -66,11 +65,6 @@ export function InventoryProcurementTab({
     fetchOrders();
   };
 
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const cardBorder = isDark ? "#1E332D" : "#E2E8F0";
-  const foreground = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
-
   return (
     <ScrollView
       contentContainerStyle={[styles.container, { paddingBottom: 120 }]}
@@ -80,7 +74,7 @@ export function InventoryProcurementTab({
       {/* Title */}
       <View style={styles.headerRow}>
         <View style={{ flex: 1, paddingRight: 8 }}>
-          <Text style={[styles.title, { color: foreground }]}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
             {mode === "planner"
               ? "PO Planner"
               : mode === "tally"
@@ -89,7 +83,7 @@ export function InventoryProcurementTab({
               ? "Pipeline Stages"
               : "Tracked Shipments"}
           </Text>
-          <Text style={[styles.subtitle, { color: muted }]}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {mode === "planner"
               ? "Category-based demand forecast & reorder generator"
               : mode === "tally"
@@ -99,136 +93,25 @@ export function InventoryProcurementTab({
               : "Live inbound shipments, stage logs & arrived quantities"}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={onRefresh}
-          style={[styles.iconBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
-        >
-          <Ionicons name="refresh" size={16} color="#00A879" />
-        </TouchableOpacity>
+        {mode !== "planner" && (
+          <TouchableOpacity
+            onPress={onRefresh}
+            style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+          >
+            <Ionicons name="refresh" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
-
-      {/* Segmented 4-Way Procurement Switcher */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabScroll}
-      >
-        <TouchableOpacity
-          onPress={() => setMode("planner")}
-          style={[
-            styles.tabPill,
-            mode === "planner" && { backgroundColor: "#00A879", borderColor: "#00A879" },
-            { borderColor: cardBorder },
-          ]}
-        >
-          <Ionicons
-            name="clipboard-outline"
-            size={13}
-            color={mode === "planner" ? "#FFFFFF" : muted}
-            style={{ marginRight: 5 }}
-          />
-          <Text
-            style={[
-              styles.tabPillText,
-              {
-                color: mode === "planner" ? "#FFFFFF" : muted,
-                fontFamily: mode === "planner" ? Typography.bold : Typography.medium,
-              },
-            ]}
-          >
-            PO Planner
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setMode("tally")}
-          style={[
-            styles.tabPill,
-            mode === "tally" && { backgroundColor: "#00A879", borderColor: "#00A879" },
-            { borderColor: cardBorder },
-          ]}
-        >
-          <Ionicons
-            name="receipt-outline"
-            size={13}
-            color={mode === "tally" ? "#FFFFFF" : muted}
-            style={{ marginRight: 5 }}
-          />
-          <Text
-            style={[
-              styles.tabPillText,
-              {
-                color: mode === "tally" ? "#FFFFFF" : muted,
-                fontFamily: mode === "tally" ? Typography.bold : Typography.medium,
-              },
-            ]}
-          >
-            Tally POs ({tallyOrders.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setMode("tracked")}
-          style={[
-            styles.tabPill,
-            mode === "tracked" && { backgroundColor: "#00A879", borderColor: "#00A879" },
-            { borderColor: cardBorder },
-          ]}
-        >
-          <Ionicons
-            name="bus-outline"
-            size={13}
-            color={mode === "tracked" ? "#FFFFFF" : muted}
-            style={{ marginRight: 5 }}
-          />
-          <Text
-            style={[
-              styles.tabPillText,
-              {
-                color: mode === "tracked" ? "#FFFFFF" : muted,
-                fontFamily: mode === "tracked" ? Typography.bold : Typography.medium,
-              },
-            ]}
-          >
-            Tracked Shipments ({trackedOrders.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setMode("stages")}
-          style={[
-            styles.tabPill,
-            mode === "stages" && { backgroundColor: "#00A879", borderColor: "#00A879" },
-            { borderColor: cardBorder },
-          ]}
-        >
-          <Ionicons
-            name="git-network-outline"
-            size={13}
-            color={mode === "stages" ? "#FFFFFF" : muted}
-            style={{ marginRight: 5 }}
-          />
-          <Text
-            style={[
-              styles.tabPillText,
-              {
-                color: mode === "stages" ? "#FFFFFF" : muted,
-                fontFamily: mode === "stages" ? Typography.bold : Typography.medium,
-              },
-            ]}
-          >
-            Pipeline Stages ({stages.length})
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
 
       {/* Content */}
       {mode === "planner" ? (
         <POPlannerSection />
       ) : loading && !refreshing ? (
         <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#00A879" />
-          <Text style={[styles.loadingText, { color: muted }]}>Loading procurement orders...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading procurement orders...
+          </Text>
         </View>
       ) : mode === "tally" ? (
         <TallyPOsSection orders={tallyOrders} onRefresh={fetchOrders} />
@@ -259,20 +142,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tabScroll: {
-    flexDirection: "row",
-    gap: 8,
-    paddingBottom: 14,
-  },
-  tabPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-  },
-  tabPillText: { fontSize: 12 },
   centerBox: {
     padding: 40,
     alignItems: "center",

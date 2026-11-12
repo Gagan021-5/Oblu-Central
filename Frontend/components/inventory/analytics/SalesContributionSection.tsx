@@ -43,8 +43,6 @@ interface LedgerRow {
   amount_display: string;
 }
 
-const BAR_COLORS = ["#6366F1", "#06B6D4", "#10B981", "#F59E0B", "#F43F5E"];
-
 function toIsoDaysAgo(days: number): { start: string; end: string } {
   const end = new Date();
   const start = new Date();
@@ -57,7 +55,7 @@ function toIsoDaysAgo(days: number): { start: string; end: string } {
 
 export function SalesContributionSection() {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const initialDates = toIsoDaysAgo(90);
   const [startDate, setStartDate] = useState(initialDates.start);
@@ -72,7 +70,6 @@ export function SalesContributionSection() {
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
   const [productStats, setProductStats] = useState<ProductStat[]>([]);
 
-  // Ledger drilldown modal
   const [ledgerItem, setLedgerItem] = useState<{ id: number; name: string } | null>(null);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [ledgerRows, setLedgerRows] = useState<LedgerRow[]>([]);
@@ -80,6 +77,8 @@ export function SalesContributionSection() {
     qty: 0,
     amtDisplay: "₹0",
   });
+
+  const barColors = [colors.primary, colors.brightMint, colors.strongGraphite, colors.warning, colors.textSecondary];
 
   const fetchData = useCallback(async (sDate: string, eDate: string, q: string) => {
     try {
@@ -143,25 +142,18 @@ export function SalesContributionSection() {
     }
   };
 
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const border = isDark ? "#1E332D" : "#E2E8F0";
-  const fg = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
-  const bg = isDark ? "#080F0D" : "#F8FAFC";
-
   return (
     <View style={{ gap: 12 }}>
-      {/* Filters Header (mirrors product_sales_report.html) */}
-      <View style={[styles.card, { backgroundColor: cardBg, borderColor: border, gap: 10 }]}>
-        <View style={[styles.searchRow, { backgroundColor: bg, borderColor: border }]}>
-          <Ionicons name="search" size={16} color={muted} />
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, gap: 10 }]}>
+        <View style={[styles.searchRow, { backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder }]}>
+          <Ionicons name="search" size={16} color={colors.textMuted} />
           <TextInput
             placeholder="Search product..."
-            placeholderTextColor={muted}
+            placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
             onSubmitEditing={handleUpdate}
-            style={{ flex: 1, color: fg, fontSize: 13 }}
+            style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
           />
           {search.length > 0 && (
             <TouchableOpacity
@@ -171,34 +163,34 @@ export function SalesContributionSection() {
                 fetchData(startDate, endDate, "");
               }}
             >
-              <Ionicons name="close-circle" size={16} color={muted} />
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.label, { color: muted }]}>START DATE</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>START DATE</Text>
             <TextInput
               value={startDate}
               onChangeText={setStartDate}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor={muted}
-              style={[styles.dateInput, { color: fg, borderColor: border, backgroundColor: bg }]}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.dateInput, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.label, { color: muted }]}>END DATE</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>END DATE</Text>
             <TextInput
               value={endDate}
               onChangeText={setEndDate}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor={muted}
-              style={[styles.dateInput, { color: fg, borderColor: border, backgroundColor: bg }]}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.dateInput, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
             />
           </View>
-          <TouchableOpacity onPress={handleUpdate} style={styles.updateBtn}>
-            <Text style={{ color: "#FFFFFF", fontFamily: Typography.bold, fontSize: 12.5 }}>Update</Text>
+          <TouchableOpacity onPress={handleUpdate} style={[styles.updateBtn, { backgroundColor: colors.primary }]}>
+            <Text style={{ color: "#FFFFFF", fontFamily: Typography.bold, fontSize: 12.5 }}>Apply</Text>
           </TouchableOpacity>
         </View>
 
@@ -207,64 +199,62 @@ export function SalesContributionSection() {
             <TouchableOpacity
               key={d}
               onPress={() => applyPreset(d)}
-              style={[styles.presetBtn, { borderColor: border, backgroundColor: bg }]}
+              style={[styles.presetBtn, { borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
             >
-              <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: fg }}>Last {d}d</Text>
+              <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: colors.textPrimary }}>Last {d}d</Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      {/* KPI Row */}
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: border }]}>
-          <Text style={[styles.label, { color: muted }]}>REVENUE</Text>
-          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: "#00A879" }} numberOfLines={1}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.label, { color: colors.textMuted }]}>REVENUE</Text>
+          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.primary }} numberOfLines={1}>
             {grandTotalDisplay}
           </Text>
         </View>
-        <View style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: border }]}>
-          <Text style={[styles.label, { color: muted }]}>TOP ITEM</Text>
-          <Text style={{ fontSize: 12.5, fontFamily: Typography.bold, color: fg }} numberOfLines={2}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.label, { color: colors.textMuted }]}>TOP ITEM</Text>
+          <Text style={{ fontSize: 12.5, fontFamily: Typography.bold, color: colors.textPrimary }} numberOfLines={2}>
             {topItem}
           </Text>
         </View>
-        <View style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: border }]}>
-          <Text style={[styles.label, { color: muted }]}>TOTAL ITEMS</Text>
-          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>{totalItemsCount}</Text>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.label, { color: colors.textMuted }]}>TOTAL ITEMS</Text>
+          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>{totalItemsCount}</Text>
         </View>
       </View>
 
       {loading ? (
         <View style={{ padding: 40, alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="large" color="#00A879" />
-          <Text style={{ color: muted, fontSize: 13 }}>Calculating Tax Invoice sales rankings...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Calculating Tax Invoice sales rankings...</Text>
         </View>
       ) : (
         <>
-          {/* Category Metrics */}
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.sectionTitle, { color: fg }]}>Category Metrics</Text>
-            <Text style={{ fontSize: 11.5, color: muted, marginBottom: 10 }}>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Category Revenue Share</Text>
+            <Text style={{ fontSize: 11.5, color: colors.textMuted, marginBottom: 10 }}>
               Grand Total: {grandTotalDisplay}
             </Text>
             <View style={{ gap: 10 }}>
               {categoryStats.slice(0, 10).map((cat, idx) => (
                 <View key={idx} style={{ gap: 4 }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={{ fontSize: 12, fontFamily: Typography.medium, color: fg, flex: 1, marginRight: 8 }} numberOfLines={1}>
+                    <Text style={{ fontSize: 12, fontFamily: Typography.medium, color: colors.textPrimary, flex: 1, marginRight: 8 }} numberOfLines={1}>
                       {cat.name}
                     </Text>
-                    <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: fg }}>
+                    <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: colors.textPrimary }}>
                       {cat.total_sales_display} ({cat.percentage}%)
                     </Text>
                   </View>
-                  <View style={{ height: 6, borderRadius: 3, backgroundColor: isDark ? "#1E332D" : "#F1F5F9", overflow: "hidden" }}>
+                  <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.secondarySurface, overflow: "hidden" }}>
                     <View
                       style={{
                         height: "100%",
                         width: `${Math.min(cat.percentage, 100)}%`,
-                        backgroundColor: BAR_COLORS[idx % BAR_COLORS.length],
+                        backgroundColor: barColors[idx % barColors.length],
                       }}
                     />
                   </View>
@@ -273,19 +263,18 @@ export function SalesContributionSection() {
             </View>
           </View>
 
-          {/* Product Rankings */}
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <Text style={[styles.sectionTitle, { color: fg }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
                 Sales Rankings {appliedSearch ? `("${appliedSearch}")` : ""}
               </Text>
-              <Text style={{ fontSize: 11, color: "#00A879", fontFamily: Typography.bold }}>
-                Tap row for Ledger
+              <Text style={{ fontSize: 11, color: colors.primary, fontFamily: Typography.bold }}>
+                Tap for Ledger
               </Text>
             </View>
 
             {productStats.length === 0 ? (
-              <Text style={{ color: muted, textAlign: "center", paddingVertical: 20 }}>
+              <Text style={{ color: colors.textMuted, textAlign: "center", paddingVertical: 20 }}>
                 No sales records in selected date range.
               </Text>
             ) : (
@@ -297,23 +286,23 @@ export function SalesContributionSection() {
                   style={{
                     paddingVertical: 11,
                     borderTopWidth: idx > 0 ? StyleSheet.hairlineWidth : 0,
-                    borderTopColor: border,
+                    borderTopColor: colors.cardBorder,
                   }}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={{ fontFamily: Typography.bold, color: fg, fontSize: 13 }} numberOfLines={2}>
+                      <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, fontSize: 13 }} numberOfLines={2}>
                         #{idx + 1} {p.name}
                       </Text>
-                      <Text style={{ fontSize: 11, color: muted, marginTop: 2 }}>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
                         ID: #{p.id ?? "—"} · {p.category} · {p.units_sold.toLocaleString()} units
                       </Text>
                     </View>
                     <View style={{ alignItems: "flex-end" }}>
-                      <Text style={{ fontFamily: Typography.bold, color: "#00A879", fontSize: 13 }}>
+                      <Text style={{ fontFamily: Typography.bold, color: colors.primary, fontSize: 13 }}>
                         {p.total_sales_display}
                       </Text>
-                      <Text style={{ fontSize: 11, color: "#6366F1", fontFamily: Typography.bold }}>
+                      <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: Typography.bold }}>
                         {p.percentage}% share · View →
                       </Text>
                     </View>
@@ -325,62 +314,61 @@ export function SalesContributionSection() {
         </>
       )}
 
-      {/* Sales Ledger Drilldown Modal (mirrors product_detail_history.html) */}
+      {/* Sales Ledger Drilldown Modal */}
       <Modal visible={!!ledgerItem} animationType="slide" onRequestClose={() => setLedgerItem(null)}>
-        <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
-          <View style={[styles.headerBar, { backgroundColor: cardBg, borderBottomColor: border }]}>
+        <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+          <View style={[styles.headerBar, { backgroundColor: colors.card, borderBottomColor: colors.cardBorder }]}>
             <View style={{ flex: 1, paddingRight: 8 }}>
-              <Text style={{ fontSize: 10, fontFamily: Typography.bold, color: "#00A879" }}>
+              <Text style={{ fontSize: 10, fontFamily: Typography.bold, color: colors.primary }}>
                 SALES LEDGER ({startDate} to {endDate})
               </Text>
-              <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: fg }} numberOfLines={1}>
+              <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: colors.textPrimary }} numberOfLines={1}>
                 {ledgerItem?.name}
               </Text>
             </View>
             <TouchableOpacity onPress={() => setLedgerItem(null)} style={{ padding: 6 }}>
-              <Ionicons name="close" size={22} color={fg} />
+              <Ionicons name="close" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
           {ledgerLoading ? (
-            <ActivityIndicator size="large" color="#00A879" style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
           ) : (
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 10 }}>
-              {/* Totals Banner */}
-              <View style={[styles.card, { backgroundColor: "#0F172A", borderColor: "#1E293B", flexDirection: "row", justifyContent: "space-between" }]}>
+              <View style={[styles.card, { backgroundColor: colors.strongGraphite, borderColor: colors.cardBorder, flexDirection: "row", justifyContent: "space-between" }]}>
                 <View>
-                  <Text style={{ fontSize: 10, color: "#94A3B8", fontFamily: Typography.bold }}>TOTAL QTY</Text>
+                  <Text style={{ fontSize: 10, color: "#9FE3CE", fontFamily: Typography.bold }}>TOTAL QTY</Text>
                   <Text style={{ fontSize: 18, fontFamily: Typography.bold, color: "#FFFFFF" }}>
                     {ledgerTotals.qty.toLocaleString()}
                   </Text>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ fontSize: 10, color: "#94A3B8", fontFamily: Typography.bold }}>TOTAL VALUE</Text>
-                  <Text style={{ fontSize: 18, fontFamily: Typography.bold, color: "#F59E0B" }}>
+                  <Text style={{ fontSize: 10, color: "#9FE3CE", fontFamily: Typography.bold }}>TOTAL VALUE</Text>
+                  <Text style={{ fontSize: 18, fontFamily: Typography.bold, color: colors.brightMint }}>
                     {ledgerTotals.amtDisplay}
                   </Text>
                 </View>
               </View>
 
               {ledgerRows.length === 0 ? (
-                <Text style={{ color: muted, textAlign: "center", padding: 30 }}>No records found.</Text>
+                <Text style={{ color: colors.textMuted, textAlign: "center", padding: 30 }}>No records found.</Text>
               ) : (
                 ledgerRows.map((row) => (
-                  <View key={row.id} style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+                  <View key={row.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                      <Text style={{ fontFamily: Typography.bold, color: fg, flex: 1, marginRight: 8 }}>
+                      <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, flex: 1, marginRight: 8 }}>
                         {row.party_name}
                       </Text>
-                      <Text style={{ fontFamily: Typography.bold, color: "#00A879" }}>
+                      <Text style={{ fontFamily: Typography.bold, color: colors.primary }}>
                         {row.amount_display}
                       </Text>
                     </View>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6, alignItems: "center" }}>
-                      <Text style={{ fontSize: 11.5, color: muted }}>
+                      <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
                         {row.date_display} · #{row.voucher_number} · Qty: {row.quantity}
                       </Text>
-                      <View style={{ backgroundColor: "rgba(99,102,241,0.12)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                        <Text style={{ fontSize: 10.5, fontFamily: Typography.bold, color: "#6366F1" }}>
+                      <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                        <Text style={{ fontSize: 10.5, fontFamily: Typography.bold, color: colors.primary }}>
                           {row.salesperson}
                         </Text>
                       </View>
@@ -410,7 +398,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 9.5, fontFamily: Typography.bold, marginBottom: 4 },
   dateInput: { borderWidth: 1, borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 7, fontSize: 12 },
   updateBtn: {
-    backgroundColor: "#0F172A",
     borderRadius: Radius.sm,
     paddingHorizontal: 14,
     justifyContent: "center",

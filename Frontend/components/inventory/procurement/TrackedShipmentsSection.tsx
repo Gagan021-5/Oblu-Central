@@ -31,18 +31,16 @@ export function TrackedPODetailModal({
   onUpdated,
 }: TrackedPODetailModalProps) {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const [po, setPo] = useState<TrackedPO | null>(null);
   const [availableStages, setAvailableStages] = useState<PipelineStage[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Update Arrived Quantities Modal
   const [qtyModalOpen, setQtyModalOpen] = useState(false);
   const [qtyDrafts, setQtyDrafts] = useState<{ id: number; name: string; ordered: number; arrived: string; remarks: string }[]>([]);
   const [savingQty, setSavingQty] = useState(false);
 
-  // Add / Edit Stage Log Modal
   const [stageLogModalOpen, setStageLogModalOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<StageLogItem | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<number | null>(null);
@@ -166,62 +164,56 @@ export function TrackedPODetailModal({
     }
   };
 
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const border = isDark ? "#1E332D" : "#E2E8F0";
-  const fg = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
-  const bg = isDark ? "#080F0D" : "#F8FAFC";
-
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
-        <View style={[styles.headerBar, { backgroundColor: cardBg, borderBottomColor: border }]}>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+        <View style={[styles.headerBar, { backgroundColor: colors.card, borderBottomColor: colors.cardBorder }]}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 10, fontFamily: Typography.bold, color: "#00A879" }}>
+            <Text style={{ fontSize: 10, fontFamily: Typography.bold, color: colors.primary }}>
               PO TRACKING DETAIL
             </Text>
-            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }} numberOfLines={1}>
+            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }} numberOfLines={1}>
               {po?.voucher_number || "Loading..."}
             </Text>
           </View>
-          <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { borderColor: border }]}>
-            <Ionicons name="close" size={20} color={fg} />
+          <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { borderColor: colors.cardBorder }]}>
+            <Ionicons name="close" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
         {loading || !po ? (
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-            <ActivityIndicator size="large" color="#00A879" />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 14 }}>
             {/* Summary Card */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
               <View style={styles.summaryGrid}>
-                <InfoItem label="PARTY" value={po.party_name} fg={fg} muted={muted} />
-                <InfoItem label="ORDER DATE" value={po.order_date_display} fg={fg} muted={muted} />
+                <InfoItem label="PARTY" value={po.party_name} fg={colors.textPrimary} muted={colors.textMuted} />
+                <InfoItem label="ORDER DATE" value={po.order_date_display} fg={colors.textPrimary} muted={colors.textMuted} />
                 <InfoItem
                   label="STATUS"
                   value={po.status_display}
-                  fg={po.status === "arrived" ? "#10B981" : "#6366F1"}
-                  muted={muted}
+                  fg={po.status === "arrived" ? colors.success : colors.primary}
+                  muted={colors.textMuted}
                 />
-                <InfoItem label="ETA / ARRIVAL" value={po.arrival_datetime_display || po.expected_delivery} fg={fg} muted={muted} />
+                <InfoItem label="ETA / ARRIVAL" value={po.arrival_datetime_display || po.expected_delivery} fg={colors.textPrimary} muted={colors.textMuted} />
                 <InfoItem
                   label="DAYS TAKEN"
                   value={po.total_days_taken !== null ? `${po.total_days_taken} days` : `${po.days_in_current_stage}d in stage`}
-                  fg={fg}
-                  muted={muted}
+                  fg={colors.textPrimary}
+                  muted={colors.textMuted}
                 />
-                <InfoItem label="PROGRESS" value={`${po.completion_pct}% Arrived`} fg="#00A879" muted={muted} />
+                <InfoItem label="PROGRESS" value={`${po.completion_pct}% Arrived`} fg={colors.primary} muted={colors.textMuted} />
               </View>
             </View>
 
             {/* Items Section */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <Text style={[styles.sectionTitle, { color: fg }]}>Items ({po.items.length})</Text>
-                <TouchableOpacity onPress={openQtyEditor} style={styles.primarySmallBtn}>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Items ({po.items.length})</Text>
+                <TouchableOpacity onPress={openQtyEditor} style={[styles.primarySmallBtn, { backgroundColor: colors.primary }]}>
                   <Ionicons name="sync-outline" size={13} color="#FFFFFF" />
                   <Text style={styles.primarySmallText}>Update Arrived Qty</Text>
                 </TouchableOpacity>
@@ -233,7 +225,7 @@ export function TrackedPODetailModal({
                   style={{
                     paddingVertical: 10,
                     borderTopWidth: idx > 0 ? StyleSheet.hairlineWidth : 0,
-                    borderTopColor: border,
+                    borderTopColor: colors.cardBorder,
                     flexDirection: "row",
                     justifyContent: "space-between",
                     alignItems: "center",
@@ -241,22 +233,22 @@ export function TrackedPODetailModal({
                   }}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: Typography.bold, color: fg, fontSize: 13 }}>
+                    <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, fontSize: 13 }}>
                       {it.item_name}
                     </Text>
                     {!!it.remarks && (
-                      <Text style={{ fontSize: 11, color: muted, fontStyle: "italic", marginTop: 2 }}>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: "italic", marginTop: 2 }}>
                         {it.remarks}
                       </Text>
                     )}
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontFamily: Typography.bold, color: "#00A879", fontSize: 13 }}>
+                    <Text style={{ fontFamily: Typography.bold, color: colors.primary, fontSize: 13 }}>
                       {it.arrived_quantity} / {it.ordered_quantity}
                     </Text>
                     <View
                       style={{
-                        backgroundColor: it.is_fully_arrived ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)",
+                        backgroundColor: it.is_fully_arrived ? colors.successBg : colors.warningBg,
                         paddingHorizontal: 7,
                         paddingVertical: 2,
                         borderRadius: Radius.pill,
@@ -267,7 +259,7 @@ export function TrackedPODetailModal({
                         style={{
                           fontSize: 10,
                           fontFamily: Typography.bold,
-                          color: it.is_fully_arrived ? "#10B981" : "#D97706",
+                          color: it.is_fully_arrived ? colors.success : colors.warning,
                         }}
                       >
                         {it.is_fully_arrived ? "Fully Arrived" : "Pending"}
@@ -279,17 +271,17 @@ export function TrackedPODetailModal({
             </View>
 
             {/* Stages Section */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <Text style={[styles.sectionTitle, { color: fg }]}>Pipeline Stages ({po.stage_history.length})</Text>
-                <TouchableOpacity onPress={openAddStageLog} style={styles.primarySmallBtn}>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Pipeline Stages ({po.stage_history.length})</Text>
+                <TouchableOpacity onPress={openAddStageLog} style={[styles.primarySmallBtn, { backgroundColor: colors.primary }]}>
                   <Ionicons name="add" size={14} color="#FFFFFF" />
                   <Text style={styles.primarySmallText}>Add Stage</Text>
                 </TouchableOpacity>
               </View>
 
               {po.stage_history.length === 0 ? (
-                <Text style={{ color: muted, textAlign: "center", paddingVertical: 16 }}>
+                <Text style={{ color: colors.textMuted, textAlign: "center", paddingVertical: 16 }}>
                   No stages added yet.
                 </Text>
               ) : (
@@ -299,7 +291,7 @@ export function TrackedPODetailModal({
                     style={{
                       paddingVertical: 10,
                       borderTopWidth: idx > 0 ? StyleSheet.hairlineWidth : 0,
-                      borderTopColor: border,
+                      borderTopColor: colors.cardBorder,
                       gap: 4,
                     }}
                   >
@@ -308,9 +300,9 @@ export function TrackedPODetailModal({
                         <Ionicons
                           name={sl.is_current ? "time" : "checkmark-circle"}
                           size={16}
-                          color={sl.is_current ? "#6366F1" : "#10B981"}
+                          color={sl.is_current ? colors.warning : colors.success}
                         />
-                        <Text style={{ fontFamily: Typography.bold, color: fg, fontSize: 13, flex: 1 }}>
+                        <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, fontSize: 13, flex: 1 }}>
                           {sl.stage_name}
                         </Text>
                       </View>
@@ -318,36 +310,36 @@ export function TrackedPODetailModal({
                         onPress={() => openEditStageLog(sl)}
                         style={{ flexDirection: "row", alignItems: "center", gap: 4, padding: 4 }}
                       >
-                        <Ionicons name="create-outline" size={14} color="#6366F1" />
-                        <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: "#6366F1" }}>Edit</Text>
+                        <Ionicons name="create-outline" size={14} color={colors.primary} />
+                        <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: colors.primary }}>Edit</Text>
                       </TouchableOpacity>
                     </View>
 
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 2 }}>
-                      <Text style={{ fontSize: 11, color: muted }}>
+                      <Text style={{ fontSize: 11, color: colors.textMuted }}>
                         Entered: {sl.entered_at_display}
                       </Text>
-                      <Text style={{ fontSize: 11, color: sl.is_current ? "#D97706" : muted, fontFamily: sl.is_current ? Typography.bold : Typography.regular }}>
+                      <Text style={{ fontSize: 11, color: sl.is_current ? colors.warning : colors.textMuted, fontFamily: sl.is_current ? Typography.bold : Typography.regular }}>
                         {sl.exit_datetime_display ? `Exited: ${sl.exit_datetime_display}` : "Still here"}
                       </Text>
                     </View>
 
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 2 }}>
-                      <Text style={{ fontSize: 11, color: muted }}>
+                      <Text style={{ fontSize: 11, color: colors.textMuted }}>
                         Est: {sl.estimated_days}d
                       </Text>
                       <Text
                         style={{
                           fontSize: 11,
                           fontFamily: Typography.bold,
-                          color: sl.is_overdue ? "#EF4444" : fg,
+                          color: sl.is_overdue ? colors.error : colors.textPrimary,
                         }}
                       >
                         Actual: {sl.days_at_stage} days
                       </Text>
                     </View>
                     {!!sl.remarks && (
-                      <Text style={{ fontSize: 11, color: muted, fontStyle: "italic" }}>{sl.remarks}</Text>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: "italic" }}>{sl.remarks}</Text>
                     )}
                   </View>
                 ))
@@ -358,21 +350,21 @@ export function TrackedPODetailModal({
 
         {/* Sub-Modal: Update Arrived Quantities */}
         <Modal visible={qtyModalOpen} animationType="slide" onRequestClose={() => setQtyModalOpen(false)}>
-          <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
-            <View style={[styles.headerBar, { backgroundColor: cardBg, borderBottomColor: border }]}>
-              <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>
+          <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+            <View style={[styles.headerBar, { backgroundColor: colors.card, borderBottomColor: colors.cardBorder }]}>
+              <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>
                 Update Arrived Quantities
               </Text>
               <TouchableOpacity onPress={() => setQtyModalOpen(false)} style={{ padding: 6 }}>
-                <Ionicons name="close" size={20} color={fg} />
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}>
               {qtyDrafts.map((d, idx) => (
-                <View key={d.id} style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-                  <Text style={{ fontFamily: Typography.bold, color: fg, marginBottom: 4 }}>{d.name}</Text>
-                  <Text style={{ fontSize: 11.5, color: muted, marginBottom: 8 }}>Ordered: {d.ordered}</Text>
-                  <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: muted, marginBottom: 4 }}>
+                <View key={d.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                  <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, marginBottom: 4 }}>{d.name}</Text>
+                  <Text style={{ fontSize: 11.5, color: colors.textMuted, marginBottom: 8 }}>Ordered: {d.ordered}</Text>
+                  <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: colors.textMuted, marginBottom: 4 }}>
                     ARRIVED QUANTITY
                   </Text>
                   <TextInput
@@ -381,26 +373,26 @@ export function TrackedPODetailModal({
                     onChangeText={(val) =>
                       setQtyDrafts((prev) => prev.map((x, i) => (i === idx ? { ...x, arrived: val } : x)))
                     }
-                    style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg, marginBottom: 8 }]}
+                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface, marginBottom: 8 }]}
                   />
-                  <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: muted, marginBottom: 4 }}>
+                  <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: colors.textMuted, marginBottom: 4 }}>
                     REMARKS
                   </Text>
                   <TextInput
                     placeholder="Optional notes..."
-                    placeholderTextColor={muted}
+                    placeholderTextColor={colors.textMuted}
                     value={d.remarks}
                     onChangeText={(val) =>
                       setQtyDrafts((prev) => prev.map((x, i) => (i === idx ? { ...x, remarks: val } : x)))
                     }
-                    style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg }]}
+                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                   />
                 </View>
               ))}
               <TouchableOpacity
                 disabled={savingQty}
                 onPress={handleSaveQuantities}
-                style={[styles.saveBtn, { opacity: savingQty ? 0.6 : 1 }]}
+                style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: savingQty ? 0.6 : 1 }]}
               >
                 {savingQty ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
               </TouchableOpacity>
@@ -410,18 +402,18 @@ export function TrackedPODetailModal({
 
         {/* Sub-Modal: Add / Edit Stage Log */}
         <Modal visible={stageLogModalOpen} animationType="slide" onRequestClose={() => setStageLogModalOpen(false)}>
-          <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
-            <View style={[styles.headerBar, { backgroundColor: cardBg, borderBottomColor: border }]}>
-              <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>
+          <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+            <View style={[styles.headerBar, { backgroundColor: colors.card, borderBottomColor: colors.cardBorder }]}>
+              <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>
                 {editingLog ? "Edit Stage Log" : "Add Stage to PO"}
               </Text>
               <TouchableOpacity onPress={() => setStageLogModalOpen(false)} style={{ padding: 6 }}>
-                <Ionicons name="close" size={20} color={fg} />
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}>
-              <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-                <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: muted, marginBottom: 6 }}>
+              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: colors.textMuted, marginBottom: 6 }}>
                   SELECT PIPELINE STAGE
                 </Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
@@ -436,11 +428,11 @@ export function TrackedPODetailModal({
                           paddingVertical: 8,
                           borderRadius: Radius.pill,
                           borderWidth: 1,
-                          borderColor: active ? "#00A879" : border,
-                          backgroundColor: active ? "#00A879" : bg,
+                          borderColor: active ? colors.primary : colors.cardBorder,
+                          backgroundColor: active ? colors.primary : colors.secondarySurface,
                         }}
                       >
-                        <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: active ? "#FFF" : fg }}>
+                        <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: active ? "#FFF" : colors.textPrimary }}>
                           {s.name} ({s.estimated_days}d)
                         </Text>
                       </TouchableOpacity>
@@ -448,65 +440,65 @@ export function TrackedPODetailModal({
                   })}
                 </ScrollView>
 
-                <Text style={[styles.fieldLabel, { color: muted }]}>ENTERED AT (YYYY-MM-DDTHH:MM)</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>ENTERED AT (YYYY-MM-DDTHH:MM)</Text>
                 <TextInput
                   placeholder="YYYY-MM-DDTHH:MM"
-                  placeholderTextColor={muted}
+                  placeholderTextColor={colors.textMuted}
                   value={enteredAt}
                   onChangeText={setEnteredAt}
-                  style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg }]}
+                  style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                 />
 
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
-                  <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: muted }}>
+                  <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: colors.textMuted }}>
                     EXITED AT (OPTIONAL — BLANK = STILL HERE)
                   </Text>
                   <TouchableOpacity onPress={() => setExitAt(new Date().toISOString().slice(0, 16))}>
-                    <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: "#00A879" }}>Set Now</Text>
+                    <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: colors.primary }}>Set Now</Text>
                   </TouchableOpacity>
                 </View>
                 <TextInput
                   placeholder="YYYY-MM-DDTHH:MM or leave empty"
-                  placeholderTextColor={muted}
+                  placeholderTextColor={colors.textMuted}
                   value={exitAt}
                   onChangeText={setExitAt}
-                  style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg, marginTop: 4 }]}
+                  style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface, marginTop: 4 }]}
                 />
 
-                <Text style={[styles.fieldLabel, { color: muted }]}>MANUAL DAYS AT STAGE (OPTIONAL)</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>MANUAL DAYS AT STAGE (OPTIONAL)</Text>
                 <TextInput
                   keyboardType="numeric"
                   placeholder="Leave blank to calculate from timestamps"
-                  placeholderTextColor={muted}
+                  placeholderTextColor={colors.textMuted}
                   value={manualDays}
                   onChangeText={setManualDays}
-                  style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg }]}
+                  style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                 />
 
-                <Text style={[styles.fieldLabel, { color: muted }]}>MANUAL ETA (YYYY-MM-DD, OPTIONAL)</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>MANUAL ETA (YYYY-MM-DD, OPTIONAL)</Text>
                 <TextInput
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor={muted}
+                  placeholderTextColor={colors.textMuted}
                   value={manualEta}
                   onChangeText={setManualEta}
-                  style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg }]}
+                  style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                 />
 
-                <Text style={[styles.fieldLabel, { color: muted }]}>REMARKS</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>REMARKS</Text>
                 <TextInput
                   multiline
                   placeholder="Notes about this stage..."
-                  placeholderTextColor={muted}
+                  placeholderTextColor={colors.textMuted}
                   value={stageRemarks}
                   onChangeText={setStageRemarks}
-                  style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg, minHeight: 70 }]}
+                  style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface, minHeight: 70 }]}
                 />
               </View>
 
               <TouchableOpacity
                 disabled={savingStage}
                 onPress={handleSaveStageLog}
-                style={[styles.saveBtn, { opacity: savingStage ? 0.6 : 1 }]}
+                style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: savingStage ? 0.6 : 1 }]}
               >
                 {savingStage ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveBtnText}>Save Stage Log</Text>}
               </TouchableOpacity>
@@ -535,15 +527,10 @@ interface TrackedShipmentsSectionProps {
 }
 
 export function TrackedShipmentsSection({ orders, onRefresh }: TrackedShipmentsSectionProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "arrived">("all");
   const [selectedPoId, setSelectedPoId] = useState<number | null>(null);
-
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const cardBorder = isDark ? "#1E332D" : "#E2E8F0";
-  const fg = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
 
   const filtered = orders.filter((po) => {
     if (statusFilter !== "all" && po.status !== statusFilter) return false;
@@ -559,7 +546,6 @@ export function TrackedShipmentsSection({ orders, onRefresh }: TrackedShipmentsS
 
   return (
     <View style={{ gap: 12 }}>
-      {/* Filters */}
       <View style={{ flexDirection: "row", gap: 8 }}>
         {(["all", "active", "arrived"] as const).map((st) => {
           const active = statusFilter === st;
@@ -572,12 +558,12 @@ export function TrackedShipmentsSection({ orders, onRefresh }: TrackedShipmentsS
                 paddingVertical: 8,
                 borderRadius: Radius.pill,
                 borderWidth: 1,
-                borderColor: active ? "#00A879" : cardBorder,
-                backgroundColor: active ? "#00A879" : cardBg,
+                borderColor: active ? colors.primary : colors.cardBorder,
+                backgroundColor: active ? colors.primary : colors.card,
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: active ? "#FFF" : muted }}>
+              <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: active ? "#FFF" : colors.textMuted }}>
                 {st === "all" ? `All (${orders.length})` : st === "active" ? "Active" : "Arrived"}
               </Text>
             </TouchableOpacity>
@@ -585,23 +571,23 @@ export function TrackedShipmentsSection({ orders, onRefresh }: TrackedShipmentsS
         })}
       </View>
 
-      <View style={[styles.searchBox, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-        <Ionicons name="search" size={16} color={muted} />
+      <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+        <Ionicons name="search" size={16} color={colors.textMuted} />
         <TextInput
           placeholder="Search PO number or supplier..."
-          placeholderTextColor={muted}
+          placeholderTextColor={colors.textMuted}
           value={search}
           onChangeText={setSearch}
-          style={{ flex: 1, color: fg, fontSize: 13 }}
+          style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
         />
       </View>
 
       {filtered.length === 0 ? (
-        <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-          <Ionicons name="boat-outline" size={38} color={muted} />
-          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>No Tracked Shipments</Text>
-          <Text style={{ fontSize: 12, color: muted, textAlign: "center" }}>
-            Start tracking a Tally Purchase Order to monitor stages and arrivals.
+        <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Ionicons name="boat-outline" size={38} color={colors.textMuted} />
+          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>No Tracked Shipments</Text>
+          <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: "center" }}>
+            Start tracking a Tally Purchase Order from the sidebar to monitor stages and arrivals.
           </Text>
         </View>
       ) : (
@@ -612,44 +598,44 @@ export function TrackedShipmentsSection({ orders, onRefresh }: TrackedShipmentsS
               key={po.id}
               activeOpacity={0.8}
               onPress={() => setSelectedPoId(po.id)}
-              style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}
+              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
             >
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={{ fontSize: 14.5, fontFamily: Typography.bold, color: fg }}>
+                  <Text style={{ fontSize: 14.5, fontFamily: Typography.bold, color: colors.textPrimary }}>
                     {po.voucher_number}
                   </Text>
-                  <Text style={{ fontSize: 12, color: muted, marginTop: 2 }}>{po.party_name}</Text>
+                  <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{po.party_name}</Text>
                 </View>
                 <View
                   style={{
                     paddingHorizontal: 9,
                     paddingVertical: 4,
                     borderRadius: Radius.pill,
-                    backgroundColor: isArrived ? "rgba(16,185,129,0.12)" : "rgba(99,102,241,0.12)",
+                    backgroundColor: isArrived ? colors.successBg : colors.primaryLight,
                   }}
                 >
-                  <Text style={{ fontSize: 10.5, fontFamily: Typography.bold, color: isArrived ? "#10B981" : "#6366F1" }}>
+                  <Text style={{ fontSize: 10.5, fontFamily: Typography.bold, color: isArrived ? colors.success : colors.primary }}>
                     {po.status_display} · {po.completion_pct}%
                   </Text>
                 </View>
               </View>
 
-              <View style={{ height: 6, borderRadius: 3, backgroundColor: isDark ? "#1E332D" : "#E2E8F0", overflow: "hidden", marginBottom: 8 }}>
-                <View style={{ height: "100%", width: `${Math.min(po.completion_pct, 100)}%`, backgroundColor: isArrived ? "#10B981" : "#00A879" }} />
+              <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.secondarySurface, overflow: "hidden", marginBottom: 8 }}>
+                <View style={{ height: "100%", width: `${Math.min(po.completion_pct, 100)}%`, backgroundColor: colors.primary }} />
               </View>
 
               <View style={{ flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
-                <Text style={{ fontSize: 11, color: muted }}>Ordered: {po.order_date_display}</Text>
-                <Text style={{ fontSize: 11, color: "#00A879", fontFamily: Typography.bold }}>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Ordered: {po.order_date_display}</Text>
+                <Text style={{ fontSize: 11, color: colors.primary, fontFamily: Typography.bold }}>
                   {po.current_stage_name ? `Stage: ${po.current_stage_name}` : `ETA: ${po.expected_delivery}`}
                 </Text>
               </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: cardBorder }}>
-                <Text style={{ fontSize: 11.5, color: muted }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.cardBorder }}>
+                <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
                   {po.items.length} items · {po.stage_history.length} stage logs
                 </Text>
-                <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: "#6366F1" }}>
+                <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: colors.primary }}>
                   Open Details →
                 </Text>
               </View>
@@ -697,7 +683,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#6366F1",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radius.sm,
@@ -712,7 +697,6 @@ const styles = StyleSheet.create({
   },
   fieldLabel: { fontSize: 11, fontFamily: Typography.bold, marginTop: 12, marginBottom: 4 },
   saveBtn: {
-    backgroundColor: "#00A879",
     borderRadius: Radius.md,
     paddingVertical: 14,
     alignItems: "center",

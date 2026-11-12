@@ -33,7 +33,7 @@ interface ComparisonCategory {
 }
 
 export function SalesComparisonSection() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -94,29 +94,22 @@ export function SalesComparisonSection() {
     fetchComparison(f, t, search.trim());
   };
 
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const border = isDark ? "#1E332D" : "#E2E8F0";
-  const fg = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
-  const bg = isDark ? "#080F0D" : "#F8FAFC";
-
   return (
     <View style={{ gap: 12 }}>
-      {/* Filters Header (mirrors sales_comparison_dashboard.html) */}
-      <View style={[styles.card, { backgroundColor: cardBg, borderColor: border, gap: 10 }]}>
-        <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: fg }}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, gap: 10 }]}>
+        <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: colors.textPrimary }}>
           Category-Wise Sales Comparison
         </Text>
 
-        <View style={[styles.searchRow, { backgroundColor: bg, borderColor: border }]}>
-          <Ionicons name="search" size={16} color={muted} />
+        <View style={[styles.searchRow, { backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder }]}>
+          <Ionicons name="search" size={16} color={colors.textMuted} />
           <TextInput
             placeholder="Search category or product..."
-            placeholderTextColor={muted}
+            placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
             onSubmitEditing={applyFilter}
-            style={{ flex: 1, color: fg, fontSize: 13 }}
+            style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
           />
           {search.length > 0 && (
             <TouchableOpacity
@@ -125,33 +118,33 @@ export function SalesComparisonSection() {
                 fetchComparison(fromDate, toDate, "");
               }}
             >
-              <Ionicons name="close-circle" size={16} color={muted} />
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.label, { color: muted }]}>FROM</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>FROM</Text>
             <TextInput
               value={fromDate}
               onChangeText={setFromDate}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor={muted}
-              style={[styles.dateInput, { color: fg, borderColor: border, backgroundColor: bg }]}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.dateInput, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.label, { color: muted }]}>TO</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>TO</Text>
             <TextInput
               value={toDate}
               onChangeText={setToDate}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor={muted}
-              style={[styles.dateInput, { color: fg, borderColor: border, backgroundColor: bg }]}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.dateInput, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
             />
           </View>
-          <TouchableOpacity onPress={applyFilter} style={styles.filterBtn}>
+          <TouchableOpacity onPress={applyFilter} style={[styles.filterBtn, { backgroundColor: colors.primary }]}>
             <Text style={{ color: "#FFFFFF", fontFamily: Typography.bold, fontSize: 12.5 }}>Filter</Text>
           </TouchableOpacity>
         </View>
@@ -161,40 +154,39 @@ export function SalesComparisonSection() {
             <TouchableOpacity
               key={d}
               onPress={() => applyDaysPreset(d)}
-              style={[styles.presetBtn, { borderColor: border, backgroundColor: bg }]}
+              style={[styles.presetBtn, { borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
             >
-              <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: fg }}>{d} Days</Text>
+              <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: colors.textPrimary }}>{d} Days</Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      {/* Overall Summary Strip */}
       {summary && (
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-          <Text style={{ fontSize: 11, color: muted, marginBottom: 8 }}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>
             Comparing vs Previous Window ({prevRangeLabel})
           </Text>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <View>
-              <Text style={[styles.label, { color: muted }]}>PREVIOUS QTY</Text>
-              <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: muted }}>
+              <Text style={[styles.label, { color: colors.textMuted }]}>PREVIOUS QTY</Text>
+              <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textMuted }}>
                 {summary.total_previous.toLocaleString()}
               </Text>
             </View>
             <View>
-              <Text style={[styles.label, { color: muted }]}>CURRENT QTY</Text>
-              <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>
+              <Text style={[styles.label, { color: colors.textMuted }]}>CURRENT QTY</Text>
+              <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>
                 {summary.total_current.toLocaleString()}
               </Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={[styles.label, { color: muted }]}>CHANGE (Δ)</Text>
+              <Text style={[styles.label, { color: colors.textMuted }]}>CHANGE (Δ)</Text>
               <Text
                 style={{
                   fontSize: 15,
                   fontFamily: Typography.bold,
-                  color: summary.total_diff >= 0 ? "#10B981" : "#EF4444",
+                  color: summary.total_diff >= 0 ? colors.success : colors.error,
                 }}
               >
                 {summary.total_diff >= 0 ? "+" : ""}
@@ -208,14 +200,14 @@ export function SalesComparisonSection() {
 
       {loading ? (
         <View style={{ padding: 40, alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="large" color="#00A879" />
-          <Text style={{ color: muted, fontSize: 13 }}>Comparing category and product velocities...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Comparing category and product velocities...</Text>
         </View>
       ) : categories.length === 0 ? (
-        <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: border }]}>
-          <Ionicons name="swap-horizontal-outline" size={38} color={muted} />
-          <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: fg }}>No Comparison Data</Text>
-          <Text style={{ fontSize: 12, color: muted, textAlign: "center" }}>
+        <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Ionicons name="swap-horizontal-outline" size={38} color={colors.textMuted} />
+          <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: colors.textPrimary }}>No Comparison Data</Text>
+          <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: "center" }}>
             Try adjusting the date range or search query.
           </Text>
         </View>
@@ -223,13 +215,13 @@ export function SalesComparisonSection() {
         categories.map((cat) => {
           const isOpen = expandedCat === cat.category;
           const trendColor =
-            cat.overall_trend === "up" ? "#10B981" : cat.overall_trend === "down" ? "#EF4444" : muted;
+            cat.overall_trend === "up" ? colors.success : cat.overall_trend === "down" ? colors.error : colors.textMuted;
           const trendSymbol = cat.overall_trend === "up" ? "▲" : cat.overall_trend === "down" ? "▼" : "▬";
 
           return (
             <View
               key={cat.category}
-              style={[styles.card, { backgroundColor: cardBg, borderColor: border, padding: 0, overflow: "hidden" }]}
+              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, padding: 0, overflow: "hidden" }]}
             >
               <TouchableOpacity
                 activeOpacity={0.75}
@@ -242,19 +234,19 @@ export function SalesComparisonSection() {
                 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, marginRight: 8 }}>
-                  <Ionicons name={isOpen ? "chevron-down" : "chevron-forward"} size={16} color={fg} />
+                  <Ionicons name={isOpen ? "chevron-down" : "chevron-forward"} size={16} color={colors.textPrimary} />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: fg }} numberOfLines={1}>
+                    <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: colors.textPrimary }} numberOfLines={1}>
                       {cat.category}
                     </Text>
-                    <Text style={{ fontSize: 11, color: muted }}>
+                    <Text style={{ fontSize: 11, color: colors.textMuted }}>
                       {cat.product_count} products · Prev {cat.total_previous} vs Curr {cat.total_current}
                     </Text>
                   </View>
                 </View>
 
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: cat.total_diff >= 0 ? "#10B981" : "#EF4444" }}>
+                  <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: cat.total_diff >= 0 ? colors.success : colors.error }}>
                     {cat.total_diff >= 0 ? "+" : ""}{cat.total_diff}
                   </Text>
                   <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: trendColor }}>
@@ -264,10 +256,10 @@ export function SalesComparisonSection() {
               </TouchableOpacity>
 
               {isOpen && (
-                <View style={{ borderTopWidth: 1, borderTopColor: border, paddingHorizontal: 14, paddingBottom: 10 }}>
+                <View style={{ borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingHorizontal: 14, paddingBottom: 10 }}>
                   {cat.items.map((item, idx) => {
                     const iColor =
-                      item.trend === "up" ? "#10B981" : item.trend === "down" ? "#EF4444" : muted;
+                      item.trend === "up" ? colors.success : item.trend === "down" ? colors.error : colors.textMuted;
                     const iSym = item.trend === "up" ? "▲" : item.trend === "down" ? "▼" : "▬";
                     return (
                       <View
@@ -275,11 +267,11 @@ export function SalesComparisonSection() {
                         style={{
                           paddingVertical: 10,
                           borderTopWidth: idx > 0 ? StyleSheet.hairlineWidth : 0,
-                          borderTopColor: border,
+                          borderTopColor: colors.cardBorder,
                         }}
                       >
                         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <Text style={{ flex: 1, fontFamily: Typography.bold, color: fg, fontSize: 13, marginRight: 8 }}>
+                          <Text style={{ flex: 1, fontFamily: Typography.bold, color: colors.textPrimary, fontSize: 13, marginRight: 8 }}>
                             {item.name}
                           </Text>
                           <Text style={{ fontSize: 13, fontFamily: Typography.bold, color: iColor }}>
@@ -287,8 +279,8 @@ export function SalesComparisonSection() {
                           </Text>
                         </View>
                         <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
-                          <Text style={{ fontSize: 11.5, color: muted }}>Prev: {item.previous}</Text>
-                          <Text style={{ fontSize: 11.5, color: fg, fontFamily: Typography.bold }}>Curr: {item.current}</Text>
+                          <Text style={{ fontSize: 11.5, color: colors.textMuted }}>Prev: {item.previous}</Text>
+                          <Text style={{ fontSize: 11.5, color: colors.textPrimary, fontFamily: Typography.bold }}>Curr: {item.current}</Text>
                           <Text style={{ fontSize: 11.5, color: iColor, fontFamily: Typography.bold }}>
                             Diff: {item.difference >= 0 ? "+" : ""}{item.difference}
                           </Text>
@@ -320,7 +312,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 9.5, fontFamily: Typography.bold, marginBottom: 4 },
   dateInput: { borderWidth: 1, borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 7, fontSize: 12 },
   filterBtn: {
-    backgroundColor: "#6366F1",
     borderRadius: Radius.sm,
     paddingHorizontal: 14,
     justifyContent: "center",

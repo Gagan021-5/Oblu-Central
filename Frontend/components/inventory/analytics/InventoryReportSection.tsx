@@ -52,7 +52,7 @@ interface InventoryReportSectionProps {
 }
 
 export function InventoryReportSection({ onOpenProduct }: InventoryReportSectionProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const [search, setSearch] = useState("");
   const [selectedCatId, setSelectedCatId] = useState<number | null>(null);
@@ -153,31 +153,24 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
     }
   };
 
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const border = isDark ? "#1E332D" : "#E2E8F0";
-  const fg = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
-  const bg = isDark ? "#080F0D" : "#F8FAFC";
-
   return (
     <View style={{ gap: 12 }}>
-      {/* Search + Controls */}
-      <View style={[styles.card, { backgroundColor: cardBg, borderColor: border, gap: 10 }]}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, gap: 10 }]}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: fg }}>Inventory Report</Text>
+          <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: colors.textPrimary }}>Threshold & Prediction Report</Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <TouchableOpacity
               onPress={() => setShowGuide(!showGuide)}
-              style={[styles.smallBtn, { borderColor: border, backgroundColor: bg }]}
+              style={[styles.smallBtn, { borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
             >
-              <Ionicons name="help-circle-outline" size={14} color="#6366F1" />
-              <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: "#6366F1" }}>
+              <Ionicons name="help-circle-outline" size={14} color={colors.primary} />
+              <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: colors.primary }}>
                 {showGuide ? "Hide Guide" : "Guide"}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleExportCSV}
-              style={[styles.smallBtn, { borderColor: "#0F172A", backgroundColor: "#0F172A" }]}
+              style={[styles.smallBtn, { borderColor: colors.primary, backgroundColor: colors.primary }]}
             >
               <Ionicons name="download-outline" size={14} color="#FFFFFF" />
               <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: "#FFFFFF" }}>CSV</Text>
@@ -186,15 +179,15 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
         </View>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <View style={[styles.searchRow, { flex: 1, backgroundColor: bg, borderColor: border }]}>
-            <Ionicons name="search" size={16} color={muted} />
+          <View style={[styles.searchRow, { flex: 1, backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder }]}>
+            <Ionicons name="search" size={16} color={colors.textMuted} />
             <TextInput
               placeholder="Search product name..."
-              placeholderTextColor={muted}
+              placeholderTextColor={colors.textMuted}
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={handleApply}
-              style={{ flex: 1, color: fg, fontSize: 13 }}
+              style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
             />
             {search.length > 0 && (
               <TouchableOpacity
@@ -203,7 +196,7 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
                   fetchReport("", selectedCatId, lowOnly);
                 }}
               >
-                <Ionicons name="close-circle" size={16} color={muted} />
+                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -212,67 +205,64 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
             style={[
               styles.smallBtn,
               {
-                borderColor: lowOnly ? "#EF4444" : border,
-                backgroundColor: lowOnly ? "rgba(239,68,68,0.12)" : bg,
+                borderColor: lowOnly ? colors.error : colors.cardBorder,
+                backgroundColor: lowOnly ? colors.errorBg : colors.secondarySurface,
                 paddingHorizontal: 12,
               },
             ]}
           >
-            <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: lowOnly ? "#EF4444" : fg }}>
+            <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: lowOnly ? colors.error : colors.textPrimary }}>
               {lowOnly ? "Low Stock Only ✓" : "Low Stock Only"}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Instructions Guide (mirrors inventory_report.html instructions) */}
       {showGuide && (
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor: "#3B82F6", borderLeftWidth: 4, gap: 6 }]}>
-          <Text style={{ fontSize: 13.5, fontFamily: Typography.bold, color: "#3B82F6" }}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.primary, borderLeftWidth: 4, gap: 6 }]}>
+          <Text style={{ fontSize: 13.5, fontFamily: Typography.bold, color: colors.primary }}>
             How to Read This Report
           </Text>
-          <Text style={{ fontSize: 11.5, color: muted, lineHeight: 17 }}>
-            <Text style={{ fontFamily: Typography.bold, color: fg }}>Min Qty (Closing): </Text>
+          <Text style={{ fontSize: 11.5, color: colors.textMuted, lineHeight: 17 }}>
+            <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary }}>Min Qty (Closing): </Text>
             Lowest predicted closing stock over next 3 months via linear trend.
           </Text>
-          <Text style={{ fontSize: 11.5, color: muted, lineHeight: 17 }}>
-            <Text style={{ fontFamily: Typography.bold, color: fg }}>Linear Regression Outwards: </Text>
-            Predicted 3-month demand + 10% safety buffer. Rows below this threshold highlight red.
+          <Text style={{ fontSize: 11.5, color: colors.textMuted, lineHeight: 17 }}>
+            <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary }}>Linear Regression Outwards: </Text>
+            Predicted 3-month demand + 10% safety buffer. Rows below this highlight red.
           </Text>
-          <Text style={{ fontSize: 11.5, color: muted, lineHeight: 17 }}>
-            <Text style={{ fontFamily: Typography.bold, color: fg }}>Avg / Last 3 Avg: </Text>
+          <Text style={{ fontSize: 11.5, color: colors.textMuted, lineHeight: 17 }}>
+            <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary }}>Avg / Last 3 Avg: </Text>
             Historical all-month vs recent 3-month average outwards usage.
           </Text>
-          <Text style={{ fontSize: 11.5, color: muted, lineHeight: 17 }}>
-            <Text style={{ fontFamily: Typography.bold, color: fg }}>Min Qty (GPT) &amp; Nitin Est.: </Text>
-            AI &amp; manual safety stock benchmarks. Tap any product name for prediction charts.
+          <Text style={{ fontSize: 11.5, color: colors.textMuted, lineHeight: 17 }}>
+            <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary }}>Min Qty (GPT) &amp; Nitin Est.: </Text>
+            AI &amp; manual benchmarks. Tap any product card for its prediction chart.
           </Text>
         </View>
       )}
 
-      {/* KPI Strip */}
       {summary && (
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <View style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.label, { color: muted }]}>TOTAL SKUS</Text>
-            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>{summary.total_skus}</Text>
+          <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.label, { color: colors.textMuted }]}>TOTAL SKUS</Text>
+            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>{summary.total_skus}</Text>
           </View>
-          <View style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.label, { color: muted }]}>UNITS</Text>
-            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>
+          <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.label, { color: colors.textMuted }]}>UNITS</Text>
+            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>
               {summary.total_units.toLocaleString()}
             </Text>
           </View>
-          <View style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.label, { color: "#EF4444" }]}>LOW STOCK</Text>
-            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: "#EF4444" }}>
+          <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.label, { color: colors.error }]}>LOW STOCK</Text>
+            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.error }}>
               {summary.low_stock_count}
             </Text>
           </View>
         </View>
       )}
 
-      {/* Category Quick-Jump Index Pills */}
       {categoriesIndex.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           <TouchableOpacity
@@ -280,8 +270,8 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
             style={[
               styles.catPill,
               {
-                borderColor: selectedCatId === null ? "#00A879" : border,
-                backgroundColor: selectedCatId === null ? "#00A879" : cardBg,
+                borderColor: selectedCatId === null ? colors.primary : colors.cardBorder,
+                backgroundColor: selectedCatId === null ? colors.primary : colors.card,
               },
             ]}
           >
@@ -289,10 +279,10 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
               style={{
                 fontSize: 12,
                 fontFamily: Typography.bold,
-                color: selectedCatId === null ? "#FFF" : fg,
+                color: selectedCatId === null ? "#FFF" : colors.textPrimary,
               }}
             >
-              All Categories ({categoriesIndex.length})
+              All ({categoriesIndex.length})
             </Text>
           </TouchableOpacity>
           {categoriesIndex.map((c) => {
@@ -304,12 +294,12 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
                 style={[
                   styles.catPill,
                   {
-                    borderColor: active ? "#00A879" : border,
-                    backgroundColor: active ? "#00A879" : cardBg,
+                    borderColor: active ? colors.primary : colors.cardBorder,
+                    backgroundColor: active ? colors.primary : colors.card,
                   },
                 ]}
               >
-                <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: active ? "#FFF" : fg }}>
+                <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: active ? "#FFF" : colors.textPrimary }}>
                   {c.name} ({c.total_items})
                 </Text>
               </TouchableOpacity>
@@ -320,22 +310,22 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
 
       {loading ? (
         <View style={{ padding: 40, alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="large" color="#00A879" />
-          <Text style={{ color: muted, fontSize: 13 }}>Loading full threshold report...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Loading full threshold report...</Text>
         </View>
       ) : categories.length === 0 ? (
-        <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: border }]}>
-          <Ionicons name="document-text-outline" size={38} color={muted} />
-          <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: fg }}>No Report Rows Found</Text>
+        <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Ionicons name="document-text-outline" size={38} color={colors.textMuted} />
+          <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: colors.textPrimary }}>No Report Rows Found</Text>
         </View>
       ) : (
         categories.map((cat) => (
           <View key={cat.id} style={{ gap: 8 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 4 }}>
-              <Text style={{ fontSize: 14.5, fontFamily: Typography.bold, color: fg }}>{cat.name}</Text>
-              <Text style={{ fontSize: 11.5, color: muted }}>
+              <Text style={{ fontSize: 14.5, fontFamily: Typography.bold, color: colors.textPrimary }}>{cat.name}</Text>
+              <Text style={{ fontSize: 11.5, color: colors.textMuted }}>
                 {cat.item_count} items ·{" "}
-                <Text style={{ color: cat.low_count > 0 ? "#EF4444" : "#10B981", fontFamily: Typography.bold }}>
+                <Text style={{ color: cat.low_count > 0 ? colors.error : colors.success, fontFamily: Typography.bold }}>
                   {cat.low_count} low
                 </Text>
               </Text>
@@ -349,12 +339,8 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
                 style={[
                   styles.card,
                   {
-                    backgroundColor: item.is_low_stock
-                      ? isDark
-                        ? "rgba(239,68,68,0.12)"
-                        : "#FEF2F2"
-                      : cardBg,
-                    borderColor: item.is_low_stock ? "#EF4444" : border,
+                    backgroundColor: item.is_low_stock ? colors.errorBg : colors.card,
+                    borderColor: item.is_low_stock ? colors.error : colors.cardBorder,
                   },
                 ]}
               >
@@ -364,17 +350,17 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
                       flex: 1,
                       fontSize: 13.5,
                       fontFamily: Typography.bold,
-                      color: item.is_low_stock ? "#EF4444" : "#3B82F6",
+                      color: item.is_low_stock ? colors.error : colors.textPrimary,
                     }}
                   >
                     {item.name}
                   </Text>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: item.is_low_stock ? "#EF4444" : fg }}>
+                    <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: item.is_low_stock ? colors.error : colors.textPrimary }}>
                       Qty: {item.quantity}
                     </Text>
                     {item.is_low_stock && (
-                      <Text style={{ fontSize: 9.5, fontFamily: Typography.bold, color: "#EF4444" }}>
+                      <Text style={{ fontSize: 9.5, fontFamily: Typography.bold, color: colors.error }}>
                         BELOW LR THRESHOLD
                       </Text>
                     )}
@@ -382,12 +368,12 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
                 </View>
 
                 <View style={styles.metricGrid}>
-                  <MetricCell label="LR OUTWARDS" value={item.min_quantity_outwards} highlight="#0284C7" fg={fg} muted={muted} />
-                  <MetricCell label="NITIN EST." value={item.min_quantity_nitin} fg={fg} muted={muted} />
-                  <MetricCell label="MIN CLOSING" value={item.min_quantity_closing} fg={fg} muted={muted} />
-                  <MetricCell label="MIN GPT" value={item.min_quantity_gpt} fg={fg} muted={muted} />
-                  <MetricCell label="HIST. AVG" value={item.min_quantity_average} fg={fg} muted={muted} />
-                  <MetricCell label="LAST 3 AVG" value={item.min_quantity_average_three} fg={fg} muted={muted} />
+                  <MetricCell label="LR OUTWARDS" value={item.min_quantity_outwards} highlight={colors.primary} />
+                  <MetricCell label="NITIN EST." value={item.min_quantity_nitin} />
+                  <MetricCell label="MIN CLOSING" value={item.min_quantity_closing} />
+                  <MetricCell label="MIN GPT" value={item.min_quantity_gpt} />
+                  <MetricCell label="HIST. AVG" value={item.min_quantity_average} />
+                  <MetricCell label="LAST 3 AVG" value={item.min_quantity_average_three} />
                 </View>
 
                 <View
@@ -397,13 +383,13 @@ export function InventoryReportSection({ onOpenProduct }: InventoryReportSection
                     marginTop: 8,
                     paddingTop: 6,
                     borderTopWidth: StyleSheet.hairlineWidth,
-                    borderTopColor: border,
+                    borderTopColor: colors.cardBorder,
                   }}
                 >
-                  <Text style={{ fontSize: 11, color: muted }}>
-                    Entries: <Text style={{ fontFamily: Typography.bold, color: fg }}>{item.total_historical_entries}</Text>
+                  <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                    Entries: <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary }}>{item.total_historical_entries}</Text>
                   </Text>
-                  <Text style={{ fontSize: 11, color: muted }}>
+                  <Text style={{ fontSize: 11, color: colors.textMuted }}>
                     Exp: {item.expected_delivery || "—"} ({item.expected_quantity ?? "—"})
                   </Text>
                 </View>
@@ -420,19 +406,16 @@ function MetricCell({
   label,
   value,
   highlight,
-  fg,
-  muted,
 }: {
   label: string;
   value: number | null;
   highlight?: string;
-  fg: string;
-  muted: string;
 }) {
+  const { colors } = useTheme();
   return (
     <View style={{ width: "31%" }}>
-      <Text style={{ fontSize: 9, fontFamily: Typography.bold, color: highlight || muted }}>{label}</Text>
-      <Text style={{ fontSize: 12.5, fontFamily: Typography.bold, color: highlight || fg, marginTop: 1 }}>
+      <Text style={{ fontSize: 9, fontFamily: Typography.bold, color: highlight || colors.textMuted }}>{label}</Text>
+      <Text style={{ fontSize: 12.5, fontFamily: Typography.bold, color: highlight || colors.textPrimary, marginTop: 1 }}>
         {value !== null && value !== undefined ? value : "-"}
       </Text>
     </View>

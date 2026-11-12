@@ -25,7 +25,7 @@ interface PipelineStagesSectionProps {
 
 export function PipelineStagesSection({ stages, onRefresh }: PipelineStagesSectionProps) {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingStage, setEditingStage] = useState<PipelineStage | null>(null);
@@ -84,30 +84,24 @@ export function PipelineStagesSection({ stages, onRefresh }: PipelineStagesSecti
     }
   };
 
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const border = isDark ? "#1E332D" : "#E2E8F0";
-  const fg = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
-  const bg = isDark ? "#080F0D" : "#F8FAFC";
-
   return (
     <View style={{ gap: 12 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ fontSize: 13.5, fontFamily: Typography.bold, color: muted }}>
+        <Text style={{ fontSize: 13.5, fontFamily: Typography.bold, color: colors.textMuted }}>
           {stages.length} Workflow Stage{stages.length === 1 ? "" : "s"}
         </Text>
-        <TouchableOpacity onPress={openCreateModal} style={styles.addBtn}>
+        <TouchableOpacity onPress={openCreateModal} style={[styles.addBtn, { backgroundColor: colors.primary }]}>
           <Ionicons name="add" size={16} color="#FFFFFF" />
           <Text style={{ color: "#FFFFFF", fontFamily: Typography.bold, fontSize: 12.5 }}>Add Stage</Text>
         </TouchableOpacity>
       </View>
 
       {stages.length === 0 ? (
-        <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: border }]}>
-          <Ionicons name="git-network-outline" size={38} color={muted} />
-          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>No Pipeline Stages</Text>
-          <Text style={{ fontSize: 12, color: muted, textAlign: "center" }}>
-            Click "Add Stage" to configure PO workflow milestones.
+        <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Ionicons name="git-network-outline" size={38} color={colors.textMuted} />
+          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>No Pipeline Stages</Text>
+          <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: "center" }}>
+            Tap "Add Stage" to configure PO workflow milestones.
           </Text>
         </View>
       ) : (
@@ -117,8 +111,8 @@ export function PipelineStagesSection({ stages, onRefresh }: PipelineStagesSecti
             style={[
               styles.card,
               {
-                backgroundColor: cardBg,
-                borderColor: border,
+                backgroundColor: colors.card,
+                borderColor: colors.cardBorder,
                 opacity: stage.is_active ? 1 : 0.65,
               },
             ]}
@@ -127,14 +121,14 @@ export function PipelineStagesSection({ stages, onRefresh }: PipelineStagesSecti
               <View
                 style={[
                   styles.orderCircle,
-                  { backgroundColor: stage.is_final_stage ? "rgba(16,185,129,0.15)" : "rgba(0,168,121,0.12)" },
+                  { backgroundColor: stage.is_final_stage ? colors.successBg : colors.primaryLight },
                 ]}
               >
                 <Text
                   style={{
                     fontFamily: Typography.bold,
                     fontSize: 12,
-                    color: stage.is_final_stage ? "#10B981" : "#00A879",
+                    color: colors.primary,
                   }}
                 >
                   #{stage.sort_order ?? idx + 1}
@@ -142,8 +136,8 @@ export function PipelineStagesSection({ stages, onRefresh }: PipelineStagesSecti
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: fg }}>{stage.name}</Text>
-                <Text style={{ fontSize: 12, color: muted, marginTop: 2 }}>
+                <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: colors.textPrimary }}>{stage.name}</Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
                   Estimated: {stage.estimated_days} days · {stage.active_pos_count ?? 0} Active POs
                 </Text>
               </View>
@@ -152,8 +146,8 @@ export function PipelineStagesSection({ stages, onRefresh }: PipelineStagesSecti
                 onPress={() => openEditModal(stage)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 4, padding: 6 }}
               >
-                <Ionicons name="create-outline" size={15} color="#6366F1" />
-                <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: "#6366F1" }}>Edit</Text>
+                <Ionicons name="create-outline" size={15} color={colors.primary} />
+                <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: colors.primary }}>Edit</Text>
               </TouchableOpacity>
             </View>
 
@@ -161,14 +155,14 @@ export function PipelineStagesSection({ stages, onRefresh }: PipelineStagesSecti
               <View
                 style={[
                   styles.badge,
-                  { backgroundColor: stage.is_final_stage ? "rgba(99,102,241,0.12)" : isDark ? "#1E293B" : "#F1F5F9" },
+                  { backgroundColor: stage.is_final_stage ? colors.primaryLight : colors.secondarySurface },
                 ]}
               >
                 <Text
                   style={{
                     fontSize: 10.5,
                     fontFamily: Typography.bold,
-                    color: stage.is_final_stage ? "#6366F1" : muted,
+                    color: stage.is_final_stage ? colors.primary : colors.textMuted,
                   }}
                 >
                   {stage.is_final_stage ? "Final Stage" : "Standard"}
@@ -177,14 +171,14 @@ export function PipelineStagesSection({ stages, onRefresh }: PipelineStagesSecti
               <View
                 style={[
                   styles.badge,
-                  { backgroundColor: stage.is_active ? "rgba(16,185,129,0.12)" : "rgba(148,163,184,0.15)" },
+                  { backgroundColor: stage.is_active ? colors.successBg : colors.secondarySurface },
                 ]}
               >
                 <Text
                   style={{
                     fontSize: 10.5,
                     fontFamily: Typography.bold,
-                    color: stage.is_active ? "#10B981" : muted,
+                    color: stage.is_active ? colors.success : colors.textMuted,
                   }}
                 >
                   {stage.is_active ? "Active" : "Inactive"}
@@ -197,75 +191,75 @@ export function PipelineStagesSection({ stages, onRefresh }: PipelineStagesSecti
 
       {/* Add / Edit Stage Modal */}
       <Modal visible={formModalOpen} animationType="slide" onRequestClose={() => setFormModalOpen(false)}>
-        <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
-          <View style={[styles.headerBar, { backgroundColor: cardBg, borderBottomColor: border }]}>
-            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>
+        <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+          <View style={[styles.headerBar, { backgroundColor: colors.card, borderBottomColor: colors.cardBorder }]}>
+            <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>
               {editingStage ? "Edit Pipeline Stage" : "Add Pipeline Stage"}
             </Text>
             <TouchableOpacity onPress={() => setFormModalOpen(false)} style={{ padding: 6 }}>
-              <Ionicons name="close" size={20} color={fg} />
+              <Ionicons name="close" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: border, gap: 12 }]}>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, gap: 12 }]}>
               <View>
-                <Text style={[styles.label, { color: muted }]}>STAGE NAME</Text>
+                <Text style={[styles.label, { color: colors.textMuted }]}>STAGE NAME</Text>
                 <TextInput
                   placeholder="e.g. ERKODENT S2 CUSTOMS CLEARANCE"
-                  placeholderTextColor={muted}
+                  placeholderTextColor={colors.textMuted}
                   value={name}
                   onChangeText={setName}
-                  style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg }]}
+                  style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                 />
               </View>
 
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.label, { color: muted }]}>ESTIMATED DAYS</Text>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>ESTIMATED DAYS</Text>
                   <TextInput
                     keyboardType="numeric"
                     value={estimatedDays}
                     onChangeText={setEstimatedDays}
-                    style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg }]}
+                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.label, { color: muted }]}>SORT ORDER</Text>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>SORT ORDER</Text>
                   <TextInput
                     keyboardType="numeric"
                     value={sortOrder}
                     onChangeText={setSortOrder}
-                    style={[styles.input, { color: fg, borderColor: border, backgroundColor: bg }]}
+                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                   />
                 </View>
               </View>
 
-              <View style={[styles.switchRow, { backgroundColor: bg, borderColor: border }]}>
+              <View style={[styles.switchRow, { backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder }]}>
                 <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={{ fontFamily: Typography.bold, color: fg, fontSize: 13 }}>Final Stage?</Text>
-                  <Text style={{ fontSize: 11, color: muted }}>
+                  <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, fontSize: 13 }}>Final Stage?</Text>
+                  <Text style={{ fontSize: 11, color: colors.textMuted }}>
                     Marks Purchase Order as Arrived when completed
                   </Text>
                 </View>
-                <Switch value={isFinal} onValueChange={setIsFinal} trackColor={{ true: "#00A879" }} />
+                <Switch value={isFinal} onValueChange={setIsFinal} trackColor={{ true: colors.primary }} />
               </View>
 
-              <View style={[styles.switchRow, { backgroundColor: bg, borderColor: border }]}>
+              <View style={[styles.switchRow, { backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder }]}>
                 <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={{ fontFamily: Typography.bold, color: fg, fontSize: 13 }}>Active Stage?</Text>
-                  <Text style={{ fontSize: 11, color: muted }}>
+                  <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, fontSize: 13 }}>Active Stage?</Text>
+                  <Text style={{ fontSize: 11, color: colors.textMuted }}>
                     Available for assignment in PO tracking
                   </Text>
                 </View>
-                <Switch value={isActive} onValueChange={setIsActive} trackColor={{ true: "#00A879" }} />
+                <Switch value={isActive} onValueChange={setIsActive} trackColor={{ true: colors.primary }} />
               </View>
             </View>
 
             <TouchableOpacity
               disabled={saving}
               onPress={handleSave}
-              style={[styles.saveBtn, { opacity: saving ? 0.6 : 1 }]}
+              style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
             >
               {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveBtnText}>Save Stage</Text>}
             </TouchableOpacity>
@@ -281,7 +275,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#6366F1",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radius.sm,
@@ -335,7 +328,6 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   saveBtn: {
-    backgroundColor: "#00A879",
     borderRadius: Radius.md,
     paddingVertical: 14,
     alignItems: "center",

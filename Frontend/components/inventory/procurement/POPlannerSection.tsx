@@ -26,7 +26,7 @@ import {
 
 export function POPlannerSection() {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [pickedCat, setPickedCat] = useState<CategoryOption | null>(null);
@@ -158,26 +158,21 @@ export function POPlannerSection() {
     }
   };
 
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const cardBorder = isDark ? "#1E332D" : "#E2E8F0";
-  const fg = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
-
   const filteredCats = categories.filter((c) =>
     c.name.toLowerCase().includes(catSearch.toLowerCase().trim())
   );
 
-  // Category Selector View (when no category is loaded yet, exact match to web!)
+  // Category Selector View matching Graphite Mint theme
   if (products === null) {
     return (
-      <View style={{ paddingVertical: 12 }}>
-        <View style={[styles.generatorCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-          <View style={styles.generatorIconWrap}>
-            <Ionicons name="cube" size={34} color="#00A879" />
+      <View style={{ paddingVertical: 8 }}>
+        <View style={[styles.generatorCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <View style={[styles.generatorIconWrap, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
+            <Ionicons name="cube-outline" size={30} color={colors.primary} />
           </View>
-          <Text style={[styles.generatorTitle, { color: fg }]}>Purchase Order Generator</Text>
-          <Text style={[styles.generatorSub, { color: muted }]}>
-            Select a product category to load the purchase order analysis.
+          <Text style={[styles.generatorTitle, { color: colors.textPrimary }]}>Purchase Order Generator</Text>
+          <Text style={[styles.generatorSub, { color: colors.textMuted }]}>
+            Select a product category to analyze stock runway, demand forecasts, and reorder quantities.
           </Text>
 
           <TouchableOpacity
@@ -185,15 +180,15 @@ export function POPlannerSection() {
             style={[
               styles.selectBox,
               {
-                backgroundColor: isDark ? "#0A1310" : "#F8FAFC",
-                borderColor: cardBorder,
+                backgroundColor: colors.secondarySurface,
+                borderColor: colors.cardBorder,
               },
             ]}
           >
-            <Text style={{ color: pickedCat ? fg : muted, fontFamily: Typography.medium, flex: 1 }}>
-              {pickedCat ? `${pickedCat.name} (${pickedCat.item_count})` : "— Select a category —"}
+            <Text style={{ color: pickedCat ? colors.textPrimary : colors.textMuted, fontFamily: Typography.medium, flex: 1 }}>
+              {pickedCat ? `${pickedCat.name} (${pickedCat.item_count} SKUs)` : "— Select a category —"}
             </Text>
-            <Ionicons name="chevron-down" size={18} color={muted} />
+            <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -201,7 +196,7 @@ export function POPlannerSection() {
             disabled={loading || !pickedCat}
             style={[
               styles.loadBtn,
-              { opacity: loading || !pickedCat ? 0.55 : 1 },
+              { backgroundColor: colors.primary, opacity: loading || !pickedCat ? 0.55 : 1 },
             ]}
           >
             {loading ? (
@@ -239,23 +234,23 @@ export function POPlannerSection() {
 
   return (
     <View style={{ gap: 12 }}>
-      {/* Header Controls */}
-      <View style={[styles.controlCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+      {/* Controls */}
+      <View style={[styles.controlCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
           <TouchableOpacity
             onPress={() => setPickerVisible(true)}
-            style={[styles.catSwitchBtn, { borderColor: cardBorder, backgroundColor: isDark ? "#0A1310" : "#F8FAFC" }]}
+            style={[styles.catSwitchBtn, { borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
           >
-            <Ionicons name="layers-outline" size={15} color="#00A879" />
-            <Text style={{ fontFamily: Typography.bold, color: fg, fontSize: 13, flex: 1 }} numberOfLines={1}>
+            <Ionicons name="layers-outline" size={15} color={colors.primary} />
+            <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, fontSize: 13, flex: 1 }} numberOfLines={1}>
               {selectedCategoryName || "Category"}
             </Text>
-            <Ionicons name="chevron-down" size={15} color={muted} />
+            <Ionicons name="chevron-down" size={15} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleExportCSV}
-            style={[styles.csvBtn, { backgroundColor: "#10B981" }]}
+            style={[styles.csvBtn, { backgroundColor: colors.primary }]}
           >
             <Ionicons name="download-outline" size={15} color="#FFFFFF" />
             <Text style={{ color: "#FFFFFF", fontFamily: Typography.bold, fontSize: 12 }}>CSV</Text>
@@ -263,18 +258,18 @@ export function POPlannerSection() {
         </View>
 
         <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-          <View style={[styles.searchInputWrap, { flex: 1, borderColor: cardBorder, backgroundColor: isDark ? "#0A1310" : "#F8FAFC" }]}>
-            <Ionicons name="search" size={15} color={muted} />
+          <View style={[styles.searchInputWrap, { flex: 1, borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}>
+            <Ionicons name="search" size={15} color={colors.textMuted} />
             <TextInput
-              placeholder="Search products in category..."
-              placeholderTextColor={muted}
+              placeholder="Filter products..."
+              placeholderTextColor={colors.textMuted}
               value={prodSearch}
               onChangeText={setProdSearch}
-              style={{ flex: 1, color: fg, fontSize: 12.5, paddingVertical: 6 }}
+              style={{ flex: 1, color: colors.textPrimary, fontSize: 12.5, paddingVertical: 6 }}
             />
             {prodSearch.length > 0 && (
               <TouchableOpacity onPress={() => setProdSearch("")}>
-                <Ionicons name="close-circle" size={16} color={muted} />
+                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -284,12 +279,12 @@ export function POPlannerSection() {
             style={[
               styles.deadToggleBtn,
               {
-                borderColor: hideDead ? "#EF4444" : cardBorder,
-                backgroundColor: hideDead ? "rgba(239,68,68,0.12)" : cardBg,
+                borderColor: hideDead ? colors.error : colors.cardBorder,
+                backgroundColor: hideDead ? colors.errorBg : colors.secondarySurface,
               },
             ]}
           >
-            <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: hideDead ? "#EF4444" : fg }}>
+            <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: hideDead ? colors.error : colors.textPrimary }}>
               {hideDead ? "Show Dead" : "Hide Dead"}
             </Text>
           </TouchableOpacity>
@@ -299,38 +294,38 @@ export function POPlannerSection() {
       {/* Summary Strip */}
       {summary && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          <SummaryChip label="TOTAL" value={summary.total_products} color={fg} bg={cardBg} border={cardBorder} muted={muted} active={urgencyFilter === "all"} onPress={() => setUrgencyFilter("all")} />
-          <SummaryChip label="URGENT" value={summary.urgent_count} color="#EF4444" bg={cardBg} border={cardBorder} muted={muted} active={urgencyFilter === "urgent"} onPress={() => setUrgencyFilter(urgencyFilter === "urgent" ? "all" : "urgent")} />
-          <SummaryChip label="NEED ORDER" value={summary.warn_count} color="#F59E0B" bg={cardBg} border={cardBorder} muted={muted} active={urgencyFilter === "warn"} onPress={() => setUrgencyFilter(urgencyFilter === "warn" ? "all" : "warn")} />
-          <SummaryChip label="DEAD STOCK" value={summary.dead_count} color="#8B5CF6" bg={cardBg} border={cardBorder} muted={muted} active={urgencyFilter === "dead"} onPress={() => setUrgencyFilter(urgencyFilter === "dead" ? "all" : "dead")} />
-          <SummaryChip label="OVERSTOCK" value={summary.overstocked_count} color="#6366F1" bg={cardBg} border={cardBorder} muted={muted} />
-          <SummaryChip label="SUFFICIENT" value={summary.ok_count} color="#10B981" bg={cardBg} border={cardBorder} muted={muted} active={urgencyFilter === "ok"} onPress={() => setUrgencyFilter(urgencyFilter === "ok" ? "all" : "ok")} />
+          <SummaryChip label="TOTAL" value={summary.total_products} color={colors.textPrimary} bg={colors.card} border={colors.cardBorder} muted={colors.textMuted} primary={colors.primary} active={urgencyFilter === "all"} onPress={() => setUrgencyFilter("all")} />
+          <SummaryChip label="URGENT" value={summary.urgent_count} color={colors.error} bg={colors.card} border={colors.cardBorder} muted={colors.textMuted} primary={colors.primary} active={urgencyFilter === "urgent"} onPress={() => setUrgencyFilter(urgencyFilter === "urgent" ? "all" : "urgent")} />
+          <SummaryChip label="NEED ORDER" value={summary.warn_count} color={colors.warning} bg={colors.card} border={colors.cardBorder} muted={colors.textMuted} primary={colors.primary} active={urgencyFilter === "warn"} onPress={() => setUrgencyFilter(urgencyFilter === "warn" ? "all" : "warn")} />
+          <SummaryChip label="DEAD STOCK" value={summary.dead_count} color={colors.textSecondary} bg={colors.card} border={colors.cardBorder} muted={colors.textMuted} primary={colors.primary} active={urgencyFilter === "dead"} onPress={() => setUrgencyFilter(urgencyFilter === "dead" ? "all" : "dead")} />
+          <SummaryChip label="OVERSTOCK" value={summary.overstocked_count} color={colors.primary} bg={colors.card} border={colors.cardBorder} muted={colors.textMuted} primary={colors.primary} />
+          <SummaryChip label="SUFFICIENT" value={summary.ok_count} color={colors.success} bg={colors.card} border={colors.cardBorder} muted={colors.textMuted} primary={colors.primary} active={urgencyFilter === "ok"} onPress={() => setUrgencyFilter(urgencyFilter === "ok" ? "all" : "ok")} />
         </ScrollView>
       )}
 
       {loading ? (
         <View style={{ padding: 40, alignItems: "center", gap: 10 }}>
-          <ActivityIndicator size="large" color="#00A879" />
-          <Text style={{ color: muted, fontSize: 13 }}>Running PO demand & forecasting simulation...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Running PO demand simulation...</Text>
         </View>
       ) : visibleProducts.length === 0 ? (
-        <View style={[styles.emptyBox, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-          <Ionicons name="cube-outline" size={34} color={muted} />
-          <Text style={{ fontFamily: Typography.bold, color: fg, fontSize: 15 }}>No Products Found</Text>
-          <Text style={{ color: muted, fontSize: 12, textAlign: "center" }}>
-            Try another urgency filter, search term, or switch category.
+        <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Ionicons name="cube-outline" size={34} color={colors.textMuted} />
+          <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, fontSize: 15 }}>No Products Found</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: "center" }}>
+            Try another filter, search term, or switch category.
           </Text>
         </View>
       ) : (
         visibleProducts.map((p) => {
           const urgencyColor =
             p.order_urgency === "urgent"
-              ? "#EF4444"
+              ? colors.error
               : p.order_urgency === "warn"
-              ? "#F59E0B"
+              ? colors.warning
               : p.order_urgency === "dead"
-              ? "#94A3B8"
-              : "#10B981";
+              ? colors.textMuted
+              : colors.success;
 
           return (
             <View
@@ -338,22 +333,22 @@ export function POPlannerSection() {
               style={[
                 styles.productCard,
                 {
-                  backgroundColor: cardBg,
-                  borderColor: cardBorder,
+                  backgroundColor: colors.card,
+                  borderColor: colors.cardBorder,
                   borderLeftWidth: 4,
                   borderLeftColor: urgencyColor,
-                  opacity: p.is_dead ? 0.78 : 1,
+                  opacity: p.is_dead ? 0.8 : 1,
                 },
               ]}
             >
-              {/* Product Top Row */}
+              {/* Product Header */}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.prodTitle, { color: fg }]}>{p.name}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                  <Text style={[styles.prodTitle, { color: colors.textPrimary }]}>{p.name}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                     {!!p.unit && (
-                      <View style={[styles.unitBadge, { backgroundColor: isDark ? "#1E332D" : "#F1F5F9" }]}>
-                        <Text style={{ fontSize: 10, color: muted, fontFamily: Typography.bold }}>{p.unit}</Text>
+                      <View style={[styles.unitBadge, { backgroundColor: colors.secondarySurface }]}>
+                        <Text style={{ fontSize: 10, color: colors.textSecondary, fontFamily: Typography.bold }}>{p.unit}</Text>
                       </View>
                     )}
                     <TouchableOpacity
@@ -362,8 +357,8 @@ export function POPlannerSection() {
                       style={[
                         styles.newProdBtn,
                         {
-                          backgroundColor: p.is_new_product ? "rgba(16,185,129,0.12)" : "rgba(139,92,246,0.1)",
-                          borderColor: p.is_new_product ? "#86EFAC" : "#C4B5FD",
+                          backgroundColor: p.is_new_product ? colors.primaryLight : colors.secondarySurface,
+                          borderColor: p.is_new_product ? colors.primaryBorder : colors.cardBorder,
                         },
                       ]}
                     >
@@ -371,7 +366,7 @@ export function POPlannerSection() {
                         style={{
                           fontSize: 10,
                           fontFamily: Typography.bold,
-                          color: p.is_new_product ? "#10B981" : "#7C3AED",
+                          color: p.is_new_product ? colors.primary : colors.textSecondary,
                         }}
                       >
                         {togglingId === p.id
@@ -384,10 +379,10 @@ export function POPlannerSection() {
                     <View
                       style={[
                         styles.statusTag,
-                        { backgroundColor: p.is_dead ? "rgba(239,68,68,0.12)" : "rgba(16,185,129,0.12)" },
+                        { backgroundColor: p.is_dead ? colors.errorBg : colors.successBg },
                       ]}
                     >
-                      <Text style={{ fontSize: 10, fontFamily: Typography.bold, color: p.is_dead ? "#EF4444" : "#10B981" }}>
+                      <Text style={{ fontSize: 10, fontFamily: Typography.bold, color: p.is_dead ? colors.error : colors.success }}>
                         {p.is_dead ? "Dead Stock (90d+)" : "Active"}
                       </Text>
                     </View>
@@ -395,56 +390,56 @@ export function POPlannerSection() {
                 </View>
 
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ fontSize: 18, fontFamily: Typography.bold, color: fg }}>
+                  <Text style={{ fontSize: 18, fontFamily: Typography.bold, color: colors.textPrimary }}>
                     {Math.round(p.current_stock)}
                   </Text>
-                  <Text style={{ fontSize: 10.5, color: muted }}>
+                  <Text style={{ fontSize: 10.5, color: colors.textMuted }}>
                     avg {p.avg_daily}/day
                   </Text>
-                  <Text style={{ fontSize: 9.5, color: p.is_new_product && p.landing_date ? "#10B981" : "#6366F1" }}>
-                    {p.is_new_product && p.landing_date ? `Since ${p.landing_date}` : "(Tally Apr-25)"}
+                  <Text style={{ fontSize: 9.5, color: colors.primary }}>
+                    {p.is_new_product && p.landing_date ? `Since ${p.landing_date}` : "Tally Apr-25"}
                   </Text>
                 </View>
               </View>
 
               {/* Growth & Forecast Strip */}
-              <View style={[styles.metricsGrid, { backgroundColor: isDark ? "#0A1310" : "#F8FAFC", borderColor: cardBorder }]}>
+              <View style={[styles.metricsGrid, { backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder }]}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.miniLabel, { color: muted }]}>GROWTH (1Y / 3M)</Text>
-                  <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: fg }}>
+                  <Text style={[styles.miniLabel, { color: colors.textMuted }]}>GROWTH (1Y / 3M)</Text>
+                  <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: colors.textPrimary }}>
                     1Y: {p.growth_1y !== null ? `${p.growth_1y >= 0 ? "+" : ""}${p.growth_1y}%` : "N/A"}
                   </Text>
-                  <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: fg }}>
+                  <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: colors.textPrimary }}>
                     3M: {p.growth_3m !== null ? `${p.growth_3m >= 0 ? "+" : ""}${p.growth_3m}%` : "N/A"}
                   </Text>
                   {p.monthly_growth_rate_pct !== 0 && (
-                    <Text style={{ fontSize: 10, color: muted }}>Blended {p.monthly_growth_rate_pct}%/mo</Text>
+                    <Text style={{ fontSize: 10, color: colors.textMuted }}>Blended {p.monthly_growth_rate_pct}%/mo</Text>
                   )}
                 </View>
-                <View style={[styles.vDivider, { backgroundColor: cardBorder }]} />
+                <View style={[styles.vDivider, { backgroundColor: colors.cardBorder }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.miniLabel, { color: muted }]}>3M FORECAST</Text>
+                  <Text style={[styles.miniLabel, { color: colors.textMuted }]}>3M FORECAST</Text>
                   {p.pred_m1 !== null ? (
                     <>
-                      <Text style={{ fontSize: 11.5, color: fg }}>
-                        M+1: <Text style={{ fontFamily: Typography.bold, color: "#6366F1" }}>{p.pred_m1}</Text>
+                      <Text style={{ fontSize: 11.5, color: colors.textPrimary }}>
+                        M+1: <Text style={{ fontFamily: Typography.bold, color: colors.primary }}>{p.pred_m1}</Text>
                       </Text>
-                      <Text style={{ fontSize: 11.5, color: fg }}>
-                        M+2: <Text style={{ fontFamily: Typography.bold, color: "#6366F1" }}>{p.pred_m2}</Text>
+                      <Text style={{ fontSize: 11.5, color: colors.textPrimary }}>
+                        M+2: <Text style={{ fontFamily: Typography.bold, color: colors.primary }}>{p.pred_m2}</Text>
                       </Text>
-                      <Text style={{ fontSize: 11.5, color: fg }}>
-                        M+3: <Text style={{ fontFamily: Typography.bold, color: "#6366F1" }}>{p.pred_m3}</Text>
+                      <Text style={{ fontSize: 11.5, color: colors.textPrimary }}>
+                        M+3: <Text style={{ fontFamily: Typography.bold, color: colors.primary }}>{p.pred_m3}</Text>
                       </Text>
                     </>
                   ) : (
-                    <Text style={{ fontSize: 11, color: muted, fontStyle: "italic" }}>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: "italic" }}>
                       {p.is_dead ? "Dead stock" : "No data"}
                     </Text>
                   )}
                 </View>
-                <View style={[styles.vDivider, { backgroundColor: cardBorder }]} />
+                <View style={[styles.vDivider, { backgroundColor: colors.cardBorder }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.miniLabel, { color: muted }]}>RUNWAY</Text>
+                  <Text style={[styles.miniLabel, { color: colors.textMuted }]}>RUNWAY</Text>
                   {p.months_of_stock !== null ? (
                     <>
                       <Text
@@ -453,31 +448,31 @@ export function POPlannerSection() {
                           fontFamily: Typography.bold,
                           color:
                             p.months_of_stock >= 3
-                              ? "#10B981"
+                              ? colors.success
                               : p.months_of_stock >= 1
-                              ? "#F59E0B"
-                              : "#EF4444",
+                              ? colors.warning
+                              : colors.error,
                         }}
                       >
                         {p.months_of_stock} mo
                       </Text>
-                      <Text style={{ fontSize: 10, color: muted }}>
+                      <Text style={{ fontSize: 10, color: colors.textMuted }}>
                         {p.is_overstocked ? "Overstocked (9m+)" : p.months_of_stock >= 3 ? "Comfortable" : p.months_of_stock >= 1 ? "Getting low" : "Very low"}
                       </Text>
                     </>
                   ) : (
-                    <Text style={{ fontSize: 11, color: muted }}>No sales</Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted }}>No sales</Text>
                   )}
                 </View>
               </View>
 
-              {/* PO & GST Purchase Summary */}
+              {/* PO & GST Summary */}
               <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8, gap: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.miniLabel, { color: muted }]}>LAST PO VOUCHER</Text>
+                  <Text style={[styles.miniLabel, { color: colors.textMuted }]}>LAST PO VOUCHER</Text>
                   {p.latest_po_date ? (
                     <>
-                      <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: "#6366F1" }}>
+                      <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: colors.textPrimary }}>
                         {Math.round(p.latest_po_qty || 0)} {p.unit} · {p.latest_po_date}
                       </Text>
                       {p.po_rows.length > 1 && (
@@ -491,22 +486,22 @@ export function POPlannerSection() {
                             })
                           }
                         >
-                          <Text style={{ fontSize: 11, color: "#00A879", fontFamily: Typography.bold }}>
+                          <Text style={{ fontSize: 11, color: colors.primary, fontFamily: Typography.bold }}>
                             All {p.po_rows.length} POs →
                           </Text>
                         </TouchableOpacity>
                       )}
                     </>
                   ) : (
-                    <Text style={{ fontSize: 11, color: muted, fontStyle: "italic" }}>No PO found</Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: "italic" }}>No PO found</Text>
                   )}
                 </View>
 
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.miniLabel, { color: muted }]}>LAST GST RECEIPT</Text>
+                  <Text style={[styles.miniLabel, { color: colors.textMuted }]}>LAST GST RECEIPT</Text>
                   {p.latest_gst_date ? (
                     <>
-                      <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: "#0369A1" }}>
+                      <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: colors.textPrimary }}>
                         {Math.round(p.latest_gst_qty || 0)} {p.unit} · {p.latest_gst_date}
                       </Text>
                       {p.gst_rows.length > 1 && (
@@ -520,30 +515,30 @@ export function POPlannerSection() {
                             })
                           }
                         >
-                          <Text style={{ fontSize: 11, color: "#00A879", fontFamily: Typography.bold }}>
+                          <Text style={{ fontSize: 11, color: colors.primary, fontFamily: Typography.bold }}>
                             All {p.gst_rows.length} receipts →
                           </Text>
                         </TouchableOpacity>
                       )}
                     </>
                   ) : (
-                    <Text style={{ fontSize: 11, color: muted, fontStyle: "italic" }}>No GST purchase</Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: "italic" }}>No GST purchase</Text>
                   )}
                 </View>
               </View>
 
               {/* In Transit Table */}
               {p.tracking_details && p.tracking_details.length > 0 && (
-                <View style={[styles.transitBox, { borderColor: cardBorder, backgroundColor: isDark ? "#0C1924" : "#EFF6FF" }]}>
-                  <Text style={{ fontSize: 10.5, fontFamily: Typography.bold, color: "#1D4ED8", marginBottom: 4 }}>
+                <View style={[styles.transitBox, { borderColor: colors.primaryBorder, backgroundColor: colors.primarySoft }]}>
+                  <Text style={{ fontSize: 10.5, fontFamily: Typography.bold, color: colors.primary, marginBottom: 4 }}>
                     IN TRANSIT SHIPMENTS ({p.tracking_details.length})
                   </Text>
                   {p.tracking_details.map((td, idx) => (
                     <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
-                      <Text style={{ fontSize: 11.5, color: fg }}>
+                      <Text style={{ fontSize: 11.5, color: colors.textPrimary }}>
                         {td.po_number}: <Text style={{ fontFamily: Typography.bold }}>{Math.round(td.incoming_qty)}</Text> ({td.stage || "—"})
                       </Text>
-                      <Text style={{ fontSize: 11.5, color: "#1D4ED8", fontFamily: Typography.bold }}>
+                      <Text style={{ fontSize: 11.5, color: colors.primary, fontFamily: Typography.bold }}>
                         {td.eta || "TBD"} {td.remaining_days !== null ? `(${td.remaining_days}d)` : ""}
                       </Text>
                     </View>
@@ -551,14 +546,14 @@ export function POPlannerSection() {
                 </View>
               )}
 
-              {/* Order Recommendation Banner */}
-              <View style={[styles.recBox, { borderColor: cardBorder }]}>
+              {/* Order Recommendation */}
+              <View style={[styles.recBox, { borderColor: colors.cardBorder }]}>
                 {p.order_urgency === "dead" ? (
-                  <Text style={{ fontSize: 12.5, color: muted, fontStyle: "italic" }}>
+                  <Text style={{ fontSize: 12.5, color: colors.textMuted, fontStyle: "italic" }}>
                     No order — dead stock
                   </Text>
                 ) : p.order_final === 0 ? (
-                  <Text style={{ fontSize: 12.5, fontFamily: Typography.bold, color: "#10B981" }}>
+                  <Text style={{ fontSize: 12.5, fontFamily: Typography.bold, color: colors.success }}>
                     Stock sufficient · Runway {p.runway_months ? `${p.runway_months} mo` : "6+ mo"}
                   </Text>
                 ) : (
@@ -566,7 +561,7 @@ export function POPlannerSection() {
                     <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: urgencyColor }}>
                       Order {p.order_final} {p.unit}
                     </Text>
-                    <Text style={{ fontSize: 11.5, color: muted, marginTop: 2 }}>
+                    <Text style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 2 }}>
                       {p.order_urgency === "urgent" ? "Order NOW — stock critical" : "Order soon — runway ending"}
                       {p.order_lasts_months ? ` · Lasts ~${p.order_lasts_months} mo` : ""}
                       {p.moq_note ? ` · MOQ applied (${p.moq_note})` : ""}
@@ -575,34 +570,34 @@ export function POPlannerSection() {
                 )}
               </View>
 
-              {/* Action Buttons Row */}
+              {/* Mobile Action Row */}
               <View style={styles.actionsRow}>
                 {p.order_urgency !== "dead" && (
                   <TouchableOpacity
                     onPress={() => setMathProduct(p)}
-                    style={[styles.actionBtn, { borderColor: cardBorder }]}
+                    style={[styles.actionBtn, { borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                   >
-                    <Ionicons name="calculator-outline" size={14} color="#00A879" />
-                    <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: "#00A879" }}>
+                    <Ionicons name="calculator-outline" size={14} color={colors.primary} />
+                    <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: colors.primary }}>
                       Show Working
                     </Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
                   onPress={() => setSalesProduct(p)}
-                  style={[styles.actionBtn, { borderColor: cardBorder }]}
+                  style={[styles.actionBtn, { borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                 >
-                  <Ionicons name="bar-chart-outline" size={14} color="#3B82F6" />
-                  <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: "#3B82F6" }}>
+                  <Ionicons name="bar-chart-outline" size={14} color={colors.primary} />
+                  <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: colors.textPrimary }}>
                     Sales History
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setTopCustTarget({ id: p.id, name: p.name })}
-                  style={[styles.actionBtn, { borderColor: cardBorder }]}
+                  style={[styles.actionBtn, { borderColor: colors.cardBorder, backgroundColor: colors.secondarySurface }]}
                 >
-                  <Ionicons name="people-outline" size={14} color="#8B5CF6" />
-                  <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: "#8B5CF6" }}>
+                  <Ionicons name="people-outline" size={14} color={colors.primary} />
+                  <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: colors.textPrimary }}>
                     Top 5
                   </Text>
                 </TouchableOpacity>
@@ -612,7 +607,6 @@ export function POPlannerSection() {
         })
       )}
 
-      {/* Modals */}
       <CategoryPickerModal
         visible={pickerVisible}
         categories={filteredCats}
@@ -657,6 +651,7 @@ function SummaryChip({
   bg,
   border,
   muted,
+  primary,
   active,
   onPress,
 }: {
@@ -666,6 +661,7 @@ function SummaryChip({
   bg: string;
   border: string;
   muted: string;
+  primary: string;
   active?: boolean;
   onPress?: () => void;
 }) {
@@ -675,7 +671,7 @@ function SummaryChip({
       onPress={onPress}
       style={[
         styles.summaryChip,
-        { backgroundColor: bg, borderColor: active ? "#00A879" : border, borderWidth: active ? 1.5 : 1 },
+        { backgroundColor: bg, borderColor: active ? primary : border, borderWidth: active ? 1.5 : 1 },
       ]}
     >
       <Text style={{ fontSize: 9.5, fontFamily: Typography.bold, color: muted }}>{label}</Text>
@@ -701,30 +697,25 @@ function CategoryPickerModal({
   onClose: () => void;
   insets: any;
 }) {
-  const { colors, isDark } = useTheme();
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const border = isDark ? "#1E332D" : "#E2E8F0";
-  const fg = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
-  const bg = isDark ? "#080F0D" : "#F8FAFC";
+  const { colors } = useTheme();
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
             padding: 16,
-            backgroundColor: cardBg,
+            backgroundColor: colors.card,
             borderBottomWidth: 1,
-            borderBottomColor: border,
+            borderBottomColor: colors.cardBorder,
           }}
         >
-          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>Select Category</Text>
+          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>Select Category</Text>
           <TouchableOpacity onPress={onClose} style={{ padding: 6 }}>
-            <Ionicons name="close" size={22} color={fg} />
+            <Ionicons name="close" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
         <View style={{ padding: 12 }}>
@@ -732,8 +723,8 @@ function CategoryPickerModal({
             style={{
               flexDirection: "row",
               alignItems: "center",
-              backgroundColor: cardBg,
-              borderColor: border,
+              backgroundColor: colors.card,
+              borderColor: colors.cardBorder,
               borderWidth: 1,
               borderRadius: Radius.md,
               paddingHorizontal: 12,
@@ -741,13 +732,13 @@ function CategoryPickerModal({
               gap: 8,
             }}
           >
-            <Ionicons name="search" size={16} color={muted} />
+            <Ionicons name="search" size={16} color={colors.textMuted} />
             <TextInput
               placeholder="Filter categories..."
-              placeholderTextColor={muted}
+              placeholderTextColor={colors.textMuted}
               value={search}
               onChangeText={onChangeSearch}
-              style={{ flex: 1, color: fg, fontSize: 13 }}
+              style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
             />
           </View>
         </View>
@@ -760,15 +751,15 @@ function CategoryPickerModal({
                 flexDirection: "row",
                 justifyContent: "space-between",
                 alignItems: "center",
-                backgroundColor: cardBg,
-                borderColor: border,
+                backgroundColor: colors.card,
+                borderColor: colors.cardBorder,
                 borderWidth: 1,
                 borderRadius: Radius.md,
                 padding: 14,
               }}
             >
-              <Text style={{ fontFamily: Typography.bold, color: fg, fontSize: 14 }}>{c.name}</Text>
-              <Text style={{ fontSize: 12, color: "#00A879", fontFamily: Typography.bold }}>
+              <Text style={{ fontFamily: Typography.bold, color: colors.textPrimary, fontSize: 14 }}>{c.name}</Text>
+              <Text style={{ fontSize: 12, color: colors.primary, fontFamily: Typography.bold }}>
                 {c.item_count} items
               </Text>
             </TouchableOpacity>
@@ -788,21 +779,21 @@ const styles = StyleSheet.create({
     ...Shadows.card,
   },
   generatorIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
-    backgroundColor: "rgba(0,168,121,0.12)",
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
   },
-  generatorTitle: { fontSize: 20, fontFamily: Typography.bold, textAlign: "center" },
-  generatorSub: { fontSize: 13, textAlign: "center", marginTop: 6, marginBottom: 20, lineHeight: 19 },
+  generatorTitle: { fontSize: 19, fontFamily: Typography.bold, textAlign: "center" },
+  generatorSub: { fontSize: 12.5, textAlign: "center", marginTop: 6, marginBottom: 20, lineHeight: 18 },
   selectBox: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 13,
@@ -810,7 +801,6 @@ const styles = StyleSheet.create({
   },
   loadBtn: {
     width: "100%",
-    backgroundColor: "#6366F1",
     borderRadius: Radius.md,
     paddingVertical: 14,
     flexDirection: "row",

@@ -21,15 +21,10 @@ interface TallyPOsSectionProps {
 }
 
 export function TallyPOsSection({ orders, onRefresh }: TallyPOsSectionProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [search, setSearch] = useState("");
   const [startingId, setStartingId] = useState<number | null>(null);
   const [openTrackingId, setOpenTrackingId] = useState<number | null>(null);
-
-  const cardBg = isDark ? "#111D19" : "#FFFFFF";
-  const cardBorder = isDark ? "#1E332D" : "#E2E8F0";
-  const fg = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
 
   const filtered = orders.filter((tpo) => {
     if (!search.trim()) return true;
@@ -62,27 +57,27 @@ export function TallyPOsSection({ orders, onRefresh }: TallyPOsSectionProps) {
 
   return (
     <View style={{ gap: 12 }}>
-      <View style={[styles.searchBox, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-        <Ionicons name="search" size={16} color={muted} />
+      <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+        <Ionicons name="search" size={16} color={colors.textMuted} />
         <TextInput
           placeholder="Search voucher no, supplier, or item..."
-          placeholderTextColor={muted}
+          placeholderTextColor={colors.textMuted}
           value={search}
           onChangeText={setSearch}
-          style={{ flex: 1, color: fg, fontSize: 13 }}
+          style={{ flex: 1, color: colors.textPrimary, fontSize: 13 }}
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch("")}>
-            <Ionicons name="close-circle" size={16} color={muted} />
+            <Ionicons name="close-circle" size={16} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
       {filtered.length === 0 ? (
-        <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-          <Ionicons name="receipt-outline" size={38} color={muted} />
-          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: fg }}>No Tally Purchase Orders</Text>
-          <Text style={{ fontSize: 12, color: muted, textAlign: "center" }}>
+        <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Ionicons name="receipt-outline" size={38} color={colors.textMuted} />
+          <Text style={{ fontSize: 16, fontFamily: Typography.bold, color: colors.textPrimary }}>No Tally Purchase Orders</Text>
+          <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: "center" }}>
             No matching synced Tally purchase orders found.
           </Text>
         </View>
@@ -90,28 +85,27 @@ export function TallyPOsSection({ orders, onRefresh }: TallyPOsSectionProps) {
         filtered.map((tpo) => (
           <View
             key={tpo.id}
-            style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}
+            style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <View style={[styles.voucherBadge, { backgroundColor: isDark ? "#1E332D" : "#F1F5F9" }]}>
-                    <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: fg }}>
+                  <View style={[styles.voucherBadge, { backgroundColor: colors.secondarySurface }]}>
+                    <Text style={{ fontSize: 11.5, fontFamily: Typography.bold, color: colors.textPrimary }}>
                       {tpo.voucher_number}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 11.5, color: muted }}>{tpo.date}</Text>
+                  <Text style={{ fontSize: 11.5, color: colors.textMuted }}>{tpo.date}</Text>
                 </View>
-                <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: "#6366F1", marginTop: 6 }}>
+                <Text style={{ fontSize: 14, fontFamily: Typography.bold, color: colors.textPrimary, marginTop: 6 }}>
                   {tpo.party_name}
                 </Text>
               </View>
-              <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: "#00A879" }}>
+              <Text style={{ fontSize: 15, fontFamily: Typography.bold, color: colors.primary }}>
                 {tpo.total_value_display}
               </Text>
             </View>
 
-            {/* Inventory Items List */}
             {tpo.items.length > 0 && (
               <View style={{ gap: 5, marginTop: 10 }}>
                 {tpo.items.map((it) => (
@@ -120,15 +114,15 @@ export function TallyPOsSection({ orders, onRefresh }: TallyPOsSectionProps) {
                     style={[
                       styles.itemPill,
                       {
-                        backgroundColor: isDark ? "#0A1310" : "#F0F4FF",
-                        borderColor: isDark ? "#1E332D" : "#E0E7FF",
+                        backgroundColor: colors.secondarySurface,
+                        borderColor: colors.cardBorder,
                       },
                     ]}
                   >
-                    <Text style={{ fontSize: 12, color: isDark ? "#E2E8F0" : "#312E81", flex: 1, marginRight: 8 }} numberOfLines={1}>
+                    <Text style={{ fontSize: 12, color: colors.textPrimary, flex: 1, marginRight: 8 }} numberOfLines={1}>
                       {it.name}
                     </Text>
-                    <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: "#6366F1" }}>
+                    <Text style={{ fontSize: 12, fontFamily: Typography.bold, color: colors.primary }}>
                       x {it.quantity}
                     </Text>
                   </View>
@@ -136,7 +130,6 @@ export function TallyPOsSection({ orders, onRefresh }: TallyPOsSectionProps) {
               </View>
             )}
 
-            {/* Tracking Action Row */}
             <View
               style={{
                 flexDirection: "row",
@@ -145,10 +138,10 @@ export function TallyPOsSection({ orders, onRefresh }: TallyPOsSectionProps) {
                 marginTop: 12,
                 paddingTop: 10,
                 borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: cardBorder,
+                borderTopColor: colors.cardBorder,
               }}
             >
-              <Text style={{ fontSize: 11, color: muted }}>
+              <Text style={{ fontSize: 11, color: colors.textMuted }}>
                 {tpo.item_count} line item{tpo.item_count === 1 ? "" : "s"} · {tpo.total_quantity.toLocaleString()} units
               </Text>
 
@@ -158,8 +151,8 @@ export function TallyPOsSection({ orders, onRefresh }: TallyPOsSectionProps) {
                 style={[
                   styles.actionBtn,
                   tpo.is_tracked
-                    ? { backgroundColor: cardBg, borderColor: cardBorder, borderWidth: 1 }
-                    : { backgroundColor: "#6366F1" },
+                    ? { backgroundColor: colors.secondarySurface, borderColor: colors.cardBorder, borderWidth: 1 }
+                    : { backgroundColor: colors.primary },
                 ]}
               >
                 {startingId === tpo.id ? (
@@ -169,13 +162,13 @@ export function TallyPOsSection({ orders, onRefresh }: TallyPOsSectionProps) {
                     <Ionicons
                       name={tpo.is_tracked ? "eye-outline" : "add"}
                       size={14}
-                      color={tpo.is_tracked ? fg : "#FFFFFF"}
+                      color={tpo.is_tracked ? colors.primary : "#FFFFFF"}
                     />
                     <Text
                       style={{
                         fontSize: 12,
                         fontFamily: Typography.bold,
-                        color: tpo.is_tracked ? fg : "#FFFFFF",
+                        color: tpo.is_tracked ? colors.textPrimary : "#FFFFFF",
                       }}
                     >
                       {tpo.is_tracked ? "View Tracking" : "Start Tracking"}
