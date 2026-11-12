@@ -262,8 +262,8 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   headerIcon3D: {
-    width: 26,
-    height: 26,
+    width: 22,
+    height: 22,
   },
   notificationBadge: {
     position: "absolute",
