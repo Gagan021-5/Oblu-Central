@@ -1,5 +1,5 @@
 import React from "react";
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,6 +7,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography } from "@/constants/theme";
+import { SubAppLogo } from "@/components/employee/SubAppLogo";
 
 type Props = { visible: boolean; onClose: () => void; isAdmin?: boolean };
 
@@ -14,9 +15,10 @@ export function CustomerNavDrawer({ visible, onClose, isAdmin = false }: Props) 
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { user, permissionProfile } = useAuth();
-  const foreground = isDark ? "#F1F7F4" : "#101827";
-  const muted = isDark ? "#9AA9A3" : "#637083";
-  const bg = isDark ? "#0E1714" : "#FFFFFF";
+  const foreground = isDark ? "#F2F8F5" : "#101827";
+  const muted = isDark ? "#9CB3AA" : "#637083";
+  const bg = isDark ? "#13221C" : "#FFFFFF";
+  const dividerColor = isDark ? "#2D493F" : "#DDE5E1";
 
   const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
   const isSuperuser =
@@ -206,14 +208,8 @@ export function CustomerNavDrawer({ visible, onClose, isAdmin = false }: Props) 
       <View style={styles.frame}>
         <Pressable style={styles.scrim} onPress={onClose} />
         <View style={[styles.drawer, { backgroundColor: bg, paddingTop: Math.max(insets.top, 16) }]}>
-          <View style={styles.brandRow}>
-            <View style={styles.logo}>
-              <Image
-                source={require("@/assets/images/logo.webp")}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
+          <View style={[styles.brandRow, { borderBottomColor: dividerColor }]}>
+            <SubAppLogo appId="customers" size={42} borderRadius={14} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.brand, { color: foreground }]} numberOfLines={1}>
                 Customer Overview
@@ -244,7 +240,7 @@ export function CustomerNavDrawer({ visible, onClose, isAdmin = false }: Props) 
                 </View>
               ))}
           </ScrollView>
-          <Text style={[styles.footer, { color: muted }]}>
+          <Text style={[styles.footer, { color: muted, borderTopColor: dividerColor }]}>
             Your access follows your account permissions.
           </Text>
         </View>
@@ -272,16 +268,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#DDE5E1",
   },
-  logo: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: "#DDF8F0",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  logoImage: { width: 30, height: 30 },
   brand: { fontFamily: Typography.headingSemi, fontSize: 16 },
   caption: { fontFamily: Typography.regular, fontSize: 11, marginTop: 3 },
   close: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },

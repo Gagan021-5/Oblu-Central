@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -13,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius } from "@/constants/theme";
+import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { InventoryNavTab } from "./InventoryMainScreen";
 
 interface InventoryNavDrawerProps {
@@ -44,9 +44,9 @@ export function InventoryNavDrawer({
   const [analyticsExpanded, setAnalyticsExpanded] = useState(true);
 
   const foreground = colors.textPrimary;
-  const muted = isDark ? "#94A3B8" : "#64748B";
-  const bg = isDark ? "#0A1310" : "#FFFFFF";
-  const itemBorder = isDark ? "#1E332D" : "#E2E8F0";
+  const muted = isDark ? "#9CB3AA" : "#64748B";
+  const bg = isDark ? "#13221C" : "#FFFFFF";
+  const itemBorder = isDark ? "#2D493F" : "#E2E8F0";
 
   const handleSelect = (tab: InventoryNavTab) => {
     onClose();
@@ -60,13 +60,7 @@ export function InventoryNavDrawer({
         <View style={[styles.drawer, { backgroundColor: bg, paddingTop: Math.max(insets.top, 16) }]}>
           {/* Brand Header */}
           <View style={[styles.brandRow, { borderBottomColor: itemBorder }]}>
-            <View style={styles.logo}>
-              <Image
-                source={require("@/assets/images/logo.webp")}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
+            <SubAppLogo appId="inventory" size={40} borderRadius={12} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Text style={[styles.brandTitle, { color: foreground }]}>OBLU</Text>
@@ -581,16 +575,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  logo: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "#DDF8F0",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  logoImage: { width: 26, height: 26 },
   brandTitle: { fontFamily: Typography.bold, fontSize: 16, letterSpacing: 0.5 },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#00A879" },
   badgePill: {
