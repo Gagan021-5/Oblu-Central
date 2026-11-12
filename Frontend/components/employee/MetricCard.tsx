@@ -1,13 +1,5 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography } from "@/constants/theme";
@@ -36,43 +28,53 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
   onPress,
 }) => {
   const { isDark } = useTheme();
-  const pressScale = useSharedValue(1);
-  const shimmerOpacity = useSharedValue(0.35);
+  const pressScale = useRef(new Animated.Value(1)).current;
+  const shimmerOpacity = useRef(new Animated.Value(0.35)).current;
 
   useEffect(() => {
     if (!loading) {
-      shimmerOpacity.value = 1;
+      shimmerOpacity.setValue(1);
       return;
     }
-    shimmerOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.85, { duration: 720 }),
-        withTiming(0.32, { duration: 720 })
-      ),
-      -1,
-      false
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerOpacity, {
+          toValue: 0.85,
+          duration: 720,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerOpacity, {
+          toValue: 0.32,
+          duration: 720,
+          useNativeDriver: true,
+        }),
+      ])
     );
+    loop.start();
+    return () => loop.stop();
   }, [loading, shimmerOpacity]);
-
-  const cardMotionStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pressScale.value }],
-  }));
-
-  const shimmerBarStyle = useAnimatedStyle(() => ({
-    opacity: shimmerOpacity.value,
-  }));
 
   const shimmerBg = isDark ? "#1C2E27" : "#E5EDE8";
 
   const handlePressIn = () => {
     if (!onPress) return;
     triggerLightHaptic();
-    pressScale.value = withSpring(0.96, { damping: 16, stiffness: 320 });
+    Animated.spring(pressScale, {
+      toValue: 0.96,
+      friction: 8,
+      tension: 320,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handlePressOut = () => {
     if (!onPress) return;
-    pressScale.value = withSpring(1, { damping: 14, stiffness: 280 });
+    Animated.spring(pressScale, {
+      toValue: 1,
+      friction: 7,
+      tension: 280,
+      useNativeDriver: true,
+    }).start();
   };
 
   const cardBody = (
@@ -92,8 +94,8 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
             ? isDark ? "#35D6A0" : "#00A879"
             : isDark ? "#000000" : "#0D2B20",
           shadowOpacity: isHighlight ? (isDark ? 0.30 : 0.15) : (isDark ? 0.36 : 0.09),
+          transform: [{ scale: pressScale }],
         },
-        cardMotionStyle,
       ]}
     >
       <View style={styles.topRow}>
@@ -126,10 +128,10 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
       {loading ? (
         <View style={styles.skeletonGroup}>
           <Animated.View
-            style={[styles.skeletonValue, { backgroundColor: shimmerBg }, shimmerBarStyle]}
+            style={[styles.skeletonValue, { backgroundColor: shimmerBg, opacity: shimmerOpacity }]}
           />
           <Animated.View
-            style={[styles.skeletonSub, { backgroundColor: shimmerBg }, shimmerBarStyle]}
+            style={[styles.skeletonSub, { backgroundColor: shimmerBg, opacity: shimmerOpacity }]}
           />
         </View>
       ) : (
