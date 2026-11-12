@@ -1,9 +1,10 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography } from "@/constants/theme";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import {
   UnifiedSearchResults,
   SearchTelephonyUser,
@@ -58,7 +59,6 @@ export const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Ionicons name="search" size={18} color={accent} />
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
             Search Results
           </Text>
@@ -76,9 +76,6 @@ export const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({
               {results.totalCount} found
             </Text>
           </View>
-          {isSearching && (
-            <ActivityIndicator size="small" color={accent} style={{ marginLeft: 4 }} />
-          )}
         </View>
         <TouchableOpacity onPress={onClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={[styles.clearText, { color: accent }]}>Clear</Text>
@@ -417,6 +414,10 @@ export const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({
         </View>
       )}
 
+      {isSearching && (
+        <SkeletonCardList count={results.totalCount === 0 ? 3 : 1} height={74} />
+      )}
+
       {/* Empty State */}
       {results.totalCount === 0 && !isSearching && (
         <View style={styles.emptyBox}>
@@ -531,3 +532,4 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 });
+
