@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Radius } from "@/constants/theme";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
-import { InventoryNavTab } from "./InventoryMainScreen";
+import type { InventoryNavTab } from "./InventoryMainScreen";
 
 interface InventoryNavDrawerProps {
   visible: boolean;

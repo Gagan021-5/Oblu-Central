@@ -24,3 +24,4 @@ export function triggerSelectionHaptic(): void {
     // Ignore on unsupported simulators/hardware
   }
 }
+

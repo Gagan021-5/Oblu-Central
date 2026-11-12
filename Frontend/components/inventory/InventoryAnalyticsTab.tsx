@@ -1,5 +1,10 @@
 import React from "react";
-import { View, Text, ScrollView, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+} from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography } from "@/constants/theme";
 import { SalesContributionSection } from "./analytics/SalesContributionSection";
@@ -17,7 +22,6 @@ export function InventoryAnalyticsTab({
   onOpenProduct,
 }: InventoryAnalyticsTabProps) {
   const { colors } = useTheme();
-  const section = initialSection;
 
   return (
     <ScrollView
@@ -28,30 +32,30 @@ export function InventoryAnalyticsTab({
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            {section === "contribution"
+            {initialSection === "contribution"
               ? "Sales Contribution"
-              : section === "category"
+              : initialSection === "category"
               ? "Category Analytics"
-              : section === "comparison"
+              : initialSection === "comparison"
               ? "Sales Comparison"
               : "Inventory Report"}
           </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {section === "contribution"
-              ? "Revenue share rankings & invoice sales ledger by item"
-              : section === "category"
-              ? "Product growth trends & churned / rising customer intelligence"
-              : section === "comparison"
-              ? "Category-wise & product-wise period velocity comparison"
-              : "Complete catalog thresholds, LR, GPT & closing predictions"}
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+            {initialSection === "contribution"
+              ? "Revenue share rankings & Tax Invoice sales ledger"
+              : initialSection === "category"
+              ? "Product growth trends & customer intelligence"
+              : initialSection === "comparison"
+              ? "Category-wise & product-wise velocity comparison"
+              : "Catalog thresholds, predictions & expected deliveries"}
           </Text>
         </View>
       </View>
 
-      {section === "contribution" && <SalesContributionSection />}
-      {section === "category" && <CategoryAnalyticsSection />}
-      {section === "comparison" && <SalesComparisonSection />}
-      {section === "report" && <InventoryReportSection onOpenProduct={onOpenProduct} />}
+      {initialSection === "contribution" && <SalesContributionSection />}
+      {initialSection === "category" && <CategoryAnalyticsSection />}
+      {initialSection === "comparison" && <SalesComparisonSection />}
+      {initialSection === "report" && <InventoryReportSection onOpenProduct={onOpenProduct} />}
     </ScrollView>
   );
 }
@@ -67,3 +71,4 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontFamily: Typography.bold },
   subtitle: { fontSize: 12, marginTop: 2, fontFamily: Typography.regular },
 });
+
