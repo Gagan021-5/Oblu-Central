@@ -494,6 +494,11 @@ export default function EmployeeHomeScreen() {
 
         {/* ── Horizontal App Categories Row (Food App Pattern) ──────────────── */}
         <View style={styles.categoriesContainer}>
+          {allowedApps.length > 1 && (
+            <Text style={[styles.exploreAppsHeading, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              Explore Apps
+            </Text>
+          )}
           <FlatList
             data={allowedApps}
             keyExtractor={(item) => item.id}
@@ -2238,6 +2243,13 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     marginBottom: 20,
     marginHorizontal: -16,
+  },
+  exploreAppsHeading: {
+    fontFamily: Typography.headingSemi,
+    fontSize: 15,
+    letterSpacing: -0.2,
+    paddingHorizontal: 16,
+    marginBottom: 10,
   },
   categoriesList: {
     paddingHorizontal: 16,

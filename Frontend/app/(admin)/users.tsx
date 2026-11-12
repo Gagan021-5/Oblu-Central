@@ -46,7 +46,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
 import { WorkspaceHeader } from "@/components/employee/WorkspaceHeader";
 import { MetricCard } from "@/components/employee/MetricCard";
-import { SubAppCard } from "@/components/employee/SubAppCard";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { CustomerCard } from "@/components/employee/CustomerCard";
@@ -422,6 +421,9 @@ export default function UsersScreen() {
 
         {/* 3. Horizontal App Categories Slider (Carousel / Food App Slider Pattern) */}
         <View style={styles.categoriesContainer}>
+          <Text style={[styles.exploreAppsHeading, { color: colors.textPrimary }]}>
+            Explore Apps
+          </Text>
           <FlatList
             data={ADMIN_SLIDER_APPS}
             keyExtractor={(item) => item.id}
@@ -612,13 +614,10 @@ export default function UsersScreen() {
             {/* ─── 5. CATEGORY = "ALL" (Executive Suite Overview) ─── */}
             {selectedCategory === "all" && (
               <>
-                {/* Hero Section */}
+                {/* Overview Heading */}
                 <View style={styles.heroSection}>
                   <Text style={[styles.heroHeading, { color: colors.textPrimary }]}>
-                    Executive Overview
-                  </Text>
-                  <Text style={[styles.heroSub, { color: colors.textMuted }]}>
-                    Oblu Healthcare Central Operations
+                    Dashboard
                   </Text>
                 </View>
 
@@ -653,75 +652,6 @@ export default function UsersScreen() {
                       icon="time-outline"
                     />
                   </View>
-                </View>
-
-                {/* Enterprise Bento Suite (SubAppCards) */}
-                <View style={styles.bentoSection}>
-                  <SubAppCard
-                    type="customers"
-                    onPress={() => router.push("/(admin)/customers")}
-                    customersCount={dashboardStats?.totalCustomers ?? 0}
-                    followUpsCount={dashboardStats?.followUpsDueCount ?? 0}
-                  />
-
-                  <SubAppCard
-                    type="call_tracker"
-                    onPress={() => router.push("/(admin)/call-logs")}
-                    callsCount={totalCalls}
-                    syncStatusText="All Staff Calls Active"
-                  />
-
-                  {/* HRMS Bento Tile */}
-                  <TouchableOpacity
-                    style={[
-                      styles.bentoModuleCard,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: colors.cardBorder,
-                      },
-                    ]}
-                    onPress={() => openSubApp("hrms")}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.bentoModuleHeader}>
-                      <SubAppLogo
-                        appId="hrms"
-                        size={48}
-                        borderRadius={14}
-                        borderColor={isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.22)"}
-                      />
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <View style={[styles.badgePill, { backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "#E6F8F2" }]}>
-                          <Text style={[styles.badgePillText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
-                            {hrmsData?.stats?.pending_leaves || 0} LEAVES PENDING
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            router.navigate("/(admin)/hrms");
-                          }}
-                        >
-                          <Ionicons name="arrow-forward" size={16} color={colors.primary} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                    <Text style={[styles.bentoModuleTitle, { color: colors.textPrimary }]}>
-                      HRMS Workforce Suite
-                    </Text>
-                    <Text style={[styles.bentoModuleSub, { color: colors.textMuted }]}>
-                      {hrmsData?.stats?.total_employees || users.length} employees • {hrmsData?.stats?.present_today || 0} checked in today
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Leads Bento Tile */}
-                  <SubAppCard
-                    type="leads"
-                    onPress={() => router.push("/(admin)/leads")}
-                    leadsCount={dashboardStats?.totalLeadsCount ?? 14}
-                    pipelineValue="Active Pipeline"
-                  />
                 </View>
 
                 {/* Live Recent Team Calls Feed */}
@@ -1482,6 +1412,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 4,
   },
+  exploreAppsHeading: {
+    fontFamily: Typography.headingSemi,
+    fontSize: 15,
+    letterSpacing: -0.2,
+    marginBottom: 10,
+  },
   categoriesList: {
     paddingHorizontal: 0,
     gap: 14,
@@ -1514,71 +1450,21 @@ const styles = StyleSheet.create({
 
   // Hero Section
   heroSection: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   heroHeading: {
-    fontSize: 26,
+    fontSize: 22,
     fontFamily: Typography.bold,
-    letterSpacing: -0.5,
-  },
-  heroSub: {
-    fontSize: FontSizes.bodySmall,
-    fontFamily: Typography.regular,
-    marginTop: 2,
+    letterSpacing: -0.4,
   },
 
   // Metrics Section
   metricsSection: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   metricsGrid: {
     flexDirection: "row",
     gap: 10,
-  },
-
-  // Bento Section
-  bentoSection: {
-    gap: 14,
-    marginBottom: 24,
-  },
-  bentoModuleCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-    ...Shadows.card,
-  },
-  bentoModuleHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  bentoModuleIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bentoModuleTitle: {
-    fontSize: 18,
-    fontFamily: Typography.bold,
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  bentoModuleSub: {
-    fontSize: FontSizes.bodySmall,
-    fontFamily: Typography.regular,
-  },
-  badgePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radius.pill,
-  },
-  badgePillText: {
-    fontSize: FontSizes.micro,
-    fontFamily: Typography.bold,
   },
 
   // Section Wrap
