@@ -191,11 +191,15 @@ const APP_SEARCH_META: Record<string, { subtitle: string; keywords: string[] }> 
     ],
   },
   security: {
-    subtitle: "Devices, access control & staff handsets",
+    subtitle: "Team devices, linked phones & access",
     keywords: [
       "security",
+      "team devices",
       "device",
       "devices",
+      "phone",
+      "phones",
+      "linked",
       "handset",
       "handsets",
       "role",
@@ -450,3 +454,4 @@ export function buildUnifiedSearchResults(params: {
     totalCount,
   };
 }
+

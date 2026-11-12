@@ -454,7 +454,7 @@ export default function UsersScreen() {
             placeholders={[
               'Search "customers"',
               'Search "leads"',
-              'Search "staff & handsets"',
+              'Search "team devices"',
               'Search "call logs & records"',
             ]}
             intervalMs={2000}
@@ -1035,10 +1035,10 @@ export default function UsersScreen() {
                 <View style={styles.moduleHeader}>
                   <View>
                     <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>
-                      Staff & Device Security
+                      Team Devices & Security
                     </Text>
                     <Text style={[styles.moduleSubtitle, { color: colors.textMuted }]}>
-                      Handset binding, device models and credential status
+                      Linked devices, phone models & access status
                     </Text>
                   </View>
                 </View>

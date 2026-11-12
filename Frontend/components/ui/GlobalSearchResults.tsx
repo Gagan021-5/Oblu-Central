@@ -270,7 +270,7 @@ export const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({
       {results.telephonyUsers.length > 0 && (
         <View style={styles.group}>
           <Text style={[styles.groupTitle, { color: mutedColor }]}>
-            TEAM HANDSETS & USERS ({results.telephonyUsers.length})
+            TEAM DEVICES & USERS ({results.telephonyUsers.length})
           </Text>
           {results.telephonyUsers.map((u) => (
             <TouchableOpacity

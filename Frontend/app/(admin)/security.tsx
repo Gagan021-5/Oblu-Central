@@ -22,15 +22,15 @@ interface DeviceItem {
   model: string;
   appVersion: string;
   lastPing: string;
-  status: "Bound & Active" | "Pending Handset" | "Deactivated";
+  status: "Active" | "Not Linked" | "Deactivated";
 }
 
 const INITIAL_DEVICES: DeviceItem[] = [
-  { id: "1", username: "Bhavya_Bhardwaj", role: "Sales Specialist", model: "Vivo V27 5G", appVersion: "v1.4.2", lastPing: "Just now", status: "Bound & Active" },
-  { id: "2", username: "Gagan_Sharma", role: "Admin", model: "Pixel 8 Pro", appVersion: "v1.4.2", lastPing: "2 mins ago", status: "Bound & Active" },
-  { id: "3", username: "Anshika_Verma", role: "HR Executive", model: "Samsung Galaxy A53", appVersion: "v1.4.1", lastPing: "10 mins ago", status: "Bound & Active" },
-  { id: "4", username: "Vivek_Kumar", role: "Warehouse Lead", model: "Redmi Note 12", appVersion: "v1.4.2", lastPing: "1 hour ago", status: "Bound & Active" },
-  { id: "5", username: "Vikas_Yadav", role: "Logistics", model: "No handset bound", appVersion: "N/A", lastPing: "Offline", status: "Pending Handset" },
+  { id: "1", username: "Bhavya_Bhardwaj", role: "Sales Specialist", model: "Vivo V27 5G", appVersion: "v1.4.2", lastPing: "Just now", status: "Active" },
+  { id: "2", username: "Gagan_Sharma", role: "Admin", model: "Pixel 8 Pro", appVersion: "v1.4.2", lastPing: "2 mins ago", status: "Active" },
+  { id: "3", username: "Anshika_Verma", role: "HR Executive", model: "Samsung Galaxy A53", appVersion: "v1.4.1", lastPing: "10 mins ago", status: "Active" },
+  { id: "4", username: "Vivek_Kumar", role: "Warehouse Lead", model: "Redmi Note 12", appVersion: "v1.4.2", lastPing: "1 hour ago", status: "Active" },
+  { id: "5", username: "Vikas_Yadav", role: "Logistics", model: "No device linked", appVersion: "N/A", lastPing: "Offline", status: "Not Linked" },
 ];
 
 export default function SecurityScreen() {
@@ -53,22 +53,22 @@ export default function SecurityScreen() {
           style={[
             styles.backBtn,
             {
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: isDark ? "#192D25" : "#FFFFFF",
+              borderColor: isDark ? "#2D493F" : "#D8E0DC",
             },
           ]}
           onPress={() => (router.canGoBack() ? router.back() : router.replace(isAdmin ? "/(admin)/users" : "/(employee)"))}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={18} color={isDark ? "#F1F7F4" : "#101513"} />
+          <Ionicons name="arrow-back" size={18} color={isDark ? "#F2F8F5" : "#101513"} />
         </TouchableOpacity>
 
         <View style={styles.topBarCenter}>
           <Text style={[styles.screenHeading, { color: colors.textPrimary }]}>
-            Handsets & Device Link
+            Team Devices
           </Text>
           <Text style={[styles.screenSub, { color: colors.textSecondary }]}>
-            Live hardware binding & permission telemetry
+            Linked devices & access security
           </Text>
         </View>
 
@@ -92,23 +92,23 @@ export default function SecurityScreen() {
           <View style={styles.headerBlock}>
             <View style={styles.metricsRow}>
               <MetricCard
-                label="Bound Handsets"
+                label="Linked Devices"
                 value="18"
-                subValue="devices linked"
+                subValue="active phones"
                 icon="shield-checkmark-outline"
                 isHighlight
               />
               <MetricCard
                 label="Sync Health"
                 value="100%"
-                subValue="telemetry live"
+                subValue="devices online"
                 icon="hardware-chip-outline"
               />
             </View>
           </View>
         }
         renderItem={({ item }) => {
-          const isBound = item.status === "Bound & Active";
+          const isBound = item.status === "Active";
 
           return (
             <View
