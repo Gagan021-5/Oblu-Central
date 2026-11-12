@@ -22,6 +22,7 @@ import { Typography, FontSizes, Radius } from "@/constants/theme";
 import { WorkspaceHeader } from "@/components/employee/WorkspaceHeader";
 import { getRoleWorkspaceContext } from "@/utils/greetings";
 import { SubAppCard } from "@/components/employee/SubAppCard";
+import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { TimelineItem } from "@/components/employee/TimelineItem";
 import { SearchBar } from "@/components/ui/SearchBar";
@@ -419,28 +420,6 @@ export default function EmployeeHomeScreen() {
 
   const isAdmin = user?.role?.toLowerCase() === "admin" || userProfile?.user?.role?.toLowerCase() === "admin";
 
-  // App icon mapping
-  const getAppIconName = (id: string, isSelected: boolean): keyof typeof Ionicons.glyphMap => {
-    switch (id) {
-      case "all":
-        return isSelected ? "grid" : "grid-outline";
-      case "customers":
-        return isSelected ? "people" : "people-outline";
-      case "leads":
-        return isSelected ? "filter" : "filter-outline";
-      case "inventory":
-        return isSelected ? "cube" : "cube-outline";
-      case "proforma":
-        return isSelected ? "document-text" : "document-text-outline";
-      case "hrms":
-        return isSelected ? "briefcase" : "briefcase-outline";
-      case "incentives":
-        return isSelected ? "trophy" : "trophy-outline";
-      default:
-        return isSelected ? "apps" : "apps-outline";
-    }
-  };
-
   const getAppAccent = (id: string) => {
     switch (id) {
       case "all":
@@ -535,13 +514,6 @@ export default function EmployeeHomeScreen() {
                     style={[
                       styles.categoryCircle,
                       {
-                        backgroundColor: isSelected
-                          ? isDark
-                            ? (isDark ? "rgba(53, 214, 160, 0.16)" : "rgba(0, 168, 121, 0.12)")
-                            : "rgba(219, 39, 119, 0.10)"
-                          : isDark
-                          ? "#121F1B"
-                          : "#FFFFFF",
                         borderColor: isSelected
                           ? accentColor
                           : isDark
@@ -551,10 +523,11 @@ export default function EmployeeHomeScreen() {
                       },
                     ]}
                   >
-                    <Ionicons
-                      name={getAppIconName(item.id, isSelected)}
-                      size={24}
-                      color={isSelected ? accentColor : isDark ? "#8FA09A" : "#5E6964"}
+                    <SubAppLogo
+                      appId={item.id}
+                      borderRadius={0}
+                      borderWidth={0}
+                      style={{ width: "100%", height: "100%" }}
                     />
                   </View>
                   <Text
@@ -891,17 +864,12 @@ export default function EmployeeHomeScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={styles.bentoModuleHeader}>
-                    <View
-                      style={[
-                        styles.bentoModuleIconBox,
-                        {
-                          backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "#DDF4EA",
-                          borderColor: isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.25)",
-                        },
-                      ]}
-                    >
-                      <Ionicons name="trophy" size={22} color={isDark ? "#35D6A0" : "#00A879"} />
-                    </View>
+                    <SubAppLogo
+                      appId="incentives"
+                      size={48}
+                      borderRadius={14}
+                      borderColor={isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.22)"}
+                    />
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View
                         style={[
@@ -948,17 +916,12 @@ export default function EmployeeHomeScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={styles.bentoModuleHeader}>
-                    <View
-                      style={[
-                        styles.bentoModuleIconBox,
-                        {
-                          backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "#DDF4EA",
-                          borderColor: isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.25)",
-                        },
-                      ]}
-                    >
-                      <Ionicons name="cube" size={22} color={isDark ? "#35D6A0" : "#00A879"} />
-                    </View>
+                    <SubAppLogo
+                      appId="inventory"
+                      size={48}
+                      borderRadius={14}
+                      borderColor={isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.22)"}
+                    />
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View
                         style={[
@@ -1005,17 +968,12 @@ export default function EmployeeHomeScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={styles.bentoModuleHeader}>
-                    <View
-                      style={[
-                        styles.bentoModuleIconBox,
-                        {
-                          backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "#DDF4EA",
-                          borderColor: isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.25)",
-                        },
-                      ]}
-                    >
-                      <Ionicons name="document-text" size={22} color={isDark ? "#35D6A0" : "#00A879"} />
-                    </View>
+                    <SubAppLogo
+                      appId="proforma"
+                      size={48}
+                      borderRadius={14}
+                      borderColor={isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.22)"}
+                    />
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View
                         style={[
@@ -2287,20 +2245,21 @@ const styles = StyleSheet.create({
   },
   categoryItem: {
     alignItems: "center",
-    width: 68,
+    width: 72,
   },
   categoryCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 62,
+    height: 62,
+    borderRadius: 18,
+    overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 3,
   },
   categoryLabel: {
     fontFamily: Typography.medium,

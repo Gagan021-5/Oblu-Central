@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography } from "@/constants/theme";
+import { SubAppLogo } from "@/components/employee/SubAppLogo";
 
 interface SubAppCardProps {
   type: "customers" | "leads" | "inventory" | "proforma" | "hrms" | "incentives" | "call_tracker" | "calls";
@@ -151,9 +152,12 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
       activeOpacity={0.8}
     >
       <View style={styles.cardHeader}>
-        <View style={[styles.iconBox, { backgroundColor: config.bgRgba }]}>
-          <Ionicons name={config.icon} size={22} color={config.color} />
-        </View>
+        <SubAppLogo
+          appId={type}
+          size={48}
+          borderRadius={14}
+          borderColor={isDark ? "rgba(53, 214, 160, 0.28)" : "rgba(13, 43, 32, 0.12)"}
+        />
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={[styles.tagPill, { backgroundColor: config.bgRgba }]}>

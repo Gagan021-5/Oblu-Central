@@ -47,6 +47,7 @@ import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/the
 import { WorkspaceHeader } from "@/components/employee/WorkspaceHeader";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { SubAppCard } from "@/components/employee/SubAppCard";
+import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { CustomerCard } from "@/components/employee/CustomerCard";
 import { LeadCard } from "@/components/employee/LeadCard";
@@ -347,31 +348,6 @@ export default function UsersScreen() {
     }
   };
 
-  const getAppIconName = (id: string, isSelected: boolean): keyof typeof Ionicons.glyphMap => {
-    switch (id) {
-      case "all":
-        return isSelected ? "grid" : "grid-outline";
-      case "hrms":
-        return isSelected ? "briefcase" : "briefcase-outline";
-      case "customers":
-        return isSelected ? "people" : "people-outline";
-      case "calls":
-        return isSelected ? "call" : "call-outline";
-      case "leads":
-        return isSelected ? "filter" : "filter-outline";
-      case "inventory":
-        return isSelected ? "cube" : "cube-outline";
-      case "proforma":
-        return isSelected ? "document-text" : "document-text-outline";
-      case "incentives":
-        return isSelected ? "trophy" : "trophy-outline";
-      case "security":
-        return isSelected ? "shield-checkmark" : "shield-checkmark-outline";
-      default:
-        return isSelected ? "apps" : "apps-outline";
-    }
-  };
-
   // Search results
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -466,13 +442,6 @@ export default function UsersScreen() {
                     style={[
                       styles.categoryCircle,
                       {
-                        backgroundColor: isSelected
-                          ? isDark
-                            ? "rgba(53, 214, 160, 0.16)"
-                            : "rgba(0, 168, 121, 0.12)"
-                          : isDark
-                          ? "#121F1B"
-                          : "#FFFFFF",
                         borderColor: isSelected
                           ? accentColor
                           : isDark
@@ -482,10 +451,11 @@ export default function UsersScreen() {
                       },
                     ]}
                   >
-                    <Ionicons
-                      name={getAppIconName(item.id, isSelected)}
-                      size={24}
-                      color={isSelected ? accentColor : isDark ? "#8FA09A" : "#5E6964"}
+                    <SubAppLogo
+                      appId={item.id}
+                      borderRadius={0}
+                      borderWidth={0}
+                      style={{ width: "100%", height: "100%" }}
                     />
                   </View>
                   <Text
@@ -714,17 +684,12 @@ export default function UsersScreen() {
                     activeOpacity={0.8}
                   >
                     <View style={styles.bentoModuleHeader}>
-                      <View
-                        style={[
-                          styles.bentoModuleIconBox,
-                          {
-                            backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "#DDF4EA",
-                            borderColor: isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.25)",
-                          },
-                        ]}
-                      >
-                        <Ionicons name="briefcase" size={22} color={isDark ? "#35D6A0" : "#00A879"} />
-                      </View>
+                      <SubAppLogo
+                        appId="hrms"
+                        size={48}
+                        borderRadius={14}
+                        borderColor={isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.22)"}
+                      />
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                         <View style={[styles.badgePill, { backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "#E6F8F2" }]}>
                           <Text style={[styles.badgePillText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
@@ -1523,12 +1488,13 @@ const styles = StyleSheet.create({
   },
   categoryItem: {
     alignItems: "center",
-    width: 68,
+    width: 72,
   },
   categoryCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 62,
+    height: 62,
+    borderRadius: 18,
+    overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 6,
