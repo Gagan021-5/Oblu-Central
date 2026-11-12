@@ -486,7 +486,22 @@ export default function EmployeeHomeScreen() {
             <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder={isHR ? "Search staff, notices or records..." : "Search customers, accounts, or records..."}
+              placeholders={
+                isHR
+                  ? [
+                      "Search employees...",
+                      "Search departments...",
+                      "Search leave requests...",
+                      "Search HR notices...",
+                    ]
+                  : [
+                      "Search customers...",
+                      "Search leads...",
+                      "Search accounts...",
+                      "Search records...",
+                    ]
+              }
+              intervalMs={2000}
               onClear={() => setSearchQuery("")}
             />
           </View>
