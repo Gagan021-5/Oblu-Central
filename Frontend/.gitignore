@@ -30,8 +30,7 @@ yarn-error.*
 /ios
 /android
 
-assets/images/
-assets/fonts/
+assets/
 *.otf
 *.ttf
 
