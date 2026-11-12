@@ -48,6 +48,13 @@ import { WorkspaceHeader } from "@/components/employee/WorkspaceHeader";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { SearchBar } from "@/components/ui/SearchBar";
+import { GlobalSearchResults } from "@/components/ui/GlobalSearchResults";
+import {
+  filterExploreApps,
+  fetchGlobalRemoteResults,
+  buildUnifiedSearchResults,
+  RemoteGlobalSearchResult,
+} from "@/services/globalSearchService";
 import { CustomerCard } from "@/components/employee/CustomerCard";
 import { LeadCard } from "@/components/employee/LeadCard";
 import {
@@ -204,8 +211,8 @@ export default function UsersScreen() {
         fetchDashboardStatsApi(),
         fetchHRMSDashboardApi(),
         fetchHRMSEmployeesApi(),
-        fetchCustomersFromApi({ search: searchQuery }),
-        fetchLeadsFromApi({ search: searchQuery }),
+        fetchCustomersFromApi(),
+        fetchLeadsFromApi(),
       ]);
       setDashboardStats(stats);
       setHrmsData(hrms);
@@ -215,6 +222,51 @@ export default function UsersScreen() {
     } catch {
       //
     }
+  }, []);
+
+  const [remoteSearch, setRemoteSearch] = useState<RemoteGlobalSearchResult>({
+    customers: [],
+    leads: [],
+    proformas: [],
+    inventory: [],
+    calls: [],
+  });
+  const [isRemoteSearching, setIsRemoteSearching] = useState(false);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setRemoteSearch({ customers: [], leads: [], proformas: [], inventory: [], calls: [] });
+      setIsRemoteSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsRemoteSearching(true);
+    const timer = setTimeout(() => {
+      fetchGlobalRemoteResults(q, {
+        allowCustomers: true,
+        allowLeads: true,
+        allowProforma: true,
+        allowInventory: true,
+        allowCalls: true,
+      })
+        .then((res) => {
+          if (!cancelled) {
+            setRemoteSearch(res);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsRemoteSearching(false);
+          }
+        });
+    }, 260);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [searchQuery]);
 
   const loadAll = useCallback(async () => {
@@ -347,44 +399,27 @@ export default function UsersScreen() {
     }
   };
 
-  // Search results
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return { customers: [], leads: [], employees: [], totalCount: 0 };
-    }
-    const q = searchQuery.toLowerCase().trim();
+  const filteredApps = useMemo(
+    () => filterExploreApps(ADMIN_SLIDER_APPS, searchQuery),
+    [searchQuery]
+  );
 
-    const matchingCusts = customers.filter(
-      (c) =>
-        (c.name || "").toLowerCase().includes(q) ||
-        (c.contactPerson || "").toLowerCase().includes(q) ||
-        (c.city || "").toLowerCase().includes(q) ||
-        (c.phone || "").includes(q)
-    );
-
-    const matchingLeads = leads.filter(
-      (l) =>
-        (l.name || "").toLowerCase().includes(q) ||
-        (l.companyName || "").toLowerCase().includes(q) ||
-        (l.contactPerson || "").toLowerCase().includes(q) ||
-        (l.city || "").toLowerCase().includes(q) ||
-        (l.phone || "").includes(q)
-    );
-
-    const matchingEmps = users.filter(
-      (u) =>
-        (u.username || "").toLowerCase().includes(q) ||
-        (u.email || "").toLowerCase().includes(q) ||
-        (u.device_model || "").toLowerCase().includes(q)
-    );
-
-    return {
-      customers: matchingCusts,
-      leads: matchingLeads,
-      employees: matchingEmps,
-      totalCount: matchingCusts.length + matchingLeads.length + matchingEmps.length,
-    };
-  }, [customers, leads, users, searchQuery]);
+  // Unified global search results across Sub-Apps, Customers, Leads, Proforma, Inventory, Staff, Leaves & Calls
+  const searchResults = useMemo(
+    () =>
+      buildUnifiedSearchResults({
+        query: searchQuery,
+        apps: ADMIN_SLIDER_APPS,
+        localCustomers: customers,
+        localLeads: leads,
+        localTelephonyUsers: users,
+        localEmployees: hrmsEmployees,
+        localLeaves: hrmsData?.pending_leaves || [],
+        localCalls: recentCalls,
+        remote: remoteSearch,
+      }),
+    [searchQuery, customers, leads, users, hrmsEmployees, hrmsData?.pending_leaves, recentCalls, remoteSearch]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -425,195 +460,103 @@ export default function UsersScreen() {
           />
         </View>
 
-        {/* 3. Horizontal App Categories Slider (Carousel / Food App Slider Pattern) */}
-        <View style={styles.categoriesContainer}>
-          <Text style={[styles.exploreAppsHeading, { color: colors.textPrimary }]}>
-            Explore Apps
-          </Text>
-          <FlatList
-            data={ADMIN_SLIDER_APPS}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesList}
-            renderItem={({ item }) => {
-              const isSelected = selectedCategory === item.id;
-              const accentColor = getAppAccent(item.id);
+        {/* 3. Horizontal App Categories Slider (filters live while searching) */}
+        {(!searchQuery.trim() || filteredApps.length > 0) && (
+          <View style={styles.categoriesContainer}>
+            <Text style={[styles.exploreAppsHeading, { color: colors.textPrimary }]}>
+              Explore Apps
+            </Text>
+            <FlatList
+              data={filteredApps}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesList}
+              renderItem={({ item }) => {
+                const isSelected = selectedCategory === item.id;
+                const accentColor = getAppAccent(item.id);
 
-              return (
-                <TouchableOpacity
-                  style={styles.categoryItem}
-                  onPress={() => openSubApp(item.id)}
-                  activeOpacity={0.75}
-                >
-                  <View
-                    style={[
-                      styles.categoryCircle,
-                      {
-                        borderColor: isSelected
-                          ? accentColor
-                          : isDark
-                          ? "#294039"
-                          : "#D8E0DC",
-                        borderWidth: isSelected ? 2 : 1,
-                      },
-                    ]}
+                return (
+                  <TouchableOpacity
+                    style={styles.categoryItem}
+                    onPress={() => openSubApp(item.id)}
+                    activeOpacity={0.75}
                   >
-                    <SubAppLogo
-                      appId={item.id}
-                      borderRadius={0}
-                      borderWidth={0}
-                      style={{ width: "100%", height: "100%" }}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.categoryLabel,
-                      {
-                        color: isSelected
-                          ? isDark
-                            ? "#F1F7F4"
-                            : "#101513"
-                          : isDark
-                          ? "#8FA09A"
-                          : "#5E6964",
-                        fontFamily: isSelected ? Typography.bold : Typography.medium,
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {item.label}
-                  </Text>
-                  {isSelected && (
                     <View
                       style={[
-                        styles.activeIndicator,
-                        { backgroundColor: accentColor },
+                        styles.categoryCircle,
+                        {
+                          borderColor: isSelected
+                            ? accentColor
+                            : isDark
+                            ? "#294039"
+                            : "#D8E0DC",
+                          borderWidth: isSelected ? 2 : 1,
+                        },
                       ]}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </View>
+                    >
+                      <SubAppLogo
+                        appId={item.id}
+                        borderRadius={0}
+                        borderWidth={0}
+                        style={{ width: "100%", height: "100%" }}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.categoryLabel,
+                        {
+                          color: isSelected
+                            ? isDark
+                              ? "#F1F7F4"
+                              : "#101513"
+                            : isDark
+                            ? "#8FA09A"
+                            : "#5E6964",
+                          fontFamily: isSelected ? Typography.bold : Typography.medium,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </Text>
+                    {isSelected && (
+                      <View
+                        style={[
+                          styles.activeIndicator,
+                          { backgroundColor: accentColor },
+                        ]}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        )}
 
         {/* 4. Live Search Results (if typing) */}
         {searchQuery.trim().length > 0 ? (
           <View style={styles.searchResultsContainer}>
-            <View style={styles.searchResultsHeader}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Ionicons name="search" size={18} color={isDark ? "#35D6A0" : "#00A879"} />
-                <Text style={[styles.searchResultsTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
-                  Search Results
-                </Text>
-                <View style={[styles.countBadge, { backgroundColor: isDark ? "rgba(53, 214, 160, 0.16)" : "rgba(0, 168, 121, 0.12)" }]}>
-                  <Text style={[styles.countBadgeText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
-                    {searchResults.totalCount} found
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={() => setSearchQuery("")}>
-                <Text style={{ fontSize: 13, fontFamily: Typography.medium, color: isDark ? "#35D6A0" : "#00A879" }}>
-                  Clear
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Customers Matches */}
-            {searchResults.customers.length > 0 && (
-              <View style={styles.searchGroup}>
-                <Text style={[styles.searchGroupTitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
-                  CUSTOMERS ({searchResults.customers.length})
-                </Text>
-                {searchResults.customers.map((c) => (
-                  <TouchableOpacity
-                    key={`search-cust-${c.id}`}
-                    style={[styles.searchResultCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-                    onPress={() => router.push("/(admin)/customers")}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.searchResultCardLeft}>
-                      <View style={[styles.searchResultIconBox, { backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "#DDF4EA" }]}>
-                        <Ionicons name="business" size={18} color={isDark ? "#35D6A0" : "#00A879"} />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={[styles.searchResultName, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {c.name}
-                        </Text>
-                        <Text style={[styles.searchResultSub, { color: colors.textMuted }]} numberOfLines={1}>
-                          {c.contactPerson} • {c.city || "Office"} • {c.phone}
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            {/* Leads Matches */}
-            {searchResults.leads.length > 0 && (
-              <View style={styles.searchGroup}>
-                <Text style={[styles.searchGroupTitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
-                  LEADS ({searchResults.leads.length})
-                </Text>
-                {searchResults.leads.map((l) => (
-                  <TouchableOpacity
-                    key={`search-lead-${l.id}`}
-                    style={[styles.searchResultCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-                    onPress={() => router.push("/(admin)/leads")}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.searchResultCardLeft}>
-                      <View style={[styles.searchResultIconBox, { backgroundColor: isDark ? "rgba(251, 191, 36, 0.12)" : "#FEF3C7" }]}>
-                        <Ionicons name="filter" size={18} color={isDark ? "#FBBF24" : "#D97706"} />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={[styles.searchResultName, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {l.name || l.companyName}
-                        </Text>
-                        <Text style={[styles.searchResultSub, { color: colors.textMuted }]} numberOfLines={1}>
-                          Stage: {l.stage} • {l.estimatedValue || "Open"} • {l.phone}
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            {/* Staff Matches */}
-            {searchResults.employees.length > 0 && (
-              <View style={styles.searchGroup}>
-                <Text style={[styles.searchGroupTitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
-                  STAFF & USERS ({searchResults.employees.length})
-                </Text>
-                {searchResults.employees.map((e) => (
-                  <TouchableOpacity
-                    key={`search-emp-${e.id}`}
-                    style={[styles.searchResultCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-                    onPress={() => router.push(`/(admin)/call-logs?user_id=${e.id}&username=${e.username}` as any)}
-                  >
-                    <View style={styles.searchResultCardLeft}>
-                      <View style={[styles.searchResultIconBox, { backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "#DDF4EA" }]}>
-                        <Ionicons name="person" size={18} color={isDark ? "#35D6A0" : "#00A879"} />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={[styles.searchResultName, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {e.username}
-                        </Text>
-                        <Text style={[styles.searchResultSub, { color: colors.textMuted }]} numberOfLines={1}>
-                          {e.role} • {e.device_model || "No device linked"}
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            <GlobalSearchResults
+              query={searchQuery}
+              results={searchResults}
+              isSearching={isRemoteSearching}
+              onClear={() => setSearchQuery("")}
+              onOpenApp={openSubApp}
+              onPressCustomer={() => router.push("/(admin)/customers")}
+              onPressLead={() => router.push("/(admin)/leads")}
+              onPressProforma={() => router.push("/(admin)/proforma")}
+              onPressInventory={() => router.push("/(admin)/inventory")}
+              onPressTelephonyUser={(u) =>
+                router.push(`/(admin)/call-logs?user_id=${u.id}&username=${u.username}` as any)
+              }
+              onPressEmployee={() => router.push("/(admin)/hrms")}
+              onPressLeave={() => router.push("/(admin)/hrms")}
+              onPressCall={(c) =>
+                router.push(`/(admin)/call-logs?user_id=${c.user || ""}&username=${c.username}` as any)
+              }
+            />
           </View>
         ) : (
           <>
