@@ -80,7 +80,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   const outTranslateY = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 18],
+    outputRange: [0, -18],
   });
   const outOpacity = anim.interpolate({
     inputRange: [0, 0.75, 1],
@@ -88,7 +88,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   });
   const inTranslateY = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [-18, 0],
+    outputRange: [18, 0],
   });
   const inOpacity = anim.interpolate({
     inputRange: [0, 0.25, 1],

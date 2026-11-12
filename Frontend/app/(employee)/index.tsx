@@ -489,16 +489,16 @@ export default function EmployeeHomeScreen() {
               placeholders={
                 isHR
                   ? [
-                      "Search employees...",
-                      "Search departments...",
-                      "Search leave requests...",
-                      "Search HR notices...",
+                      'Search "employees"',
+                      'Search "departments"',
+                      'Search "leave requests"',
+                      'Search "HR notices"',
                     ]
                   : [
-                      "Search customers...",
-                      "Search leads...",
-                      "Search accounts...",
-                      "Search records...",
+                      'Search "customers"',
+                      'Search "leads"',
+                      'Search "accounts"',
+                      'Search "records"',
                     ]
               }
               intervalMs={2000}

@@ -415,10 +415,10 @@ export default function UsersScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholders={[
-              "Search customers...",
-              "Search leads...",
-              "Search staff & handsets...",
-              "Search call logs & records...",
+              'Search "customers"',
+              'Search "leads"',
+              'Search "staff & handsets"',
+              'Search "call logs & records"',
             ]}
             intervalMs={2000}
             onClear={() => setSearchQuery("")}

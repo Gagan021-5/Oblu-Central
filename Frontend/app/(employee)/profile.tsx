@@ -215,7 +215,7 @@ export default function EmployeeProfileScreen() {
         >
           <View style={styles.heroTopRow}>
             <PersonAvatar3D
-              gender={employeeGender}
+              gender={employeeGender || user?.gender}
               size={62}
               borderWidth={2}
               borderColor={isDark ? "#35D6A0" : "#00A879"}

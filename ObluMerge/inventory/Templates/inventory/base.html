@@ -899,7 +899,7 @@
                     <div class="flex flex-col min-w-0">
                         <span class="text-xs font-bold text-slate-800 truncate">{{ user.username|default:"Admin" }}</span>
                         <span class="text-[10px] font-medium text-slate-500">
-                            {% if user.is_accountant %}Accountant{% elif user.is_superuser %}Superadmin{% else %}Manager{% endif %}
+                            {% if user.is_superuser %}Superadmin{% elif "admin" in user_roles %}Admin{% elif role_display_name and role_display_name != "User" %}{{ role_display_name }}{% elif user.is_accountant %}Accountant{% else %}Manager{% endif %}
                         </span>
                     </div>
                 </div>

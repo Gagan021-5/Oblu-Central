@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes } from "@/constants/theme";
 import { router } from "expo-router";
@@ -8,6 +7,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { NotificationCenterModal } from "@/components/employee/NotificationCenterModal";
 import { getRoleWorkspaceContext } from "@/utils/greetings";
+import { PersonAvatar3D } from "@/components/employee/SubAppLogo";
+
+const HEADER_MOON = require("@/assets/subapps/header_moon.webp");
+const HEADER_SUN = require("@/assets/subapps/header_sun.webp");
+const HEADER_BELL = require("@/assets/subapps/header_bell.webp");
 
 interface WorkspaceHeaderProps {
   onNotificationPress?: () => void;
@@ -43,20 +47,6 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
       return clean.charAt(0).toUpperCase() + clean.slice(1);
     }
     return "Team";
-  }, [user]);
-
-  const displayInitials = useMemo(() => {
-    if (user?.name && user.name.trim()) {
-      const parts = user.name.trim().split(" ").filter(Boolean);
-      if (parts.length >= 2) {
-        return (parts[0][0] + parts[1][0]).toUpperCase();
-      }
-      return parts[0].slice(0, 2).toUpperCase();
-    }
-    if (user?.username) {
-      return user.username.slice(0, 2).toUpperCase();
-    }
-    return "OB";
   }, [user]);
 
   // Formatted date: "Monday, 7 September"
@@ -130,11 +120,12 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
             ]}
             onPress={toggleTheme}
             activeOpacity={0.7}
+            accessibilityLabel="Toggle theme"
           >
-            <Ionicons
-              name={isDark ? "sunny-outline" : "moon-outline"}
-              size={18}
-              color={isDark ? "#35D6A0" : "#00A879"}
+            <Image
+              source={isDark ? HEADER_SUN : HEADER_MOON}
+              style={styles.headerIcon3D}
+              resizeMode="contain"
             />
           </TouchableOpacity>
 
@@ -148,19 +139,12 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
             ]}
             onPress={handleNotificationClick}
             activeOpacity={0.7}
+            accessibilityLabel="Notifications"
           >
-            <Ionicons
-              name={unreadCount > 0 ? "notifications" : "notifications-outline"}
-              size={18}
-              color={
-                unreadCount > 0
-                  ? isDark
-                    ? "#35D6A0"
-                    : "#00A879"
-                  : isDark
-                  ? "#F1F7F4"
-                  : "#101513"
-              }
+            <Image
+              source={HEADER_BELL}
+              style={styles.headerIcon3D}
+              resizeMode="contain"
             />
             {unreadCount > 0 && (
               <View
@@ -182,24 +166,17 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.avatar,
-              {
-                backgroundColor: isDark ? "#1B2B25" : "#00A879",
-                borderColor: isDark ? "#35D6A0" : "rgba(0, 168, 121, 0.3)",
-              },
-            ]}
+            style={styles.avatarButton}
             onPress={handleProfileClick}
             activeOpacity={0.8}
+            accessibilityLabel="Profile"
           >
-            <Text
-              style={[
-                styles.avatarText,
-                { color: isDark ? "#35D6A0" : "#FFFFFF" },
-              ]}
-            >
-              {displayInitials}
-            </Text>
+            <PersonAvatar3D
+              gender={user?.gender}
+              size={38}
+              borderWidth={1.5}
+              borderColor={isDark ? "#35D6A0" : "rgba(0, 168, 121, 0.35)"}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -284,6 +261,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     position: "relative",
   },
+  headerIcon3D: {
+    width: 26,
+    height: 26,
+  },
   notificationBadge: {
     position: "absolute",
     top: -4,
@@ -301,18 +282,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 11,
   },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
+  avatarButton: {
     marginLeft: 4,
-  },
-  avatarText: {
-    fontSize: FontSizes.bodySmall,
-    fontFamily: Typography.bold,
   },
   greetingTitle: {
     fontSize: 24,
