@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   placeholderOverlay: {
     position: "absolute",
-    left: 0,
+    left: 7,
     right: 0,
     top: 0,
     bottom: 0,
@@ -238,5 +238,6 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.body,
     fontFamily: Typography.regular,
     paddingVertical: 0,
+    paddingHorizontal: 0,
   },
 });
