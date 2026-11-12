@@ -1,9 +1,18 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import type { Ionicons } from "@expo/vector-icons";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography } from "@/constants/theme";
 import { MetricBadge3D } from "@/components/employee/SubAppLogo";
+import { triggerLightHaptic } from "@/utils/haptics";
 
 interface MetricCardProps {
   label: string;
@@ -11,6 +20,8 @@ interface MetricCardProps {
   subValue?: string;
   icon?: keyof typeof Ionicons.glyphMap;
   isHighlight?: boolean;
+  isLive?: boolean;
+  loading?: boolean;
   onPress?: () => void;
 }
 
@@ -20,14 +31,52 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
   subValue,
   icon,
   isHighlight = false,
+  isLive = false,
+  loading = false,
   onPress,
 }) => {
   const { isDark } = useTheme();
+  const pressScale = useSharedValue(1);
+  const shimmerOpacity = useSharedValue(0.35);
 
-  const CardWrapper = onPress ? TouchableOpacity : View;
+  useEffect(() => {
+    if (!loading) {
+      shimmerOpacity.value = 1;
+      return;
+    }
+    shimmerOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.85, { duration: 720 }),
+        withTiming(0.32, { duration: 720 })
+      ),
+      -1,
+      false
+    );
+  }, [loading, shimmerOpacity]);
 
-  return (
-    <CardWrapper
+  const cardMotionStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
+
+  const shimmerBarStyle = useAnimatedStyle(() => ({
+    opacity: shimmerOpacity.value,
+  }));
+
+  const shimmerBg = isDark ? "#1C2E27" : "#E5EDE8";
+
+  const handlePressIn = () => {
+    if (!onPress) return;
+    triggerLightHaptic();
+    pressScale.value = withSpring(0.96, { damping: 16, stiffness: 320 });
+  };
+
+  const handlePressOut = () => {
+    if (!onPress) return;
+    pressScale.value = withSpring(1, { damping: 14, stiffness: 280 });
+  };
+
+  const cardBody = (
+    <Animated.View
       style={[
         styles.outwardCard,
         {
@@ -44,12 +93,19 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
             : isDark ? "#000000" : "#0D2B20",
           shadowOpacity: isHighlight ? (isDark ? 0.35 : 0.15) : (isDark ? 0.48 : 0.09),
         },
+        cardMotionStyle,
       ]}
-      onPress={onPress}
-      activeOpacity={onPress ? 0.75 : 1}
     >
       <View style={styles.topRow}>
         <View style={styles.labelBadge}>
+          {isLive && (
+            <View
+              style={[
+                styles.liveDot,
+                { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
+              ]}
+            />
+          )}
           <Text
             style={[
               styles.labelText,
@@ -67,36 +123,77 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
         {icon && <MetricBadge3D icon={String(icon)} label={label} size={36} borderRadius={11} isHighlight={isHighlight} />}
       </View>
 
-      <Text
-        style={[
-          styles.valueText,
-          {
-            color: isHighlight
-              ? isDark ? "#35D6A0" : "#00A879"
-              : isDark ? "#F1F7F4" : "#101513",
-          },
-        ]}
-        numberOfLines={1}
-      >
-        {value}
-      </Text>
+      {loading ? (
+        <View style={styles.skeletonGroup}>
+          <Animated.View
+            style={[styles.skeletonValue, { backgroundColor: shimmerBg }, shimmerBarStyle]}
+          />
+          <Animated.View
+            style={[styles.skeletonSub, { backgroundColor: shimmerBg }, shimmerBarStyle]}
+          />
+        </View>
+      ) : (
+        <>
+          <Text
+            style={[
+              styles.valueText,
+              {
+                color: isHighlight
+                  ? isDark ? "#35D6A0" : "#00A879"
+                  : isDark ? "#F1F7F4" : "#101513",
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {value}
+          </Text>
 
-      {subValue && (
-        <Text
-          style={[
-            styles.subText,
-            { color: isDark ? "#8FA09A" : "#5E6964" },
-          ]}
-          numberOfLines={1}
-        >
-          {subValue}
-        </Text>
+          {(subValue || onPress) && (
+            <View style={styles.subRow}>
+              <Text
+                style={[
+                  styles.subText,
+                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                ]}
+                numberOfLines={1}
+              >
+                {subValue || ""}
+              </Text>
+              {onPress && (
+                <Ionicons
+                  name="chevron-forward"
+                  size={12}
+                  color={isHighlight ? (isDark ? "#35D6A0" : "#00A879") : isDark ? "#6B7C75" : "#9BA8A2"}
+                />
+              )}
+            </View>
+          )}
+        </>
       )}
-    </CardWrapper>
+    </Animated.View>
+  );
+
+  if (!onPress) {
+    return cardBody;
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.pressableSlot}
+      accessibilityRole="button"
+    >
+      {cardBody}
+    </Pressable>
   );
 });
 
 const styles = StyleSheet.create({
+  pressableSlot: {
+    flex: 1,
+  },
   outwardCard: {
     flex: 1,
     padding: 16,
@@ -116,7 +213,15 @@ const styles = StyleSheet.create({
   },
   labelBadge: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     marginRight: 6,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   labelText: {
     fontSize: 10,
@@ -129,9 +234,30 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginVertical: 2,
   },
+  subRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 2,
+    gap: 4,
+  },
   subText: {
+    flex: 1,
     fontSize: 12,
     fontFamily: Typography.medium,
-    marginTop: 2,
+  },
+  skeletonGroup: {
+    paddingTop: 6,
+    gap: 10,
+  },
+  skeletonValue: {
+    height: 26,
+    width: "52%",
+    borderRadius: 8,
+  },
+  skeletonSub: {
+    height: 12,
+    width: "74%",
+    borderRadius: 6,
   },
 });

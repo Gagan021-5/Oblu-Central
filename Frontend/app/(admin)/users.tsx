@@ -48,6 +48,7 @@ import { WorkspaceHeader } from "@/components/employee/WorkspaceHeader";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { SearchBar } from "@/components/ui/SearchBar";
+import { triggerLightHaptic } from "@/utils/haptics";
 import { GlobalSearchResults } from "@/components/ui/GlobalSearchResults";
 import {
   filterExploreApps,
@@ -123,6 +124,7 @@ export default function UsersScreen() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const openSubApp = (appId: string) => {
+    triggerLightHaptic();
     if (appId === "all") {
       setSelectedCategory("all");
       return;
@@ -578,6 +580,8 @@ export default function UsersScreen() {
                       value={users.length > 0 ? String(users.length) : "0"}
                       subValue={`${activeAgents} devices linked`}
                       icon="people-outline"
+                      loading={loading && users.length === 0}
+                      onPress={() => router.push("/(admin)/security")}
                     />
                     <MetricCard
                       label="Calls Tracked"
@@ -585,6 +589,9 @@ export default function UsersScreen() {
                       subValue="Live telephony"
                       icon="call-outline"
                       isHighlight={true}
+                      isLive={true}
+                      loading={loading && users.length === 0}
+                      onPress={() => router.push("/(admin)/call-logs")}
                     />
                   </View>
                   <View style={[styles.metricsGrid, { marginTop: 10 }]}>
@@ -593,12 +600,16 @@ export default function UsersScreen() {
                       value={dashboardStats?.totalCustomers ? String(dashboardStats.totalCustomers) : "0"}
                       subValue={dashboardStats?.totalOutstandingFormatted || "₹0 due"}
                       icon="briefcase-outline"
+                      loading={loading && !dashboardStats}
+                      onPress={() => router.push("/(admin)/customers")}
                     />
                     <MetricCard
                       label="Pending Leaves"
                       value={hrmsData?.stats?.pending_leaves ? String(hrmsData.stats.pending_leaves) : "0"}
                       subValue={`${hrmsData?.stats?.present_today || 0} present today`}
                       icon="time-outline"
+                      loading={loading && !hrmsData}
+                      onPress={() => router.push("/(admin)/hrms")}
                     />
                   </View>
                 </View>

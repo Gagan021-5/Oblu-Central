@@ -26,6 +26,7 @@ import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { TimelineItem } from "@/components/employee/TimelineItem";
 import { SearchBar } from "@/components/ui/SearchBar";
+import { triggerLightHaptic } from "@/utils/haptics";
 import { GlobalSearchResults } from "@/components/ui/GlobalSearchResults";
 import {
   filterExploreApps,
@@ -121,6 +122,7 @@ export default function EmployeeHomeScreen() {
   });
 
   const openSubApp = (appId: string) => {
+    triggerLightHaptic();
     if (appId === "all") {
       setSelectedCategory("all");
       return;
@@ -151,6 +153,8 @@ export default function EmployeeHomeScreen() {
   });
   const [userProfile, setUserProfile] = useState<UserPermissionProfile | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [hrmsLoading, setHrmsLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
 
@@ -302,6 +306,8 @@ export default function EmployeeHomeScreen() {
       setStats(data);
     } catch {
       // Ignored
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 
@@ -316,6 +322,8 @@ export default function EmployeeHomeScreen() {
       setHrmsEmployees(emps);
     } catch {
       // Ignored
+    } finally {
+      setHrmsLoading(false);
     }
   }, []);
 
@@ -983,31 +991,40 @@ export default function EmployeeHomeScreen() {
                 <View style={styles.metricsRow}>
                   <MetricCard
                     label="Total Staff"
-                    value={String(hrmsData?.stats?.total_employees ?? 12)}
+                    value={String(hrmsData?.stats?.total_employees ?? 0)}
                     subValue="in directory"
                     icon="people-outline"
+                    loading={hrmsLoading && !hrmsData}
+                    onPress={() => openSubApp("hrms")}
                   />
                   <MetricCard
                     label="Checked In"
-                    value={String(hrmsData?.stats?.present_today ?? 4)}
+                    value={String(hrmsData?.stats?.present_today ?? 0)}
                     subValue="present today"
                     icon="checkmark-circle-outline"
                     isHighlight
+                    isLive
+                    loading={hrmsLoading && !hrmsData}
+                    onPress={() => openSubApp("hrms")}
                   />
                 </View>
                 <View style={styles.metricsRow}>
                   <MetricCard
                     label="Pending Leaves"
-                    value={String(hrmsData?.stats?.pending_leaves ?? 2)}
+                    value={String(hrmsData?.stats?.pending_leaves ?? 0)}
                     subValue="approvals due"
                     icon="calendar-outline"
                     isHighlight
+                    loading={hrmsLoading && !hrmsData}
+                    onPress={() => openSubApp("hrms")}
                   />
                   <MetricCard
                     label="Departments"
-                    value={String(hrmsData?.stats?.total_departments ?? 5)}
+                    value={String(hrmsData?.stats?.total_departments ?? 0)}
                     subValue="divisions"
                     icon="business-outline"
+                    loading={hrmsLoading && !hrmsData}
+                    onPress={() => openSubApp("hrms")}
                   />
                 </View>
               </View>
@@ -1019,6 +1036,8 @@ export default function EmployeeHomeScreen() {
                     value={String(stats?.totalCustomers ?? 0)}
                     subValue="corporate portfolio"
                     icon="business-outline"
+                    loading={statsLoading && !stats}
+                    onPress={() => openSubApp("customers")}
                   />
                   <MetricCard
                     label="Follow-ups Due"
@@ -1026,6 +1045,9 @@ export default function EmployeeHomeScreen() {
                     subValue="scheduled reviews"
                     icon="calendar-outline"
                     isHighlight
+                    isLive
+                    loading={statsLoading && !stats}
+                    onPress={() => openSubApp("customers")}
                   />
                 </View>
                 <View style={styles.metricsRow}>
@@ -1035,12 +1057,16 @@ export default function EmployeeHomeScreen() {
                     subValue="credit period crossed"
                     icon="alert-circle-outline"
                     isHighlight={(stats?.overduePaymentsCount ?? 0) > 0}
+                    loading={statsLoading && !stats}
+                    onPress={() => openSubApp("proforma")}
                   />
                   <MetricCard
                     label="Total Exposure"
                     value={stats?.totalOutstandingFormatted ?? "₹0"}
                     subValue="receivables due"
                     icon="cube-outline"
+                    loading={statsLoading && !stats}
+                    onPress={() => openSubApp("customers")}
                   />
                 </View>
               </View>
@@ -1052,6 +1078,8 @@ export default function EmployeeHomeScreen() {
                     value={String(stats?.totalCustomers ?? 0)}
                     subValue="assigned accounts"
                     icon="people-outline"
+                    loading={statsLoading && !stats}
+                    onPress={() => openSubApp("customers")}
                   />
                   <MetricCard
                     label="Follow-ups Due"
@@ -1059,6 +1087,9 @@ export default function EmployeeHomeScreen() {
                     subValue="due today"
                     icon="calendar-outline"
                     isHighlight
+                    isLive
+                    loading={statsLoading && !stats}
+                    onPress={() => openSubApp("customers")}
                   />
                 </View>
                 <View style={styles.metricsRow}>
@@ -1068,12 +1099,16 @@ export default function EmployeeHomeScreen() {
                     subValue="payment pending"
                     icon="cash-outline"
                     isHighlight={(stats?.overduePaymentsCount ?? 0) > 0}
+                    loading={statsLoading && !stats}
+                    onPress={() => openSubApp("customers")}
                   />
                   <MetricCard
                     label="Active Leads"
                     value={String(stats?.totalLeadsCount ?? leads.length)}
                     subValue="pipeline prospects"
                     icon="filter-outline"
+                    loading={statsLoading && !stats}
+                    onPress={() => openSubApp("leads")}
                   />
                 </View>
               </View>
