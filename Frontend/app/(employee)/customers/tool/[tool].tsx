@@ -141,8 +141,6 @@ export default function CustomerToolScreen() {
   const [newRemarkText, setNewRemarkText] = useState("");
   const [newExpectedDate, setNewExpectedDate] = useState("");
   const [actionInProgress, setActionInProgress] = useState(false);
-  const [assignModal, setAssignModal] = useState<{ customerId: string | number; customerName: string } | null>(null);
-  const [availableSalespersons, setAvailableSalespersons] = useState<Array<{ id: number; name: string }>>([]);
 
   // Customer Unit state
   const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
@@ -255,7 +253,6 @@ export default function CustomerToolScreen() {
 
       if (Array.isArray(data?.salespersons) && data.salespersons.length > 0) {
         if (typeof data.salespersons[0] === "object") {
-          setAvailableSalespersons(data.salespersons);
           setServerSalespeople(data.salespersons.map((s: any) => s.name));
         } else {
           setServerSalespeople(data.salespersons);
@@ -585,25 +582,6 @@ export default function CustomerToolScreen() {
       await load();
     } catch {
       Alert.alert("Error", "Could not submit remark. Check permissions and try again.");
-    } finally {
-      setActionInProgress(false);
-    }
-  };
-
-  // Reassign Unassigned Customer
-  const reassignCustomer = async (salespersonId: number) => {
-    if (!assignModal) return;
-    setActionInProgress(true);
-    try {
-      await api.post("/customers/workspace/unassigned/", {
-        customer_id: assignModal.customerId,
-        salesperson_id: salespersonId,
-      });
-      setAssignModal(null);
-      Alert.alert("Customer Assigned", "The customer has been assigned to the salesperson.");
-      await load();
-    } catch {
-      Alert.alert("Error", "Could not reassign customer. Please try again.");
     } finally {
       setActionInProgress(false);
     }
@@ -977,16 +955,6 @@ export default function CustomerToolScreen() {
           <View style={[styles.statusBadge, { backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#FEE2E2" }]}>
             <Text style={[styles.statusText, { color: "#EF4444" }]}>Unassigned</Text>
           </View>
-        </View>
-
-        <View style={[styles.customerPortfolioFooter, { borderColor: card.borderColor, justifyContent: "flex-end" }]}>
-          <TouchableOpacity
-            style={[styles.portfolioAction, { borderColor: "#159A7C", backgroundColor: isDark ? "#183B32" : "#E2F7F1", paddingHorizontal: 14 }]}
-            onPress={() => setAssignModal({ customerId: row.id, customerName })}
-          >
-            <Ionicons name="person-add-outline" size={14} color="#159A7C" />
-            <Text style={[styles.portfolioActionText, { color: "#159A7C" }]}>Assign Salesperson</Text>
-          </TouchableOpacity>
         </View>
       </View>
     );
@@ -1704,54 +1672,6 @@ export default function CustomerToolScreen() {
                 style={[styles.modalSave, { backgroundColor: "#159A7C" }]}
               >
                 <Text style={[styles.modalBtnText, { color: "white" }]}>Post Remark</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── MODAL: ASSIGN SALESPERSON TO UNASSIGNED CUSTOMER ── */}
-      <Modal visible={assignModal !== null} transparent animationType="fade" onRequestClose={() => setAssignModal(null)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, card, { maxHeight: "70%" }]}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={[styles.modalTitle, { color: foreground }]}>Assign Salesperson</Text>
-              <TouchableOpacity onPress={() => setAssignModal(null)}>
-                <Ionicons name="close" size={22} color={muted} />
-              </TouchableOpacity>
-            </View>
-            <Text style={[styles.detail, { color: muted, marginBottom: 8 }]}>Customer: {assignModal?.customerName}</Text>
-
-            <ScrollView style={{ maxHeight: 260 }}>
-              {availableSalespersons.map((sp) => (
-                <TouchableOpacity
-                  key={`sp-${sp.id}`}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingVertical: 12,
-                    paddingHorizontal: 12,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: card.borderColor,
-                    marginBottom: 8,
-                    backgroundColor: isDark ? "#121A16" : "#F4F7F5",
-                  }}
-                  onPress={() => void reassignCustomer(sp.id)}
-                >
-                  <Text style={{ fontFamily: Typography.semiBold, fontSize: 13, color: foreground }}>{sp.name}</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#159A7C" />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                onPress={() => setAssignModal(null)}
-                style={[styles.modalCancel, { borderColor: card.borderColor }]}
-              >
-                <Text style={[styles.modalBtnText, { color: muted }]}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
