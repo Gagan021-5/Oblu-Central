@@ -631,9 +631,13 @@ export default function CustomersScreen() {
                   <Text style={[styles.editModalSubtitle, { color: colors.textSecondary }]}>Loading edit access…</Text>
                 </View>
               ) : editForm ? (
-                <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <View style={styles.editFormContainer}>
                   {editMode === "contact" && editPermissions.contact && (
-                    <>
+                    <ScrollView
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                      style={styles.editContactScroll}
+                    >
                       <Text style={[styles.editSectionTitle, { color: colors.textSecondary }]}>CONTACT & SALESPERSON</Text>
                       <Text style={[styles.editFieldLabel, { color: colors.textSecondary }]}>PHONE</Text>
                       <TextInput
@@ -692,11 +696,11 @@ export default function CustomersScreen() {
                           </ScrollView>
                         </View>
                       )}
-                    </>
+                    </ScrollView>
                   )}
 
                   {editMode === "credit" && editPermissions.credit && (
-                    <>
+                    <View style={styles.editCreditBlock}>
                       <Text style={[styles.editSectionTitle, { color: colors.textSecondary }]}>CREDIT TERMS</Text>
                       <Text style={[styles.editFieldLabel, { color: colors.textSecondary }]}>CREDIT PERIOD (DAYS)</Text>
                       <TextInput
@@ -707,11 +711,14 @@ export default function CustomersScreen() {
                         placeholderTextColor={colors.textMuted}
                         style={[styles.editInput, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.background }]}
                         accessibilityLabel="Credit period in days"
+                        autoFocus
                       />
-                    </>
+                    </View>
                   )}
 
                   {!!editError && <Text style={styles.editErrorText}>{editError}</Text>}
+
+                  {/* Fixed footer: Cancel & Save Changes buttons always visible without scrolling */}
                   <View style={styles.editModalActions}>
                     <TouchableOpacity onPress={closeCustomerEditor} disabled={savingEdit} style={[styles.editCancelButton, { borderColor: colors.cardBorder }]}>
                       <Text style={[styles.editCancelText, { color: colors.textSecondary }]}>Cancel</Text>
@@ -720,7 +727,7 @@ export default function CustomersScreen() {
                       {savingEdit ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.editSaveText}>Save changes</Text>}
                     </TouchableOpacity>
                   </View>
-                </ScrollView>
+                </View>
               ) : null}
             </View>
           </KeyboardAvoidingView>
@@ -931,11 +938,21 @@ const styles = StyleSheet.create({
     maxWidth: 480,
   },
   editModalCard: {
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
-    padding: 20,
-    maxHeight: "88%",
+    padding: 22,
+    width: "100%",
+    maxWidth: 440,
     ...Shadows.card,
+  },
+  editFormContainer: {
+    width: "100%",
+  },
+  editContactScroll: {
+    maxHeight: 320,
+  },
+  editCreditBlock: {
+    paddingVertical: 2,
   },
   editModalHeader: {
     flexDirection: "row",
@@ -1024,15 +1041,15 @@ const styles = StyleSheet.create({
   editModalActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: 10,
-    marginTop: 8,
-    paddingBottom: 2,
+    gap: 12,
+    marginTop: 18,
+    paddingTop: 6,
   },
   editCancelButton: {
-    minHeight: 42,
+    minHeight: 44,
     borderWidth: 1,
     borderRadius: Radius.pill,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1041,10 +1058,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   editSaveButton: {
-    minHeight: 42,
-    minWidth: 120,
+    minHeight: 44,
+    minWidth: 130,
     borderRadius: Radius.pill,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     alignItems: "center",
     justifyContent: "center",
   },
