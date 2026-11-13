@@ -38,6 +38,7 @@ import {
   FlatList,
 } from "react-native";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -122,12 +123,42 @@ export default function UsersScreen() {
 
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [lastActiveMetric, setLastActiveMetric] = useState<"staff" | "calls" | "customers" | "leaves">("calls");
+
+  useEffect(() => {
+    AsyncStorage.getItem("@oblu_last_admin_metric")
+      .then((saved) => {
+        if (saved && (saved === "staff" || saved === "calls" || saved === "customers" || saved === "leaves")) {
+          setLastActiveMetric(saved);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleMetricCardPress = (metricId: "staff" | "calls" | "customers" | "leaves", route: string) => {
+    triggerLightHaptic();
+    setLastActiveMetric(metricId);
+    AsyncStorage.setItem("@oblu_last_admin_metric", metricId).catch(() => {});
+    router.push(route as any);
+  };
 
   const openSubApp = (appId: string) => {
     triggerLightHaptic();
     if (appId === "all") {
       setSelectedCategory("all");
       return;
+    }
+
+    const metricMapping: Record<string, "staff" | "calls" | "customers" | "leaves"> = {
+      security: "staff",
+      calls: "calls",
+      customers: "customers",
+      hrms: "leaves",
+    };
+    if (metricMapping[appId]) {
+      const metricId = metricMapping[appId];
+      setLastActiveMetric(metricId);
+      AsyncStorage.setItem("@oblu_last_admin_metric", metricId).catch(() => {});
     }
 
     const routes: Record<string, string> = {
@@ -580,18 +611,20 @@ export default function UsersScreen() {
                       value={users.length > 0 ? String(users.length) : "0"}
                       subValue={`${activeAgents} devices linked`}
                       icon="people-outline"
+                      isHighlight={lastActiveMetric === "staff"}
+                      isLive={lastActiveMetric === "staff"}
                       loading={loading && users.length === 0}
-                      onPress={() => router.push("/(admin)/security")}
+                      onPress={() => handleMetricCardPress("staff", "/(admin)/security")}
                     />
                     <MetricCard
                       label="Calls Tracked"
                       value={totalCalls > 0 ? String(totalCalls) : "0"}
                       subValue="Live telephony"
                       icon="call-outline"
-                      isHighlight={true}
-                      isLive={true}
+                      isHighlight={lastActiveMetric === "calls"}
+                      isLive={lastActiveMetric === "calls"}
                       loading={loading && users.length === 0}
-                      onPress={() => router.push("/(admin)/call-logs")}
+                      onPress={() => handleMetricCardPress("calls", "/(admin)/call-logs")}
                     />
                   </View>
                   <View style={[styles.metricsGrid, { marginTop: 10 }]}>
@@ -600,16 +633,20 @@ export default function UsersScreen() {
                       value={dashboardStats?.totalCustomers ? String(dashboardStats.totalCustomers) : "0"}
                       subValue={dashboardStats?.totalOutstandingFormatted || "₹0 due"}
                       icon="briefcase-outline"
+                      isHighlight={lastActiveMetric === "customers"}
+                      isLive={lastActiveMetric === "customers"}
                       loading={loading && !dashboardStats}
-                      onPress={() => router.push("/(admin)/customers")}
+                      onPress={() => handleMetricCardPress("customers", "/(admin)/customers")}
                     />
                     <MetricCard
                       label="Pending Leaves"
                       value={hrmsData?.stats?.pending_leaves ? String(hrmsData.stats.pending_leaves) : "0"}
                       subValue={`${hrmsData?.stats?.present_today || 0} present today`}
                       icon="time-outline"
+                      isHighlight={lastActiveMetric === "leaves"}
+                      isLive={lastActiveMetric === "leaves"}
                       loading={loading && !hrmsData}
-                      onPress={() => router.push("/(admin)/hrms")}
+                      onPress={() => handleMetricCardPress("leaves", "/(admin)/hrms")}
                     />
                   </View>
                 </View>
