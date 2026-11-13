@@ -83,7 +83,14 @@ export default function CustomersScreen() {
   const [editLoading, setEditLoading] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [salespersonPickerOpen, setSalespersonPickerOpen] = useState(false);
+  const [salespersonSearch, setSalespersonSearch] = useState("");
   const [editError, setEditError] = useState("");
+
+  const filteredSalespersons = useMemo(() => {
+    if (!salespersonSearch.trim()) return salespersonOptions;
+    const q = salespersonSearch.toLowerCase();
+    return salespersonOptions.filter((s) => s.name.toLowerCase().includes(q));
+  }, [salespersonOptions, salespersonSearch]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -183,6 +190,7 @@ export default function CustomersScreen() {
     setEditMode(null);
     setEditForm(null);
     setSalespersonPickerOpen(false);
+    setSalespersonSearch("");
     setEditError("");
   };
 
@@ -193,6 +201,7 @@ export default function CustomersScreen() {
     setEditError("");
     setEditLoading(true);
     setSalespersonPickerOpen(false);
+    setSalespersonSearch("");
     try {
       const options = await fetchCustomerEditOptionsApi(customer.id);
       const allowed = mode === "contact" ? options.can_edit_contact : options.can_edit_credit;
@@ -633,11 +642,7 @@ export default function CustomersScreen() {
               ) : editForm ? (
                 <View style={styles.editFormContainer}>
                   {editMode === "contact" && editPermissions.contact && (
-                    <ScrollView
-                      keyboardShouldPersistTaps="handled"
-                      showsVerticalScrollIndicator={false}
-                      style={styles.editContactScroll}
-                    >
+                    <View style={styles.editContactContainer}>
                       <Text style={[styles.editSectionTitle, { color: colors.textSecondary }]}>CONTACT & SALESPERSON</Text>
                       <Text style={[styles.editFieldLabel, { color: colors.textSecondary }]}>PHONE</Text>
                       <TextInput
@@ -663,40 +668,21 @@ export default function CustomersScreen() {
                       />
                       <Text style={[styles.editFieldLabel, { color: colors.textSecondary }]}>ASSIGNED SALESPERSON</Text>
                       <TouchableOpacity
-                        onPress={() => setSalespersonPickerOpen((open) => !open)}
+                        onPress={() => {
+                          setSalespersonSearch("");
+                          setSalespersonPickerOpen(true);
+                        }}
                         accessibilityRole="button"
                         accessibilityLabel="Choose assigned salesperson"
-                        accessibilityState={{ expanded: salespersonPickerOpen }}
                         style={[styles.editSelect, { borderColor: colors.cardBorder, backgroundColor: colors.background }]}
+                        activeOpacity={0.7}
                       >
                         <Text style={[styles.editSelectText, { color: colors.textPrimary }]}>
                           {salespersonOptions.find((option) => option.id === editForm.salespersonId)?.name || "Unassigned"}
                         </Text>
-                        <Ionicons name={salespersonPickerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textSecondary} />
+                        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
                       </TouchableOpacity>
-                      {salespersonPickerOpen && (
-                        <View style={[styles.editSalespersonList, { borderColor: colors.cardBorder, backgroundColor: colors.background }]}>
-                          <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 150 }}>
-                            <TouchableOpacity
-                              onPress={() => { setEditForm((previous) => previous ? { ...previous, salespersonId: null } : previous); setSalespersonPickerOpen(false); }}
-                              style={styles.editSalespersonOption}
-                            >
-                              <Text style={[styles.editSelectText, { color: colors.textPrimary }]}>Unassigned</Text>
-                            </TouchableOpacity>
-                            {salespersonOptions.map((option) => (
-                              <TouchableOpacity
-                                key={option.id}
-                                onPress={() => { setEditForm((previous) => previous ? { ...previous, salespersonId: option.id } : previous); setSalespersonPickerOpen(false); }}
-                                style={styles.editSalespersonOption}
-                              >
-                                <Text style={[styles.editSelectText, { color: colors.textPrimary }]}>{option.name}</Text>
-                                {editForm.salespersonId === option.id && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-                              </TouchableOpacity>
-                            ))}
-                          </ScrollView>
-                        </View>
-                      )}
-                    </ScrollView>
+                    </View>
                   )}
 
                   {editMode === "credit" && editPermissions.credit && (
@@ -729,6 +715,112 @@ export default function CustomersScreen() {
                   </View>
                 </View>
               ) : null}
+
+              {/* ── SALESPERSON SELECTION OVERLAY (closes immediately on option click) ── */}
+              {salespersonPickerOpen && (
+                <View style={[StyleSheet.absoluteFill, styles.pickerOverlay, { backgroundColor: colors.card }]}>
+                  <View style={styles.editModalHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.editModalTitle, { color: colors.textPrimary }]}>
+                        Select Salesperson
+                      </Text>
+                      <Text style={[styles.editModalSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {editingCustomer?.name || "Choose staff member"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSalespersonPickerOpen(false);
+                        setSalespersonSearch("");
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Close salesperson picker"
+                      style={styles.editModalClose}
+                    >
+                      <Ionicons name="close" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {salespersonOptions.length > 5 && (
+                    <View style={[styles.pickerSearchBox, { borderColor: colors.cardBorder, backgroundColor: colors.background }]}>
+                      <Ionicons name="search-outline" size={16} color={colors.textMuted} />
+                      <TextInput
+                        value={salespersonSearch}
+                        onChangeText={setSalespersonSearch}
+                        placeholder="Search salesperson…"
+                        placeholderTextColor={colors.textMuted}
+                        style={[styles.pickerSearchInput, { color: colors.textPrimary }]}
+                        autoCorrect={false}
+                      />
+                      {!!salespersonSearch && (
+                        <TouchableOpacity onPress={() => setSalespersonSearch("")} hitSlop={6}>
+                          <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ paddingBottom: 10 }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => {
+                        setEditForm((previous) => previous ? { ...previous, salespersonId: null } : previous);
+                        setSalespersonPickerOpen(false);
+                        setSalespersonSearch("");
+                      }}
+                      style={[
+                        styles.pickerOptionRow,
+                        { borderBottomColor: colors.borderLight },
+                        editForm?.salespersonId === null && {
+                          backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "rgba(0, 168, 121, 0.08)",
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.pickerOptionTitle, { color: colors.textPrimary }]}>Unassigned</Text>
+                        <Text style={[styles.pickerOptionSub, { color: colors.textMuted }]}>No salesperson assigned</Text>
+                      </View>
+                      {editForm?.salespersonId === null && (
+                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+
+                    {filteredSalespersons.map((option) => {
+                      const isSelected = editForm?.salespersonId === option.id;
+                      return (
+                        <TouchableOpacity
+                          key={option.id}
+                          onPress={() => {
+                            setEditForm((previous) => previous ? { ...previous, salespersonId: option.id } : previous);
+                            setSalespersonPickerOpen(false);
+                            setSalespersonSearch("");
+                          }}
+                          style={[
+                            styles.pickerOptionRow,
+                            { borderBottomColor: colors.borderLight },
+                            isSelected && {
+                              backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "rgba(0, 168, 121, 0.08)",
+                            },
+                          ]}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.pickerOptionTitle, { color: colors.textPrimary, flex: 1 }]}>
+                            {option.name}
+                          </Text>
+                          {isSelected && (
+                            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -948,11 +1040,51 @@ const styles = StyleSheet.create({
   editFormContainer: {
     width: "100%",
   },
-  editContactScroll: {
-    maxHeight: 320,
+  editContactContainer: {
+    width: "100%",
   },
   editCreditBlock: {
     paddingVertical: 2,
+  },
+  pickerOverlay: {
+    borderRadius: 22,
+    padding: 22,
+    zIndex: 20,
+    elevation: 20,
+  },
+  pickerSearchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 40,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  pickerSearchInput: {
+    flex: 1,
+    fontFamily: Typography.medium,
+    fontSize: 13,
+    paddingVertical: 4,
+  },
+  pickerOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+  },
+  pickerOptionTitle: {
+    fontFamily: Typography.medium,
+    fontSize: 14,
+  },
+  pickerOptionSub: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    marginTop: 1,
   },
   editModalHeader: {
     flexDirection: "row",
@@ -1016,21 +1148,6 @@ const styles = StyleSheet.create({
   editSelectText: {
     fontFamily: Typography.medium,
     fontSize: 14,
-  },
-  editSalespersonList: {
-    borderWidth: 1,
-    borderRadius: 11,
-    overflow: "hidden",
-    marginBottom: 14,
-  },
-  editSalespersonOption: {
-    minHeight: 42,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(120, 140, 130, 0.22)",
   },
   editErrorText: {
     color: "#D94A55",
