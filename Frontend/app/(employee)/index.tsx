@@ -573,58 +573,13 @@ export default function EmployeeHomeScreen() {
                 const accentColor = getAppAccent(item.id);
 
                 return (
-                  <TouchableOpacity
-                    style={styles.categoryItem}
+                  <SubAppCard
+                    active={isSelected}
+                    label={item.label}
+                    appId={item.id}
+                    accentColor={accentColor}
                     onPress={() => openSubApp(item.id)}
-                    activeOpacity={0.75}
-                  >
-                    <View
-                      style={[
-                        styles.categoryCircle,
-                        {
-                          borderColor: isSelected
-                            ? accentColor
-                            : isDark
-                            ? "#2D493F"
-                            : "#D8E0DC",
-                          borderWidth: isSelected ? 2 : 1,
-                        },
-                      ]}
-                    >
-                      <SubAppLogo
-                        appId={item.id}
-                        borderRadius={0}
-                        borderWidth={0}
-                        style={{ width: "100%", height: "100%" }}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.categoryLabel,
-                        {
-                          color: isSelected
-                            ? isDark
-                              ? "#F1F7F4"
-                              : "#101513"
-                            : isDark
-                            ? "#8FA09A"
-                            : "#5E6964",
-                          fontFamily: isSelected ? Typography.bold : Typography.medium,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.label}
-                    </Text>
-                    {isSelected && (
-                      <View
-                        style={[
-                          styles.activeIndicator,
-                          { backgroundColor: accentColor },
-                        ]}
-                      />
-                    )}
-                  </TouchableOpacity>
+                  />
                 );
               }}
             />

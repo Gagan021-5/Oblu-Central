@@ -47,6 +47,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
 import { WorkspaceHeader } from "@/components/employee/WorkspaceHeader";
 import { MetricCard } from "@/components/employee/MetricCard";
+import { SubAppCard } from "@/components/employee/SubAppCard";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { triggerLightHaptic } from "@/utils/haptics";
@@ -510,58 +511,13 @@ export default function UsersScreen() {
                 const accentColor = getAppAccent(item.id);
 
                 return (
-                  <TouchableOpacity
-                    style={styles.categoryItem}
+                  <SubAppCard
+                    active={isSelected}
+                    label={item.label}
+                    appId={item.id}
+                    accentColor={accentColor}
                     onPress={() => openSubApp(item.id)}
-                    activeOpacity={0.75}
-                  >
-                    <View
-                      style={[
-                        styles.categoryCircle,
-                        {
-                          borderColor: isSelected
-                            ? accentColor
-                            : isDark
-                            ? "#2D493F"
-                            : "#D8E0DC",
-                          borderWidth: isSelected ? 2 : 1,
-                        },
-                      ]}
-                    >
-                      <SubAppLogo
-                        appId={item.id}
-                        borderRadius={0}
-                        borderWidth={0}
-                        style={{ width: "100%", height: "100%" }}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.categoryLabel,
-                        {
-                          color: isSelected
-                            ? isDark
-                              ? "#F1F7F4"
-                              : "#101513"
-                            : isDark
-                            ? "#8FA09A"
-                            : "#5E6964",
-                          fontFamily: isSelected ? Typography.bold : Typography.medium,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.label}
-                    </Text>
-                    {isSelected && (
-                      <View
-                        style={[
-                          styles.activeIndicator,
-                          { backgroundColor: accentColor },
-                        ]}
-                      />
-                    )}
-                  </TouchableOpacity>
+                  />
                 );
               }}
             />
@@ -607,6 +563,7 @@ export default function UsersScreen() {
                 <View style={styles.metricsSection}>
                   <View style={styles.metricsGrid}>
                     <MetricCard
+                      index={0}
                       label="Staff Members"
                       value={users.length > 0 ? String(users.length) : "0"}
                       subValue={`${activeAgents} devices linked`}
@@ -617,6 +574,7 @@ export default function UsersScreen() {
                       onPress={() => handleMetricCardPress("staff", "/(admin)/security")}
                     />
                     <MetricCard
+                      index={1}
                       label="Calls Tracked"
                       value={totalCalls > 0 ? String(totalCalls) : "0"}
                       subValue="Live telephony"
@@ -629,6 +587,7 @@ export default function UsersScreen() {
                   </View>
                   <View style={[styles.metricsGrid, { marginTop: 10 }]}>
                     <MetricCard
+                      index={2}
                       label="Customers"
                       value={dashboardStats?.totalCustomers ? String(dashboardStats.totalCustomers) : "0"}
                       subValue={dashboardStats?.totalOutstandingFormatted || "₹0 due"}
@@ -639,6 +598,7 @@ export default function UsersScreen() {
                       onPress={() => handleMetricCardPress("customers", "/(admin)/customers")}
                     />
                     <MetricCard
+                      index={3}
                       label="Pending Leaves"
                       value={hrmsData?.stats?.pending_leaves ? String(hrmsData.stats.pending_leaves) : "0"}
                       subValue={`${hrmsData?.stats?.present_today || 0} present today`}

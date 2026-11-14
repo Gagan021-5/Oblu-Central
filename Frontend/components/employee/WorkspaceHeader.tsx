@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import React, { useMemo, useRef, useEffect } from "react";
+import { View, Text, Pressable, StyleSheet, Image, Animated } from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes } from "@/constants/theme";
 import { router } from "expo-router";
@@ -8,6 +8,7 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { NotificationCenterModal } from "@/components/employee/NotificationCenterModal";
 import { getRoleWorkspaceContext } from "@/utils/greetings";
 import { PersonAvatar3D } from "@/components/employee/SubAppLogo";
+import { triggerLightHaptic } from "@/utils/haptics";
 
 const HEADER_MOON = require("@/assets/subapps/header_moon.webp");
 const HEADER_SUN = require("@/assets/subapps/header_sun.webp");
@@ -36,6 +37,95 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
     return getRoleWorkspaceContext(user?.role, (user as any)?.department);
   }, [user?.role, (user as any)?.department]);
 
+  // Spring animations for action buttons
+  const themeScale = useRef(new Animated.Value(1)).current;
+  const bellScale = useRef(new Animated.Value(1)).current;
+  const bellSwing = useRef(new Animated.Value(0)).current;
+  const avatarScale = useRef(new Animated.Value(1)).current;
+
+  // Gentle bell swing animation when unread notifications are present
+  useEffect(() => {
+    if (unreadCount <= 0) {
+      bellSwing.setValue(0);
+      return;
+    }
+
+    const swingSequence = Animated.sequence([
+      Animated.timing(bellSwing, { toValue: -14, duration: 90, useNativeDriver: true }),
+      Animated.timing(bellSwing, { toValue: 12, duration: 90, useNativeDriver: true }),
+      Animated.timing(bellSwing, { toValue: -8, duration: 80, useNativeDriver: true }),
+      Animated.timing(bellSwing, { toValue: 6, duration: 80, useNativeDriver: true }),
+      Animated.timing(bellSwing, { toValue: 0, duration: 80, useNativeDriver: true }),
+    ]);
+
+    swingSequence.start();
+
+    const interval = setInterval(() => {
+      swingSequence.start();
+    }, 7000);
+
+    return () => clearInterval(interval);
+  }, [unreadCount, bellSwing]);
+
+  // Theme Press
+  const handleThemePressIn = () => {
+    triggerLightHaptic();
+    Animated.spring(themeScale, {
+      toValue: 0.88,
+      friction: 6,
+      tension: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleThemePressOut = () => {
+    Animated.spring(themeScale, {
+      toValue: 1,
+      friction: 5,
+      tension: 280,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Bell Press
+  const handleBellPressIn = () => {
+    triggerLightHaptic();
+    Animated.spring(bellScale, {
+      toValue: 0.88,
+      friction: 6,
+      tension: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleBellPressOut = () => {
+    Animated.spring(bellScale, {
+      toValue: 1,
+      friction: 5,
+      tension: 280,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Avatar Press
+  const handleAvatarPressIn = () => {
+    triggerLightHaptic();
+    Animated.spring(avatarScale, {
+      toValue: 0.90,
+      friction: 6,
+      tension: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleAvatarPressOut = () => {
+    Animated.spring(avatarScale, {
+      toValue: 1,
+      friction: 5,
+      tension: 280,
+      useNativeDriver: true,
+    }).start();
+  };
 
   // Display user name dynamically from AuthContext
   const displayName = useMemo(() => {
@@ -95,89 +185,146 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
                 resizeMode="cover"
               />
             </View>
-            <Text
-              style={[
-                styles.dateText,
-                { color: isDark ? "#8FA09A" : "#5E6964" },
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {formattedDate}
-            </Text>
+            <View style={styles.dateAndStatusRow}>
+              <Text
+                style={[
+                  styles.dateText,
+                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {formattedDate}
+              </Text>
+              {/* Live status indicator pill */}
+              <View
+                style={[
+                  styles.liveStatusPill,
+                  {
+                    backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "rgba(0, 168, 121, 0.10)",
+                    borderColor: isDark ? "rgba(53, 214, 160, 0.26)" : "rgba(0, 168, 121, 0.18)",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.liveStatusDot,
+                    { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.liveStatusText,
+                    { color: isDark ? "#35D6A0" : "#00A879" },
+                  ]}
+                >
+                  Online
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* Right Actions: Theme Toggle, Notifications, Avatar */}
+        {/* Right Actions: Theme Toggle, Notifications, Avatar with spring scales */}
         <View style={styles.rightActions}>
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: isDark ? "#192D25" : "#FFFFFF",
-                borderColor: isDark ? "#2D493F" : "#D8E0DC",
-              },
-            ]}
+          <Pressable
             onPress={toggleTheme}
-            activeOpacity={0.7}
+            onPressIn={handleThemePressIn}
+            onPressOut={handleThemePressOut}
             accessibilityLabel="Toggle theme"
           >
-            <Image
-              source={isDark ? HEADER_SUN : HEADER_MOON}
-              style={styles.headerIcon3D}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+            <Animated.View
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: isDark ? "#192D25" : "#FFFFFF",
+                  borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                  transform: [{ scale: themeScale }],
+                },
+              ]}
+            >
+              <Image
+                source={isDark ? HEADER_SUN : HEADER_MOON}
+                style={styles.headerIcon3D}
+                resizeMode="contain"
+              />
+            </Animated.View>
+          </Pressable>
 
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: isDark ? "#192D25" : "#FFFFFF",
-                borderColor: isDark ? "#2D493F" : "#D8E0DC",
-              },
-            ]}
+          <Pressable
             onPress={handleNotificationClick}
-            activeOpacity={0.7}
+            onPressIn={handleBellPressIn}
+            onPressOut={handleBellPressOut}
             accessibilityLabel="Notifications"
           >
-            <Image
-              source={HEADER_BELL}
-              style={styles.headerIcon3D}
-              resizeMode="contain"
-            />
-            {unreadCount > 0 && (
-              <View
-                style={[
-                  styles.notificationBadge,
-                  { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
-                ]}
+            <Animated.View
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: isDark ? "#192D25" : "#FFFFFF",
+                  borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                  transform: [{ scale: bellScale }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={{
+                  transform: [
+                    {
+                      rotate: bellSwing.interpolate({
+                        inputRange: [-20, 20],
+                        outputRange: ["-20deg", "20deg"],
+                      }),
+                    },
+                  ],
+                }}
               >
-                <Text
+                <Image
+                  source={HEADER_BELL}
+                  style={styles.headerIcon3D}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+              {unreadCount > 0 && (
+                <View
                   style={[
-                    styles.badgeText,
-                    { color: isDark ? "#0A1612" : "#FFFFFF" },
+                    styles.notificationBadge,
+                    { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
                   ]}
                 >
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      { color: isDark ? "#0A1612" : "#FFFFFF" },
+                    ]}
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </Animated.View>
+          </Pressable>
 
-          <TouchableOpacity
-            style={styles.avatarButton}
+          <Pressable
             onPress={handleProfileClick}
-            activeOpacity={0.8}
+            onPressIn={handleAvatarPressIn}
+            onPressOut={handleAvatarPressOut}
             accessibilityLabel="Profile"
           >
-            <PersonAvatar3D
-              gender={user?.gender}
-              size={38}
-              borderWidth={1.5}
-              borderColor={isDark ? "#35D6A0" : "rgba(0, 168, 121, 0.35)"}
-            />
-          </TouchableOpacity>
+            <Animated.View
+              style={[
+                styles.avatarButton,
+                { transform: [{ scale: avatarScale }] },
+              ]}
+            >
+              <PersonAvatar3D
+                gender={user?.gender}
+                size={38}
+                borderWidth={1.5}
+                borderColor={isDark ? "#35D6A0" : "rgba(0, 168, 121, 0.35)"}
+              />
+            </Animated.View>
+          </Pressable>
         </View>
       </View>
 
@@ -190,8 +337,6 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
       >
         {roleContext.subGreeting}, {displayName}
       </Text>
-
-
 
       {/* Interactive Notification Center Modal */}
       <NotificationCenterModal
@@ -228,6 +373,13 @@ const styles = StyleSheet.create({
     gap: 10,
     flex: 1,
   },
+  dateAndStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    flex: 1,
+  },
   brandLogoContainer: {
     width: 36,
     height: 36,
@@ -245,7 +397,25 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: FontSizes.bodySmall,
     fontFamily: Typography.semiBold,
-    flexShrink: 1,
+  },
+  liveStatusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4.5,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  liveStatusDot: {
+    width: 5.5,
+    height: 5.5,
+    borderRadius: 2.75,
+  },
+  liveStatusText: {
+    fontSize: 9.5,
+    fontFamily: Typography.bold,
+    letterSpacing: 0.3,
   },
   rightActions: {
     flexDirection: "row",
@@ -290,5 +460,4 @@ const styles = StyleSheet.create({
     fontFamily: Typography.bold,
     letterSpacing: -0.5,
   },
-
 });
