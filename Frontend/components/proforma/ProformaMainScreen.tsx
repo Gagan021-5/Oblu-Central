@@ -392,9 +392,6 @@ export function ProformaMainScreen() {
 
         <View style={styles.titleCluster}>
           <Text style={[styles.headerTitle, { color: foreground }]}>{getTabTitle()}</Text>
-          <Text style={[styles.headerRole, { color: muted }]}>
-            {hubData?.user?.name || "Workspace"} • {hubData?.user?.role || "Staff"}
-          </Text>
         </View>
 
         {hubData?.permissions.can_create_proforma ? (

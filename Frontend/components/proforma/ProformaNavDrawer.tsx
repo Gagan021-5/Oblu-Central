@@ -190,7 +190,7 @@ export function ProformaNavDrawer({
                 </View>
               </View>
               <Text style={[styles.brandSubtitle, { color: muted }]}>
-                {hubData?.user?.name || "Employee Workspace"} • {hubData?.user?.role || "Staff"}
+                Sales & Billing Workspace
               </Text>
             </View>
             <TouchableOpacity
