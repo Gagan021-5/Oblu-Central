@@ -209,18 +209,22 @@ class PriceChangeRequestsListAPIView(APIView):
             doc_type = "proforma" if r.invoice_id else "quotation"
             doc_number = f"{'PI' if r.invoice_id else 'QT'}-{doc_id}"
 
+            current_p = float(r.recommended_price or r.msrp_snapshot or r.recommended_courier_charge or 0)
+            req_p = float(r.requested_price or r.requested_courier_charge or 0)
+            diff = req_p - current_p
+
             results.append({
                 "id": r.id,
                 "doc_type": doc_type,
                 "doc_id": doc_id,
                 "doc_number": doc_number,
                 "customer_name": r.customer.name if r.customer else "Customer",
-                "product_name": r.product.name if r.product else "Courier / Item",
+                "product_name": r.product.name if r.product else ("Courier Charge" if not r.is_product_request else "Item"),
                 "product_sku": getattr(r.product, "sku", "") or "",
-                "current_price": float(r.current_price or 0),
-                "requested_price": float(r.requested_price or 0),
-                "recommended_price": float(getattr(r, "recommended_courier_charge", 0) or 0),
-                "difference": float((r.requested_price or 0) - (r.current_price or 0)),
+                "current_price": current_p,
+                "requested_price": req_p,
+                "recommended_price": current_p,
+                "difference": diff,
                 "status": r.status,
                 "reason": getattr(r, "reason", "") or "",
                 "sp_remark": getattr(r, "sp_remark", "") or "",
@@ -417,17 +421,19 @@ class ProformaCatalogAPIView(APIView):
 
         products = []
         for p in qs.order_by("name")[:100]:
-            p_price = p.proforma_price
+            p_price = getattr(p, "proforma_price", None)
             base_price = float(p_price.price) if p_price and p_price.price else 0.0
-            gst_pct = float(p_price.gst_rate) if p_price and p_price.gst_rate else 18.0
+            gst_pct = float(p_price.tax_rate) if p_price and p_price.tax_rate else 18.0
 
             tiers = []
             if p_price:
                 for t in p_price.price_tiers.all().order_by("min_quantity"):
+                    unit_p = float(t.unit_price) if getattr(t, "unit_price", None) else base_price
+                    discount_pct = round(((base_price - unit_p) / base_price * 100), 1) if base_price > 0 and unit_p < base_price else 0.0
                     tiers.append({
                         "min_qty": t.min_quantity,
-                        "discount_pct": float(t.discount_percentage),
-                        "unit_price": float(t.unit_price) if getattr(t, "unit_price", None) else base_price,
+                        "discount_pct": discount_pct,
+                        "unit_price": unit_p,
                     })
 
             products.append({
