@@ -362,3 +362,224 @@ export async function sendWarehouseDispatchApi(
   });
   return res.data;
 }
+
+// ── RBAC Hub & Operational Subsystem APIs ─────────────────────────────────
+
+export interface ProformaPermissions {
+  can_create_proforma: boolean;
+  can_create_quotation: boolean;
+  can_view_proformas: boolean;
+  can_view_quotations: boolean;
+  can_view_products: boolean;
+  can_approve_price_change: boolean;
+  can_request_stock: boolean;
+  can_manage_dispatch: boolean;
+  can_warehouse_dispatch: boolean;
+  can_manage_tiers: boolean;
+  is_admin: boolean;
+  is_accounts: boolean;
+  is_warehouse: boolean;
+}
+
+export interface ProformaHubData {
+  permissions: ProformaPermissions;
+  stats: {
+    total_proformas: number;
+    total_quotations: number;
+    pending_price_requests: number;
+    pending_stock_requests: number;
+    pending_dispatch: number;
+  };
+  user: {
+    id: number;
+    username: string;
+    name: string;
+    role: string;
+    is_superuser: boolean;
+  };
+}
+
+export interface ProformaCustomerLookup {
+  id: number;
+  name: string;
+  phone: string;
+  city: string;
+  state: string;
+  gstin: string;
+  has_overdue: boolean;
+}
+
+export interface PriceChangeRequestItem {
+  id: number;
+  doc_type: "proforma" | "quotation";
+  doc_id: number;
+  doc_number: string;
+  customer_name: string;
+  product_name: string;
+  product_sku: string;
+  current_price: number;
+  requested_price: number;
+  recommended_price: number;
+  difference: number;
+  status: "pending" | "approved" | "rejected";
+  reason?: string;
+  sp_remark?: string;
+  requested_by: string;
+  reviewed_by?: string | null;
+  created_at: string;
+  reviewed_at?: string | null;
+}
+
+export interface StockShortageRequestItem {
+  id: number;
+  invoice_id: number;
+  invoice_number: string;
+  customer_name: string;
+  product_name: string;
+  product_sku: string;
+  requested_quantity: number;
+  available_quantity: number;
+  status: "pending" | "approved" | "rejected";
+  requested_by: string;
+  reviewed_by?: string | null;
+  duration?: string | null;
+  created_at: string;
+}
+
+export interface DispatchQueueItem {
+  id: number;
+  invoice_id: number | null;
+  invoice_number: string;
+  customer_name: string;
+  status: string;
+  status_display: string;
+  shipment_method: string;
+  photos_count: number;
+  items_count: number;
+  time_in_stage: string;
+  created_at: string;
+}
+
+export interface ProformaCatalogItem {
+  id: number;
+  name: string;
+  sku: string;
+  category: string;
+  category_id?: number;
+  base_price: number;
+  gst_percentage: number;
+  stock: number;
+  price_display: string;
+  tiers?: Array<{
+    min_qty: number;
+    discount_pct: number;
+    unit_price: number;
+  }>;
+}
+
+export async function fetchProformaHubApi(): Promise<ProformaHubData | null> {
+  try {
+    const res = await api.get<ProformaHubData>("/proforma/hub/");
+    return res.data;
+  } catch (error) {
+    console.warn("[ProformaService] fetchProformaHubApi failed:", error);
+    return null;
+  }
+}
+
+export async function fetchProformaCustomersApi(search?: string): Promise<ProformaCustomerLookup[]> {
+  try {
+    const res = await api.get<{ success: boolean; customers: ProformaCustomerLookup[] }>("/proforma/customers/", {
+      params: { search },
+    });
+    return res.data?.customers || [];
+  } catch (error) {
+    console.warn("[ProformaService] fetchProformaCustomersApi failed:", error);
+    return [];
+  }
+}
+
+export async function fetchPriceChangeRequestsApi(params?: {
+  status?: string;
+  search?: string;
+}): Promise<PriceChangeRequestItem[]> {
+  try {
+    const res = await api.get<{ success: boolean; results: PriceChangeRequestItem[] }>("/proforma/price-requests/", {
+      params,
+    });
+    return res.data?.results || [];
+  } catch (error) {
+    console.warn("[ProformaService] fetchPriceChangeRequestsApi failed:", error);
+    return [];
+  }
+}
+
+export async function actionPriceChangeRequestApi(
+  id: number,
+  action: "approve" | "reject",
+  reason?: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await api.post(`/proforma/price-requests/${id}/`, { action, reason });
+  return res.data;
+}
+
+export async function fetchStockShortageRequestsApi(params?: {
+  status?: string;
+  search?: string;
+}): Promise<StockShortageRequestItem[]> {
+  try {
+    const res = await api.get<{ success: boolean; results: StockShortageRequestItem[] }>("/proforma/stock-requests/", {
+      params,
+    });
+    return res.data?.results || [];
+  } catch (error) {
+    console.warn("[ProformaService] fetchStockShortageRequestsApi failed:", error);
+    return [];
+  }
+}
+
+export async function actionStockShortageRequestApi(
+  id: number,
+  action: "approve" | "reject"
+): Promise<{ success: boolean; message: string }> {
+  const res = await api.post(`/proforma/stock-requests/${id}/action/`, { action });
+  return res.data;
+}
+
+export async function fetchDispatchQueueApi(params?: {
+  type?: "all" | "accounts" | "warehouse";
+  search?: string;
+}): Promise<DispatchQueueItem[]> {
+  try {
+    const res = await api.get<{ success: boolean; results: DispatchQueueItem[] }>("/proforma/dispatch-queue/", {
+      params,
+    });
+    return res.data?.results || [];
+  } catch (error) {
+    console.warn("[ProformaService] fetchDispatchQueueApi failed:", error);
+    return [];
+  }
+}
+
+export async function fetchProformaCatalogApi(params?: {
+  category_id?: string;
+  search?: string;
+}): Promise<{ categories: Array<{ id: number; name: string }>; products: ProformaCatalogItem[] }> {
+  try {
+    const res = await api.get<{
+      success: boolean;
+      categories: Array<{ id: number; name: string }>;
+      products: ProformaCatalogItem[];
+    }>("/proforma/catalog/", {
+      params,
+    });
+    return {
+      categories: res.data?.categories || [],
+      products: res.data?.products || [],
+    };
+  } catch (error) {
+    console.warn("[ProformaService] fetchProformaCatalogApi failed:", error);
+    return { categories: [], products: [] };
+  }
+}
+
