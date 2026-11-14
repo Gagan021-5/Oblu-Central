@@ -226,12 +226,14 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
               },
             ]}
           >
-            <SubAppLogo
-              appId={finalAppId}
-              borderRadius={0}
-              borderWidth={0}
-              style={{ width: "100%", height: "100%", backgroundColor: "transparent" }}
-            />
+            <View style={styles.railIconInner}>
+              <SubAppLogo
+                appId={finalAppId}
+                borderRadius={0}
+                borderWidth={0}
+                style={{ width: "100%", height: "100%", backgroundColor: "transparent" }}
+              />
+            </View>
           </Animated.View>
 
           {/* Category Label */}
@@ -449,22 +451,32 @@ const styles = StyleSheet.create({
   // ─── Rail Item Styles ───
   railItemSlot: {
     alignItems: "center",
-    paddingTop: 4,
-    paddingBottom: 2,
+    paddingTop: 6,
+    paddingBottom: 4,
+    overflow: "visible",
   },
   railItemContainer: {
     alignItems: "center",
     width: 72,
+    overflow: "visible",
   },
   railIconCircle: {
     width: 62,
     height: 62,
     borderRadius: 18,
-    overflow: "hidden",
+    overflow: "visible",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 6,
     shadowOffset: { width: 0, height: 3 },
+  },
+  railIconInner: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 16,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
   },
   railLabel: {
     fontSize: 12,

@@ -506,6 +506,7 @@ export default function UsersScreen() {
               keyExtractor={(item) => item.id}
               horizontal
               showsHorizontalScrollIndicator={false}
+              style={{ overflow: "visible" }}
               contentContainerStyle={styles.categoriesList}
               renderItem={({ item }) => {
                 const isSelected = selectedCategory === item.id;
@@ -1151,6 +1152,7 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     marginBottom: 16,
     marginTop: 4,
+    overflow: "visible",
   },
   spotlightContainer: {
     marginBottom: 16,
@@ -1163,8 +1165,8 @@ const styles = StyleSheet.create({
   },
   categoriesList: {
     paddingHorizontal: 0,
-    paddingTop: 8,
-    paddingBottom: 6,
+    paddingTop: 10,
+    paddingBottom: 8,
     gap: 14,
   },
   categoryItem: {

@@ -1,25 +1,129 @@
-import React, { useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useMemo, useRef, useEffect } from "react";
+import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, usePathname, useGlobalSearchParams } from "expo-router";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes, Shadows } from "@/constants/theme";
+import { triggerSelectionHaptic, triggerLightHaptic } from "@/utils/haptics";
 
-interface FloatingTabBarProps {
+export interface FloatingTabBarProps {
   onQuickActionPress?: () => void;
+  isQuickActionOpen?: boolean;
 }
 
-const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
+interface TabItem {
+  key: string;
+  label: string;
+  iconActive: keyof typeof Ionicons.glyphMap;
+  iconInactive: keyof typeof Ionicons.glyphMap;
+  isActive: boolean;
+  onPress: () => void;
+}
+
+interface TabButtonProps {
+  item: TabItem;
+  isDark: boolean;
+}
+
+const TabButton: React.FC<TabButtonProps> = React.memo(({ item, isDark }) => {
+  const bounceScale = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    triggerSelectionHaptic();
+    Animated.sequence([
+      Animated.spring(bounceScale, {
+        toValue: 1.14,
+        friction: 4,
+        tension: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(bounceScale, {
+        toValue: 1.0,
+        friction: 5,
+        tension: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    item.onPress();
+  };
+
+  const activeColor = "#10B981";
+  const inactiveColor = isDark ? "#64748B" : "#8FA09A";
+  const color = item.isActive ? activeColor : inactiveColor;
+
+  return (
+    <Pressable
+      style={styles.tabButton}
+      onPress={handlePress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: item.isActive }}
+      accessibilityLabel={item.label}
+    >
+      <Animated.View style={[styles.tabContent, { transform: [{ scale: bounceScale }] }]}>
+        <Ionicons
+          name={item.isActive ? item.iconActive : item.iconInactive}
+          size={21}
+          color={color}
+        />
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={[
+            styles.tabLabel,
+            {
+              color,
+              fontFamily: item.isActive ? Typography.bold : Typography.medium,
+            },
+          ]}
+        >
+          {item.label}
+        </Text>
+        {item.isActive ? (
+          <View
+            style={[
+              styles.activeDot,
+              { backgroundColor: activeColor },
+            ]}
+          />
+        ) : (
+          <View style={styles.inactiveDotPlaceholder} />
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+});
+
+const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = ({
+  onQuickActionPress,
+  isQuickActionOpen = false,
+}) => {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { isDark } = useTheme();
   const { user } = useAuth();
   const pathname = usePathname();
   const params = useGlobalSearchParams<{ tab?: string }>();
   const activeTabParam = params.tab || "dashboard";
 
-    const isAdmin = useMemo(() => {
+  // Center FAB spring rotation animation (0deg -> 45deg when QuickActionModal is open)
+  const fabRotation = useRef(new Animated.Value(isQuickActionOpen ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(fabRotation, {
+      toValue: isQuickActionOpen ? 1 : 0,
+      friction: 5,
+      tension: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [isQuickActionOpen, fabRotation]);
+
+  const fabRotateDeg = fabRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "45deg"],
+  });
+
+  const isAdmin = useMemo(() => {
     const r = (user?.role || "").toLowerCase();
     const u = (user?.username || "").toLowerCase();
     return (
@@ -69,12 +173,12 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
     pathname.includes("calls");
 
   // Standard Non-HR Navigation Items (4 Clean Tabs: Home, Customers, Calls, Profile)
-  const standardNavItems = [
+  const standardNavItems: TabItem[] = [
     {
       key: "home",
       label: "Home",
-      iconActive: "home" as const,
-      iconInactive: "home-outline" as const,
+      iconActive: "home",
+      iconInactive: "home-outline",
       isActive: isHome,
       onPress: () => {
         if (isAdmin) {
@@ -87,8 +191,8 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
     {
       key: "customers",
       label: "Customers",
-      iconActive: "people" as const,
-      iconInactive: "people-outline" as const,
+      iconActive: "people",
+      iconInactive: "people-outline",
       isActive: isCustomers,
       onPress: () => {
         if (isAdmin) {
@@ -101,8 +205,8 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
     {
       key: "calls",
       label: "Calls",
-      iconActive: "call" as const,
-      iconInactive: "call-outline" as const,
+      iconActive: "call",
+      iconInactive: "call-outline",
       isActive: isCalls,
       onPress: () => {
         if (isAdmin) {
@@ -115,8 +219,8 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
     {
       key: "profile",
       label: "Profile",
-      iconActive: "person" as const,
-      iconInactive: "person-outline" as const,
+      iconActive: "person",
+      iconInactive: "person-outline",
       isActive: isProfile,
       onPress: () => {
         if (isAdmin) {
@@ -129,12 +233,12 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
   ];
 
   // HR Navigation Items (4 Clean Tabs: HRMS, Staff, Calls, Profile)
-  const hrNavItems = [
+  const hrNavItems: TabItem[] = [
     {
       key: "hrms",
       label: "HRMS",
-      iconActive: "briefcase" as const,
-      iconInactive: "briefcase-outline" as const,
+      iconActive: "briefcase",
+      iconInactive: "briefcase-outline",
       isActive: isHome,
       onPress: () => {
         router.replace({ pathname: "/(employee)", params: { tab: "dashboard" } } as any);
@@ -143,8 +247,8 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
     {
       key: "staff",
       label: "Staff",
-      iconActive: "people" as const,
-      iconInactive: "people-outline" as const,
+      iconActive: "people",
+      iconInactive: "people-outline",
       isActive: isStaffActive,
       onPress: () => {
         router.replace({ pathname: "/(employee)", params: { tab: "staff" } } as any);
@@ -153,8 +257,8 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
     {
       key: "calls",
       label: "Calls",
-      iconActive: "call" as const,
-      iconInactive: "call-outline" as const,
+      iconActive: "call",
+      iconInactive: "call-outline",
       isActive: isCalls,
       onPress: () => {
         if (!isCalls) {
@@ -165,8 +269,8 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
     {
       key: "profile",
       label: "Profile",
-      iconActive: "person" as const,
-      iconInactive: "person-outline" as const,
+      iconActive: "person",
+      iconInactive: "person-outline",
       isActive: isProfile,
       onPress: () => {
         if (isAdmin) {
@@ -230,56 +334,48 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = () => {
         style={[
           styles.dockContainer,
           {
-            backgroundColor: isDark ? "#13231D" : "#121A16",
+            backgroundColor: isDark ? "#0C0E15" : "#121A16",
             borderColor: isDark
-              ? "rgba(53, 214, 160, 0.26)"
+              ? "rgba(255, 255, 255, 0.08)"
               : "rgba(255, 255, 255, 0.12)",
           },
           Shadows.floatingDock,
         ]}
       >
-        {currentNavItems.map((item) => {
-          const color = item.isActive
-            ? isDark
-              ? "#35D6A0"
-              : "#19C997"
-            : "#8FA09A";
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={styles.tabButton}
-              onPress={item.onPress}
-              activeOpacity={0.7}
+        {onQuickActionPress ? (
+          // Render with center rotating FAB
+          <>
+            <TabButton item={currentNavItems[0]} isDark={isDark} />
+            <TabButton item={currentNavItems[1]} isDark={isDark} />
+            
+            <Pressable
+              style={styles.fabButton}
+              onPress={() => {
+                triggerLightHaptic();
+                onQuickActionPress();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Quick action"
             >
-              <Ionicons
-                name={item.isActive ? item.iconActive : item.iconInactive}
-                size={21}
-                color={color}
-              />
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
+              <Animated.View
                 style={[
-                  styles.tabLabel,
-                  {
-                    color,
-                    fontFamily: item.isActive ? Typography.semiBold : Typography.medium,
-                  },
+                  styles.fabInner,
+                  { transform: [{ rotate: fabRotateDeg }] },
                 ]}
               >
-                {item.label}
-              </Text>
-              {item.isActive && (
-                <View
-                  style={[
-                    styles.activeDot,
-                    { backgroundColor: isDark ? "#35D6A0" : "#19C997" },
-                  ]}
-                />
-              )}
-            </TouchableOpacity>
-          );
-        })}
+                <Ionicons name="add" size={24} color="#06281E" />
+              </Animated.View>
+            </Pressable>
+
+            <TabButton item={currentNavItems[2]} isDark={isDark} />
+            <TabButton item={currentNavItems[3]} isDark={isDark} />
+          </>
+        ) : (
+          // Render standard 4 tabs
+          currentNavItems.map((item) => (
+            <TabButton key={item.key} item={item} isDark={isDark} />
+          ))
+        )}
       </View>
     </View>
   );
@@ -299,7 +395,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 32,
     borderWidth: 1,
@@ -311,11 +407,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 4,
+    paddingVertical: 2,
     position: "relative",
   },
+  tabContent: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
   tabLabel: {
-    fontFamily: Typography.medium,
     fontSize: FontSizes.tabLabel,
     marginTop: 2,
   },
@@ -324,5 +423,28 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     marginTop: 2,
+  },
+  inactiveDotPlaceholder: {
+    width: 4,
+    height: 4,
+    marginTop: 2,
+  },
+  fabButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#10B981",
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 4,
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  fabInner: {
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

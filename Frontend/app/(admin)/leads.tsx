@@ -148,7 +148,7 @@ export default function LeadsScreen() {
             Lead Signal
           </Text>
           <Text style={[styles.topBarSub, { color: colors.textMuted }]}>
-            {(leads?.length ?? 0) > 0 ? `${leads.length} Live Prospects` : "Live CRM Database"}
+            {(leads?.length ?? 0) > 0 ? `${leads?.length ?? 0} Live Prospects` : "Live CRM Database"}
           </Text>
         </View>
 

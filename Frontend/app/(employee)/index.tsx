@@ -599,6 +599,7 @@ export default function EmployeeHomeScreen() {
               keyExtractor={(item) => item.id}
               horizontal
               showsHorizontalScrollIndicator={false}
+              style={{ overflow: "visible" }}
               contentContainerStyle={styles.categoriesList}
               renderItem={({ item }) => {
                 const isSelected = selectedCategory === item.id;
@@ -2240,6 +2241,7 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     marginBottom: 16,
     marginHorizontal: -16,
+    overflow: "visible",
   },
   exploreAppsHeading: {
     fontFamily: Typography.bold,
@@ -2250,8 +2252,8 @@ const styles = StyleSheet.create({
   },
   categoriesList: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 6,
+    paddingTop: 10,
+    paddingBottom: 8,
     gap: 12,
   },
   categoryItem: {
