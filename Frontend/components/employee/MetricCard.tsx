@@ -280,7 +280,7 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
           </Text>
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 }}>
           {trendBadge && (
             <View
               style={[
@@ -313,8 +313,8 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
             <MetricBadge3D
               icon={String(icon)}
               label={label}
-              size={36}
-              borderRadius={11}
+              size={32}
+              borderRadius={10}
               isHighlight={isHighlight}
             />
           )}
@@ -438,12 +438,12 @@ const styles = StyleSheet.create({
   },
   outwardCard: {
     flex: 1,
-    padding: 16,
+    padding: 14,
     borderRadius: 20,
     borderWidth: 1.2,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 4,
     zIndex: 2,
     marginVertical: 4,
   },
@@ -457,8 +457,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     marginRight: 6,
+    minWidth: 0,
   },
   liveHaloContainer: {
     width: 14,
@@ -478,9 +479,10 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   labelText: {
-    fontSize: 10,
+    flexShrink: 1,
+    fontSize: 9.5,
     fontFamily: Typography.bold,
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   trendBadge: {
     paddingHorizontal: 6,

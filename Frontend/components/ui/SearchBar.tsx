@@ -7,10 +7,12 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes } from "@/constants/theme";
+import { triggerSelectionHaptic } from "@/utils/haptics";
 
 interface SearchBarProps {
   value: string;
@@ -22,7 +24,15 @@ interface SearchBarProps {
   onSubmitEditing?: () => void;
   onFilterPress?: () => void;
   filterActive?: boolean;
+  showQuickChips?: boolean;
 }
+
+const QUICK_CHIPS = [
+  { label: "🔥 Hot Leads", query: "Hot Leads" },
+  { label: "📞 Missed Calls", query: "Missed Calls" },
+  { label: "💳 Overdue", query: "Overdue" },
+  { label: "📄 Proforma", query: "Proforma" },
+];
 
 export const SearchBar: React.FC<SearchBarProps> = ({
   value,
@@ -34,6 +44,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onSubmitEditing,
   onFilterPress,
   filterActive = false,
+  showQuickChips = true,
 }) => {
   const { colors, isDark } = useTheme();
   const hasRotatingPlaceholders =
@@ -41,6 +52,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const activeList = hasRotatingPlaceholders ? placeholders! : [placeholder];
 
   const [activeIdx, setActiveIdx] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
   const anim = useRef(new Animated.Value(0)).current;
   const shouldAnimate = hasRotatingPlaceholders && value.length === 0;
 
@@ -98,104 +110,162 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   });
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-          borderColor: isDark ? "#2D493F" : "#D8E0DC",
-        },
-      ]}
-    >
-      <Ionicons
-        name="search-outline"
-        size={18}
-        color={isDark ? "#8FA09A" : "#5E6964"}
-        style={styles.searchIcon}
-      />
-      <View style={styles.inputWrap}>
-        {shouldAnimate && (
-          <View style={styles.placeholderOverlay} pointerEvents="none">
-            <Animated.Text
-              numberOfLines={1}
+    <View style={styles.wrapper}>
+      {/* Main Search Bar Shell */}
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+            borderColor: isFocused
+              ? isDark ? "#35D6A0" : "#00A879"
+              : isDark ? "#2D493F" : "#D8E0DC",
+          },
+        ]}
+      >
+        <Ionicons
+          name="search-outline"
+          size={18}
+          color={isFocused ? (isDark ? "#35D6A0" : "#00A879") : isDark ? "#8FA09A" : "#5E6964"}
+          style={styles.searchIcon}
+        />
+        <View style={styles.inputWrap}>
+          {shouldAnimate && (
+            <View style={styles.placeholderOverlay} pointerEvents="none">
+              <Animated.Text
+                numberOfLines={1}
+                style={[
+                  styles.placeholderText,
+                  {
+                    color: placeholderColor,
+                    opacity: outOpacity,
+                    transform: [{ translateY: outTranslateY }],
+                  },
+                ]}
+              >
+                {activeList[currentIdx]}
+              </Animated.Text>
+              <Animated.Text
+                numberOfLines={1}
+                style={[
+                  styles.placeholderText,
+                  {
+                    color: placeholderColor,
+                    opacity: inOpacity,
+                    transform: [{ translateY: inTranslateY }],
+                  },
+                ]}
+              >
+                {activeList[nextIdx]}
+              </Animated.Text>
+            </View>
+          )}
+          <TextInput
+            style={[
+              styles.input,
+              {
+                color: isDark ? "#F1F7F4" : "#101513",
+              },
+            ]}
+            value={value}
+            onChangeText={onChangeText}
+            onSubmitEditing={onSubmitEditing}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder={hasRotatingPlaceholders ? "" : placeholder}
+            placeholderTextColor={placeholderColor}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="never"
+          />
+        </View>
+
+        {/* Clear Button */}
+        {value.length > 0 && (
+          <TouchableOpacity
+            onPress={() => {
+              onChangeText("");
+              onClear?.();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name="close-circle"
+              size={18}
+              color={isDark ? "#8FA09A" : "#87928D"}
+            />
+          </TouchableOpacity>
+        )}
+
+        {/* Swiggy/Zomato Right Addon: Divider + Sparkle/Filter Badge */}
+        {value.length === 0 && (
+          <View style={styles.rightAddonGroup}>
+            <View
               style={[
-                styles.placeholderText,
-                {
-                  color: placeholderColor,
-                  opacity: outOpacity,
-                  transform: [{ translateY: outTranslateY }],
-                },
+                styles.verticalDivider,
+                { backgroundColor: isDark ? "#2D493F" : "#D8E0DC" },
               ]}
+            />
+            <TouchableOpacity
+              onPress={onFilterPress}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.sparkleButton}
+              accessibilityRole="button"
+              accessibilityLabel="Search filters and quick actions"
             >
-              {activeList[currentIdx]}
-            </Animated.Text>
-            <Animated.Text
-              numberOfLines={1}
-              style={[
-                styles.placeholderText,
-                {
-                  color: placeholderColor,
-                  opacity: inOpacity,
-                  transform: [{ translateY: inTranslateY }],
-                },
-              ]}
-            >
-              {activeList[nextIdx]}
-            </Animated.Text>
+              <Ionicons
+                name={onFilterPress ? "options-outline" : "sparkles-outline"}
+                size={18}
+                color={filterActive ? colors.primary : isDark ? "#35D6A0" : "#00A879"}
+              />
+            </TouchableOpacity>
           </View>
         )}
-        <TextInput
-          style={[
-            styles.input,
-            {
-              color: isDark ? "#F1F7F4" : "#101513",
-            },
-          ]}
-          value={value}
-          onChangeText={onChangeText}
-          onSubmitEditing={onSubmitEditing}
-          placeholder={hasRotatingPlaceholders ? "" : placeholder}
-          placeholderTextColor={placeholderColor}
-          autoCapitalize="none"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-        />
       </View>
-      {value.length > 0 && (
-        <TouchableOpacity
-          onPress={() => {
-            onChangeText("");
-            onClear?.();
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+
+      {/* Quick Search Chips below input when focused and query is empty */}
+      {showQuickChips && isFocused && value.length === 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.quickChipsScroll}
+          keyboardShouldPersistTaps="handled"
         >
-          <Ionicons
-            name="close-circle"
-            size={18}
-            color={isDark ? "#8FA09A" : "#87928D"}
-          />
-        </TouchableOpacity>
-      )}
-      {onFilterPress && (
-        <TouchableOpacity
-          onPress={onFilterPress}
-          accessibilityRole="button"
-          accessibilityLabel="Filter and sort customers"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={styles.filterButton}
-        >
-          <Ionicons
-            name="options-outline"
-            size={21}
-            color={filterActive ? colors.primary : isDark ? "#8FA09A" : "#5E6964"}
-          />
-        </TouchableOpacity>
+          {QUICK_CHIPS.map((chip) => (
+            <TouchableOpacity
+              key={chip.label}
+              style={[
+                styles.chipPill,
+                {
+                  backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "rgba(0, 168, 121, 0.08)",
+                  borderColor: isDark ? "rgba(53, 214, 160, 0.30)" : "rgba(0, 168, 121, 0.22)",
+                },
+              ]}
+              onPress={() => {
+                triggerSelectionHaptic();
+                onChangeText(chip.query);
+              }}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: isDark ? "#35D6A0" : "#00A879" },
+                ]}
+              >
+                {chip.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  wrapper: {
+    width: "100%",
+  },
   container: {
     flexDirection: "row",
     alignItems: "center",
@@ -229,12 +299,21 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.body,
     fontFamily: Typography.regular,
   },
-  filterButton: {
-    width: 30,
-    height: 34,
+  rightAddonGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 6,
+  },
+  verticalDivider: {
+    width: 1,
+    height: 18,
+    marginRight: 8,
+  },
+  sparkleButton: {
+    width: 26,
+    height: 26,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 6,
   },
   input: {
     flex: 1,
@@ -242,5 +321,23 @@ const styles = StyleSheet.create({
     fontFamily: Typography.regular,
     paddingVertical: 0,
     paddingHorizontal: 0,
+  },
+  quickChipsScroll: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
+  chipPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 11.5,
+    fontFamily: Typography.bold,
+    letterSpacing: 0.2,
   },
 });

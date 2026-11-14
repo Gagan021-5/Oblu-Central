@@ -17,11 +17,13 @@ const HEADER_BELL = require("@/assets/subapps/header_bell.webp");
 interface WorkspaceHeaderProps {
   onNotificationPress?: () => void;
   onProfilePress?: () => void;
+  scrollY?: Animated.Value;
 }
 
 const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
   onNotificationPress,
   onProfilePress,
+  scrollY,
 }) => {
   const { user } = useAuth();
   const { isDark, setMode } = useTheme();
@@ -328,15 +330,38 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
         </View>
       </View>
 
-      {/* Greeting Heading */}
-      <Text
-        style={[
-          styles.greetingTitle,
-          { color: isDark ? "#F1F7F4" : "#101513" },
-        ]}
+      {/* Greeting Heading with Scroll Collapse Animation */}
+      <Animated.View
+        style={{
+          opacity: scrollY
+            ? scrollY.interpolate({
+                inputRange: [0, 70],
+                outputRange: [1, 0],
+                extrapolate: "clamp",
+              })
+            : 1,
+          transform: [
+            {
+              translateY: scrollY
+                ? scrollY.interpolate({
+                    inputRange: [0, 70],
+                    outputRange: [0, -12],
+                    extrapolate: "clamp",
+                  })
+                : 0,
+            },
+          ],
+        }}
       >
-        {roleContext.subGreeting}, {displayName}
-      </Text>
+        <Text
+          style={[
+            styles.greetingTitle,
+            { color: isDark ? "#F1F7F4" : "#101513" },
+          ]}
+        >
+          {roleContext.subGreeting}, {displayName}
+        </Text>
+      </Animated.View>
 
       {/* Interactive Notification Center Modal */}
       <NotificationCenterModal

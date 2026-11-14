@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Linking,
   ActivityIndicator,
   Modal,
+  Animated,
 } from "react-native";
 import { router, useGlobalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Typography, FontSizes, Radius } from "@/constants/theme";
 import { WorkspaceHeader } from "@/components/employee/WorkspaceHeader";
+import { ActionSpotlightBanner } from "@/components/employee/ActionSpotlightBanner";
 import { getRoleWorkspaceContext } from "@/utils/greetings";
 import { SubAppCard } from "@/components/employee/SubAppCard";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
@@ -100,6 +102,7 @@ export default function EmployeeHomeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // Determine if active user is HR persona (Vanshika, Anshika, or HR role)
   const isHRUserInit = useMemo(() => {
@@ -509,8 +512,16 @@ export default function EmployeeHomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <ScrollView
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        stickyHeaderIndices={
+          selectedCategory !== "hrms" && !(isHR && selectedCategory === "all") ? [1] : undefined
+        }
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: insets.bottom + 96 },
@@ -525,11 +536,18 @@ export default function EmployeeHomeScreen() {
         }
       >
         {/* Workspace Header */}
-        <WorkspaceHeader onProfilePress={handleProfilePress} />
+        <WorkspaceHeader onProfilePress={handleProfilePress} scrollY={scrollY} />
 
         {/* Global Search Bar (hidden when HRMS operations is active so search bar sits directly above HRMS header) */}
         {selectedCategory !== "hrms" && !(isHR && selectedCategory === "all") && (
-          <View style={styles.searchBarWrapper}>
+          <Animated.View
+            style={[
+              styles.searchBarWrapper,
+              {
+                backgroundColor: colors.background,
+              },
+            ]}
+          >
             <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -551,7 +569,21 @@ export default function EmployeeHomeScreen() {
               intervalMs={2000}
               onClear={() => setSearchQuery("")}
             />
-          </View>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.stickyHeaderBorder,
+                {
+                  backgroundColor: isDark ? "rgba(45, 73, 63, 0.45)" : "rgba(216, 224, 220, 0.75)",
+                  opacity: scrollY.interpolate({
+                    inputRange: [0, 30, 50],
+                    outputRange: [0, 0.5, 1],
+                    extrapolate: "clamp",
+                  }),
+                },
+              ]}
+            />
+          </Animated.View>
         )}
 
         {/* ── Horizontal App Categories Row (filters live while searching) ─── */}
@@ -605,6 +637,18 @@ export default function EmployeeHomeScreen() {
           </View>
         ) : (
           <>
+            {/* ── Live Action Spotlight Banner (Between Explore Apps & Dashboard) ── */}
+            {selectedCategory === "all" && (
+              <View style={styles.spotlightContainer}>
+                <ActionSpotlightBanner
+                  followUpsCount={stats?.followUpsDueCount ?? 0}
+                  callsCount={180}
+                  pendingLeavesCount={hrmsData?.stats?.pending_leaves ?? 0}
+                  leadsCount={stats?.totalLeadsCount ?? leads.length}
+                />
+              </View>
+            )}
+
             {/* ── 1. ALL CATEGORY VIEW (Sales CRM only, never for HR) ─────────── */}
         {selectedCategory === "all" && !isHR && (
           <>
@@ -1861,7 +1905,7 @@ export default function EmployeeHomeScreen() {
         )}
           </>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* HR Operations Modal Dialog (Rendered only when opened to protect Virtual DOM) */}
       {activeHRModal && (
@@ -2171,10 +2215,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   searchBarWrapper: {
-    marginBottom: 12,
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+    marginBottom: 8,
+    zIndex: 10,
+  },
+  stickyHeaderBorder: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  spotlightContainer: {
+    marginBottom: 16,
   },
   categoriesContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
     marginHorizontal: -16,
   },
   exploreAppsHeading: {
@@ -2218,7 +2282,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   heroSection: {
-    marginBottom: 20,
+    marginTop: 4,
+    marginBottom: 16,
   },
   heroHeading: {
     fontSize: 28,

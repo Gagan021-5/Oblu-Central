@@ -48,6 +48,7 @@ import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/the
 import { WorkspaceHeader } from "@/components/employee/WorkspaceHeader";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { SubAppCard } from "@/components/employee/SubAppCard";
+import { ActionSpotlightBanner } from "@/components/employee/ActionSpotlightBanner";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { triggerLightHaptic } from "@/utils/haptics";
@@ -552,6 +553,16 @@ export default function UsersScreen() {
             {/* ─── 5. CATEGORY = "ALL" (Executive Suite Overview) ─── */}
             {selectedCategory === "all" && (
               <>
+                {/* ── Live Action Spotlight Banner (Between Explore Apps & Dashboard) ── */}
+                <View style={styles.spotlightContainer}>
+                  <ActionSpotlightBanner
+                    followUpsCount={dashboardStats?.followUpsDueCount ?? 0}
+                    callsCount={totalCalls || 180}
+                    pendingLeavesCount={hrmsData?.stats?.pending_leaves ?? 0}
+                    leadsCount={leads.length}
+                  />
+                </View>
+
                 {/* Overview Heading */}
                 <View style={styles.heroSection}>
                   <Text style={[styles.heroHeading, { color: colors.textPrimary }]}>
@@ -1138,8 +1149,11 @@ const styles = StyleSheet.create({
 
   // Horizontal Categories Slider
   categoriesContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
     marginTop: 4,
+  },
+  spotlightContainer: {
+    marginBottom: 16,
   },
   exploreAppsHeading: {
     fontFamily: Typography.bold,
@@ -1179,7 +1193,8 @@ const styles = StyleSheet.create({
 
   // Hero Section
   heroSection: {
-    marginBottom: 12,
+    marginTop: 4,
+    marginBottom: 14,
   },
   heroHeading: {
     fontSize: 22,
