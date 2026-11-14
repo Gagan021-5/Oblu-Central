@@ -1,6 +1,6 @@
 /**
  * Employee Workspace Theme Tokens
- * Strict implementation of Nexus Graphite Mint design system.
+ * Strict implementation of True Obsidian & Charcoal Glass design system.
  */
 
 export const EmployeeLightTheme = {
@@ -26,31 +26,64 @@ export const EmployeeLightTheme = {
   dockBg: "#101815",
   dockBorder: "rgba(255, 255, 255, 0.1)",
   glassOverlay: "rgba(16, 21, 19, 0.6)",
+
+  // Modern Swiggy/CRED token mappings
+  bg: "#F1F4F2",
+  surface: "#FFFFFF",
+  surfaceAlt: "#F7F9F8",
+  borderFocus: "#00A879",
+  text: "#101513",
+  textTertiary: "#8FA09A",
+  primary: "#00A879",
+  primaryLight: "#19C997",
+  primaryDark: "#008560",
+  primarySurface: "#DDF4EA",
+  primaryBorder: "rgba(0, 168, 121, 0.28)",
 };
 
 export const EmployeeDarkTheme = {
   isDark: true,
-  background: "#0E1A16",
-  mainSurface: "#15251F",
-  secondarySurface: "#1B2E27",
-  mintSurface: "rgba(53, 214, 160, 0.14)",
-  elevatedSurface: "#20362E",
-  primaryText: "#F2F8F5",
-  secondaryText: "#9CB3AA",
-  mutedText: "#738A81",
-  primaryMint: "#35D6A0",
-  brightMint: "#20E3AD",
+
+  // ── True Obsidian & Charcoal Glass Palette ──
+  bg: "#090B10", // Deep Obsidian Carbon — no green tint
+  surface: "#12151E", // Rich Zomato/Swiggy Elevated Charcoal card surface
+  surfaceAlt: "#1A1E2B", // Graphite inner well for icon boxes, search bar, and inactive pills
+  border: "rgba(255, 255, 255, 0.07)", // Crisp neutral glass hairline border — NOT green
+  borderFocus: "#10B981",
+  text: "#F8FAFC", // Crisp alabaster white
+  textSecondary: "#94A3B8", // Clean slate grey — not green-grey
+  textTertiary: "#64748B",
+  primary: "#10B981", // Vibrant Emerald
+  primaryLight: "#34D399",
+  primaryDark: "#059669",
+  primarySurface: "rgba(16, 185, 129, 0.14)", // Subtle emerald tint ONLY for active/highlighted elements
+  primaryBorder: "rgba(16, 185, 129, 0.35)",
+
+  // Backward-compatible tokens
+  background: "#090B10",
+  mainSurface: "#12151E",
+  secondarySurface: "#1A1E2B",
+  mintSurface: "rgba(16, 185, 129, 0.14)",
+  elevatedSurface: "#161A26",
+  primaryText: "#F8FAFC",
+  mutedText: "#64748B",
+  primaryMint: "#10B981",
+  brightMint: "#34D399",
   accentLime: "#B7F34A",
-  border: "#2D493F",
-  borderSubtle: "#223930",
+  borderSubtle: "rgba(255, 255, 255, 0.05)",
   error: "#FF6B6B",
   errorBg: "rgba(255, 107, 107, 0.12)",
   warning: "#F2B84B",
   warningBg: "rgba(242, 184, 75, 0.12)",
-  card: "#15251F",
-  dockBg: "#13231D",
-  dockBorder: "rgba(53, 214, 160, 0.24)",
-  glassOverlay: "rgba(6, 12, 10, 0.72)",
+  card: "#12151E",
+  dockBg: "#0C0E15",
+  dockBorder: "rgba(255, 255, 255, 0.08)",
+  glassOverlay: "rgba(9, 11, 16, 0.75)",
+};
+
+export const employeeTheme = {
+  light: EmployeeLightTheme,
+  dark: EmployeeDarkTheme,
 };
 
 export type EmployeeTheme = typeof EmployeeDarkTheme;

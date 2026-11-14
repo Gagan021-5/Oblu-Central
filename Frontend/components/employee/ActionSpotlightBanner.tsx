@@ -198,8 +198,8 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
               style={({ pressed }) => [
                 styles.cardContainer,
                 {
-                  backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-                  borderColor: isDark ? "rgba(53, 214, 160, 0.28)" : "rgba(0, 168, 121, 0.22)",
+                  backgroundColor: isDark ? "#131822" : "#FFFFFF",
+                  borderColor: isDark ? "rgba(16, 185, 129, 0.28)" : "rgba(0, 168, 121, 0.22)",
                   transform: [{ scale: pressed ? 0.985 : 1 }],
                 },
               ]}
@@ -210,15 +210,15 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
                 style={[
                   styles.iconBox,
                   {
-                    backgroundColor: isDark ? "#1E342B" : "#EEF7F1",
-                    borderColor: isDark ? "rgba(53, 214, 160, 0.32)" : "rgba(0, 168, 121, 0.20)",
+                    backgroundColor: isDark ? "#1A1E2B" : "#EEF7F1",
+                    borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 168, 121, 0.20)",
                   },
                 ]}
               >
                 <Ionicons
                   name={item.icon}
                   size={19}
-                  color={isDark ? "#35D6A0" : "#00A879"}
+                  color={isDark ? "#10B981" : "#00A879"}
                 />
                 {item.isLive && (
                   <View style={styles.liveHaloBox}>
@@ -226,7 +226,7 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
                       style={[
                         styles.liveHaloPulse,
                         {
-                          backgroundColor: isDark ? "#35D6A0" : "#00A879",
+                          backgroundColor: isDark ? "#10B981" : "#00A879",
                           transform: [
                             {
                               scale: haloAnim.interpolate({
@@ -245,7 +245,7 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
                     <View
                       style={[
                         styles.liveCenterDot,
-                        { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
+                        { backgroundColor: isDark ? "#10B981" : "#00A879" },
                       ]}
                     />
                   </View>
@@ -258,7 +258,7 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
                   <Text
                     style={[
                       styles.cardTitle,
-                      { color: isDark ? "#F1F7F4" : "#101513" },
+                      { color: isDark ? "#F8FAFC" : "#101513" },
                     ]}
                     numberOfLines={1}
                   >
@@ -268,7 +268,7 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
                 <Text
                   style={[
                     styles.cardSubtitle,
-                    { color: isDark ? "#8FA09A" : "#5E6964" },
+                    { color: isDark ? "#94A3B8" : "#5E6964" },
                   ]}
                   numberOfLines={1}
                 >
@@ -280,13 +280,13 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
               <View
                 style={[
                   styles.actionButton,
-                  { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
+                  { backgroundColor: isDark ? "#10B981" : "#00A879" },
                 ]}
               >
                 <Text
                   style={[
                     styles.actionButtonText,
-                    { color: isDark ? "#0A1612" : "#FFFFFF" },
+                    { color: isDark ? "#06281E" : "#FFFFFF" },
                   ]}
                 >
                   {item.actionLabel}
@@ -310,10 +310,10 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
                   isActive
                     ? [
                         styles.dotActive,
-                        { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
+                        { backgroundColor: isDark ? "#10B981" : "#00A879" },
                       ]
                     : {
-                        backgroundColor: isDark ? "#294039" : "#D8E0DC",
+                        backgroundColor: isDark ? "rgba(255, 255, 255, 0.12)" : "#D8E0DC",
                       },
                 ]}
               />

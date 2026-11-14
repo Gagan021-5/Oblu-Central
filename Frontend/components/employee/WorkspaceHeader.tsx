@@ -191,7 +191,7 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
               <Text
                 style={[
                   styles.dateText,
-                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                  { color: isDark ? "#94A3B8" : "#5E6964" },
                 ]}
                 numberOfLines={1}
                 ellipsizeMode="tail"
@@ -203,21 +203,21 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
                 style={[
                   styles.liveStatusPill,
                   {
-                    backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "rgba(0, 168, 121, 0.10)",
-                    borderColor: isDark ? "rgba(53, 214, 160, 0.26)" : "rgba(0, 168, 121, 0.18)",
+                    backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(0, 168, 121, 0.10)",
+                    borderColor: isDark ? "rgba(16, 185, 129, 0.30)" : "rgba(0, 168, 121, 0.18)",
                   },
                 ]}
               >
                 <View
                   style={[
                     styles.liveStatusDot,
-                    { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
+                    { backgroundColor: isDark ? "#10B981" : "#00A879" },
                   ]}
                 />
                 <Text
                   style={[
                     styles.liveStatusText,
-                    { color: isDark ? "#35D6A0" : "#00A879" },
+                    { color: isDark ? "#10B981" : "#00A879" },
                   ]}
                 >
                   Online
@@ -239,8 +239,8 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
               style={[
                 styles.actionButton,
                 {
-                  backgroundColor: isDark ? "#192D25" : "#FFFFFF",
-                  borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                  backgroundColor: isDark ? "#141822" : "#FFFFFF",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
                   transform: [{ scale: themeScale }],
                 },
               ]}
@@ -263,8 +263,8 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
               style={[
                 styles.actionButton,
                 {
-                  backgroundColor: isDark ? "#192D25" : "#FFFFFF",
-                  borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                  backgroundColor: isDark ? "#141822" : "#FFFFFF",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
                   transform: [{ scale: bellScale }],
                 },
               ]}
@@ -291,13 +291,13 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
                 <View
                   style={[
                     styles.notificationBadge,
-                    { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
+                    { backgroundColor: isDark ? "#10B981" : "#00A879" },
                   ]}
                 >
                   <Text
                     style={[
                       styles.badgeText,
-                      { color: isDark ? "#0A1612" : "#FFFFFF" },
+                      { color: isDark ? "#06281E" : "#FFFFFF" },
                     ]}
                   >
                     {unreadCount > 9 ? "9+" : unreadCount}
@@ -323,7 +323,7 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
                 gender={user?.gender}
                 size={38}
                 borderWidth={1.5}
-                borderColor={isDark ? "#35D6A0" : "rgba(0, 168, 121, 0.35)"}
+                borderColor={isDark ? "#10B981" : "rgba(0, 168, 121, 0.35)"}
               />
             </Animated.View>
           </Pressable>
@@ -356,7 +356,7 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
         <Text
           style={[
             styles.greetingTitle,
-            { color: isDark ? "#F1F7F4" : "#101513" },
+            { color: isDark ? "#F8FAFC" : "#101513" },
           ]}
         >
           {roleContext.subGreeting}, {displayName}

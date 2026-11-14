@@ -129,8 +129,8 @@ export const SubAppLogo: React.FC<SubAppLogoProps> = React.memo(
   }) => {
     const { isDark } = useTheme();
     const resolvedBorder =
-      borderColor ?? (isDark ? "#2D493F" : "rgba(13, 43, 32, 0.10)");
-    const backdrop = isDark ? "#192D25" : "#EEF7F1";
+      borderColor ?? (isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(13, 43, 32, 0.10)");
+    const backdrop = isDark ? "#141822" : "#EEF7F1";
 
     return (
       <View
@@ -173,10 +173,10 @@ export const MetricBadge3D: React.FC<MetricBadge3DProps> = React.memo(
     const { isDark } = useTheme();
     const borderColor = isHighlight
       ? isDark
-        ? "rgba(53, 214, 160, 0.38)"
+        ? "rgba(16, 185, 129, 0.45)"
         : "rgba(0, 168, 121, 0.28)"
       : isDark
-      ? "#2D493F"
+      ? "rgba(255, 255, 255, 0.06)"
       : "rgba(13, 43, 32, 0.10)";
 
     return (
@@ -189,7 +189,7 @@ export const MetricBadge3D: React.FC<MetricBadge3DProps> = React.memo(
             borderRadius,
             borderWidth: 1,
             borderColor,
-            backgroundColor: isDark ? "#192D25" : "#EEF7F1",
+            backgroundColor: isDark ? "#1A1E2B" : "#EEF7F1",
           },
         ]}
       >

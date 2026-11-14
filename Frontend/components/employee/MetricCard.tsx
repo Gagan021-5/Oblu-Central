@@ -164,7 +164,7 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
     return () => cancelAnimationFrame(frameId);
   }, [value, loading]);
 
-  const shimmerBg = isDark ? "#1C2E27" : "#E5EDE8";
+  const shimmerBg = isDark ? "#1A1E2B" : "#E5EDE8";
 
   const handlePressIn = () => {
     if (!onPress) return;
@@ -208,16 +208,20 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
       style={[
         styles.outwardCard,
         {
-          backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+          backgroundColor: isDark
+            ? isHighlight ? "#111C1A" : "#12151E"
+            : "#FFFFFF",
           borderColor: isHighlight
-            ? isDark ? "rgba(53, 214, 160, 0.42)" : "rgba(0, 168, 121, 0.35)"
-            : isDark ? "rgba(53, 214, 160, 0.22)" : "rgba(13, 43, 32, 0.08)",
+            ? isDark ? "rgba(16, 185, 129, 0.45)" : "rgba(0, 168, 121, 0.35)"
+            : isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(13, 43, 32, 0.08)",
           borderTopColor: isHighlight
-            ? isDark ? "rgba(53, 214, 160, 0.65)" : "rgba(0, 168, 121, 0.50)"
-            : isDark ? "rgba(53, 214, 160, 0.38)" : "rgba(255, 255, 255, 0.98)",
-          borderBottomColor: isDark ? "#0C1612" : "rgba(13, 43, 32, 0.14)",
+            ? isDark ? "rgba(16, 185, 129, 0.65)" : "rgba(0, 168, 121, 0.50)"
+            : isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
+          borderBottomColor: isDark
+            ? isHighlight ? "rgba(16, 185, 129, 0.20)" : "rgba(255, 255, 255, 0.04)"
+            : "rgba(13, 43, 32, 0.14)",
           shadowColor: isHighlight
-            ? isDark ? "#35D6A0" : "#00A879"
+            ? isDark ? "#10B981" : "#00A879"
             : isDark ? "#000000" : "#0D2B20",
           shadowOpacity: isHighlight ? (isDark ? 0.30 : 0.15) : (isDark ? 0.36 : 0.09),
           opacity: entranceAnim,
@@ -241,7 +245,7 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
                 style={[
                   styles.liveHaloPulse,
                   {
-                    backgroundColor: isDark ? "#35D6A0" : "#00A879",
+                    backgroundColor: isDark ? "#10B981" : "#00A879",
                     transform: [
                       {
                         scale: haloAnim.interpolate({
@@ -260,7 +264,7 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
               <View
                 style={[
                   styles.liveDot,
-                  { backgroundColor: isDark ? "#35D6A0" : "#00A879" },
+                  { backgroundColor: isDark ? "#10B981" : "#00A879" },
                 ]}
               />
             </View>
@@ -270,8 +274,8 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
               styles.labelText,
               {
                 color: isHighlight
-                  ? isDark ? "#35D6A0" : "#00A879"
-                  : isDark ? "#8FA09A" : "#5E6964",
+                  ? isDark ? "#10B981" : "#00A879"
+                  : isDark ? "#94A3B8" : "#5E6964",
               },
             ]}
             numberOfLines={1}
@@ -287,10 +291,10 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
                 styles.trendBadge,
                 {
                   backgroundColor: isHighlight
-                    ? isDark ? "rgba(53, 214, 160, 0.16)" : "rgba(0, 168, 121, 0.12)"
+                    ? isDark ? "rgba(16, 185, 129, 0.16)" : "rgba(0, 168, 121, 0.12)"
                     : isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(13, 43, 32, 0.06)",
                   borderColor: isHighlight
-                    ? isDark ? "rgba(53, 214, 160, 0.30)" : "rgba(0, 168, 121, 0.22)"
+                    ? isDark ? "rgba(16, 185, 129, 0.35)" : "rgba(0, 168, 121, 0.22)"
                     : isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(13, 43, 32, 0.08)",
                 },
               ]}
@@ -300,8 +304,8 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
                   styles.trendBadgeText,
                   {
                     color: isHighlight
-                      ? isDark ? "#35D6A0" : "#00A879"
-                      : isDark ? "#8FA09A" : "#5E6964",
+                      ? isDark ? "#10B981" : "#00A879"
+                      : isDark ? "#94A3B8" : "#5E6964",
                   },
                 ]}
               >
@@ -337,8 +341,8 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
               styles.valueText,
               {
                 color: isHighlight
-                  ? isDark ? "#35D6A0" : "#00A879"
-                  : isDark ? "#F1F7F4" : "#101513",
+                  ? isDark ? "#10B981" : "#00A879"
+                  : isDark ? "#F8FAFC" : "#101513",
               },
             ]}
             numberOfLines={1}
@@ -352,7 +356,7 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
               <Text
                 style={[
                   styles.subText,
-                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                  { color: isDark ? "#94A3B8" : "#5E6964" },
                 ]}
                 numberOfLines={1}
               >
@@ -364,11 +368,11 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
                     styles.chevronPill,
                     {
                       backgroundColor: isHighlight
-                        ? isDark ? "rgba(53, 214, 160, 0.16)" : "rgba(0, 168, 121, 0.12)"
-                        : isDark ? "#1C3028" : "#F4F7F5",
+                        ? isDark ? "rgba(16, 185, 129, 0.16)" : "rgba(0, 168, 121, 0.12)"
+                        : isDark ? "#1A1E2B" : "#F4F7F5",
                       borderColor: isHighlight
-                        ? isDark ? "rgba(53, 214, 160, 0.30)" : "rgba(0, 168, 121, 0.24)"
-                        : isDark ? "#294039" : "#E4ECE8",
+                        ? isDark ? "rgba(16, 185, 129, 0.35)" : "rgba(0, 168, 121, 0.24)"
+                        : isDark ? "rgba(255, 255, 255, 0.08)" : "#E4ECE8",
                       transform: [{ translateX: chevronShift }],
                     },
                   ]}
@@ -378,8 +382,8 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
                     size={13}
                     color={
                       isHighlight
-                        ? isDark ? "#35D6A0" : "#00A879"
-                        : isDark ? "#8FA09A" : "#5E6964"
+                        ? isDark ? "#10B981" : "#00A879"
+                        : isDark ? "#94A3B8" : "#5E6964"
                     }
                   />
                 </Animated.View>
@@ -393,8 +397,8 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
               styles.bottomAccentTrack,
               {
                 backgroundColor: isHighlight
-                  ? isDark ? "rgba(53, 214, 160, 0.18)" : "rgba(0, 168, 121, 0.14)"
-                  : isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(13, 43, 32, 0.04)",
+                  ? isDark ? "rgba(16, 185, 129, 0.18)" : "rgba(0, 168, 121, 0.14)"
+                  : isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(13, 43, 32, 0.04)",
               },
             ]}
           >
@@ -403,8 +407,8 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
                 styles.bottomAccentFill,
                 {
                   backgroundColor: isHighlight
-                    ? isDark ? "#35D6A0" : "#00A879"
-                    : isDark ? "rgba(53, 214, 160, 0.35)" : "rgba(0, 168, 121, 0.28)",
+                    ? isDark ? "#10B981" : "#00A879"
+                    : isDark ? "#10B981" : "rgba(0, 168, 121, 0.28)",
                   width: isHighlight ? "70%" : "35%",
                 },
               ]}

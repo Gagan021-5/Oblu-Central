@@ -181,7 +181,7 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
   // ─── 1. RENDER RAIL CATEGORY ITEM (Explore Apps 3D Rail) ───
   if (isRailMode) {
     const finalAppId = appId || "all";
-    const primaryColor = accentColor || (isDark ? "#35D6A0" : "#00A879");
+    const primaryColor = accentColor || (isDark ? "#10B981" : "#00A879");
 
     return (
       <Pressable
@@ -203,9 +203,14 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
             style={[
               styles.railIconCircle,
               {
-                borderColor: active ? primaryColor : isDark ? "#2D493F" : "#D8E0DC",
+                borderColor: active
+                  ? (isDark ? "#10B981" : primaryColor)
+                  : isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
+                backgroundColor: active
+                  ? (isDark ? "rgba(16, 185, 129, 0.12)" : "rgba(0, 168, 121, 0.10)")
+                  : (isDark ? "#141822" : "#FFFFFF"),
                 borderWidth: active ? 2 : 1,
-                shadowColor: isDark ? "#35D6A0" : "#00A879",
+                shadowColor: isDark ? "#10B981" : "#00A879",
                 shadowOpacity: active ? (isDark ? 0.45 : 0.22) : 0.08,
                 shadowRadius: active ? 10 : 5,
                 elevation: active ? 6 : 3,
@@ -225,7 +230,7 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
               appId={finalAppId}
               borderRadius={0}
               borderWidth={0}
-              style={{ width: "100%", height: "100%" }}
+              style={{ width: "100%", height: "100%", backgroundColor: "transparent" }}
             />
           </Animated.View>
 
@@ -235,8 +240,8 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
               styles.railLabel,
               {
                 color: active
-                  ? isDark ? "#F1F7F4" : "#101513"
-                  : isDark ? "#8FA09A" : "#5E6964",
+                  ? isDark ? "#F8FAFC" : "#101513"
+                  : isDark ? "#94A3B8" : "#5E6964",
                 fontFamily: active ? Typography.bold : Typography.medium,
               },
             ]}
@@ -250,7 +255,7 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
             style={[
               styles.railActiveIndicator,
               {
-                backgroundColor: primaryColor,
+                backgroundColor: isDark ? "#10B981" : primaryColor,
                 width: indicatorAnim.interpolate({
                   inputRange: [0, 1],
                   outputRange: [0, 20],
@@ -368,10 +373,10 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
         style={[
           styles.outwardContainer,
           {
-            backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-            borderColor: isDark ? "rgba(53, 214, 160, 0.22)" : "rgba(13, 43, 32, 0.08)",
-            borderTopColor: isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
-            borderBottomColor: isDark ? "#0C1612" : "rgba(13, 43, 32, 0.14)",
+            backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+            borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(13, 43, 32, 0.08)",
+            borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
+            borderBottomColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(13, 43, 32, 0.14)",
             shadowColor: isDark ? "#000000" : "#0D2B20",
             shadowOpacity: isDark ? 0.36 : 0.09,
             transform: [{ scale: bentoPressScale }],
@@ -383,7 +388,7 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
             appId={bentoType}
             size={48}
             borderRadius={14}
-            borderColor={isDark ? "rgba(53, 214, 160, 0.28)" : "rgba(13, 43, 32, 0.12)"}
+            borderColor={isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(13, 43, 32, 0.12)"}
           />
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -396,8 +401,8 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
               style={[
                 styles.arrowCircle,
                 {
-                  backgroundColor: isDark ? "#162721" : "#F4F7F5",
-                  borderColor: isDark ? "#294039" : "#D8E0DC",
+                  backgroundColor: isDark ? "#1A1E2B" : "#F4F7F5",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
                   transform: [{ translateX: bentoChevronShift }],
                 },
               ]}
@@ -410,7 +415,7 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
         <Text
           style={[
             styles.statNumber,
-            { color: isDark ? "#F1F7F4" : "#101513" },
+            { color: isDark ? "#F8FAFC" : "#101513" },
           ]}
         >
           {config.statNum}
@@ -419,7 +424,7 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
         <Text
           style={[
             styles.titleText,
-            { color: isDark ? "#F1F7F4" : "#101513" },
+            { color: isDark ? "#F8FAFC" : "#101513" },
           ]}
         >
           {config.title}
@@ -428,7 +433,7 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
         <Text
           style={[
             styles.subText,
-            { color: isDark ? "#8FA09A" : "#5E6964" },
+            { color: isDark ? "#94A3B8" : "#5E6964" },
           ]}
         >
           {config.statLabel}

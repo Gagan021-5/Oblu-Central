@@ -90,11 +90,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   const currentIdx = activeIdx % activeList.length;
   const nextIdx = (currentIdx + 1) % activeList.length;
-  const placeholderColor = isDark ? "#65756F" : "#87928D";
+  const placeholderColor = isDark ? "#94A3B8" : "#87928D";
 
   const outTranslateY = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -18],
+    outputRange: [0, -22],
   });
   const outOpacity = anim.interpolate({
     inputRange: [0, 0.75, 1],
@@ -102,7 +102,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   });
   const inTranslateY = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [18, 0],
+    outputRange: [22, 0],
   });
   const inOpacity = anim.interpolate({
     inputRange: [0, 0.25, 1],
@@ -116,17 +116,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         style={[
           styles.container,
           {
-            backgroundColor: isDark ? "#15251F" : "#FFFFFF",
+            backgroundColor: isDark ? "#141822" : "#FFFFFF",
             borderColor: isFocused
-              ? isDark ? "#35D6A0" : "#00A879"
-              : isDark ? "#2D493F" : "#D8E0DC",
+              ? isDark ? "#10B981" : "#00A879"
+              : isDark ? "rgba(255, 255, 255, 0.09)" : "#D8E0DC",
+            borderWidth: 1,
           },
         ]}
       >
         <Ionicons
           name="search-outline"
           size={18}
-          color={isFocused ? (isDark ? "#35D6A0" : "#00A879") : isDark ? "#8FA09A" : "#5E6964"}
+          color={isFocused ? (isDark ? "#10B981" : "#00A879") : isDark ? "#94A3B8" : "#5E6964"}
           style={styles.searchIcon}
         />
         <View style={styles.inputWrap}>
@@ -164,7 +165,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             style={[
               styles.input,
               {
-                color: isDark ? "#F1F7F4" : "#101513",
+                color: isDark ? "#F8FAFC" : "#101513",
               },
             ]}
             value={value}
@@ -192,7 +193,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             <Ionicons
               name="close-circle"
               size={18}
-              color={isDark ? "#8FA09A" : "#87928D"}
+              color={isDark ? "#94A3B8" : "#87928D"}
             />
           </TouchableOpacity>
         )}
@@ -203,7 +204,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             <View
               style={[
                 styles.verticalDivider,
-                { backgroundColor: isDark ? "#2D493F" : "#D8E0DC" },
+                { backgroundColor: isDark ? "rgba(255, 255, 255, 0.09)" : "#D8E0DC" },
               ]}
             />
             <TouchableOpacity
@@ -216,7 +217,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               <Ionicons
                 name={onFilterPress ? "options-outline" : "sparkles-outline"}
                 size={18}
-                color={filterActive ? colors.primary : isDark ? "#35D6A0" : "#00A879"}
+                color={filterActive ? colors.primary : isDark ? "#10B981" : "#00A879"}
               />
             </TouchableOpacity>
           </View>
@@ -237,8 +238,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               style={[
                 styles.chipPill,
                 {
-                  backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "rgba(0, 168, 121, 0.08)",
-                  borderColor: isDark ? "rgba(53, 214, 160, 0.30)" : "rgba(0, 168, 121, 0.22)",
+                  backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(0, 168, 121, 0.08)",
+                  borderColor: isDark ? "rgba(16, 185, 129, 0.35)" : "rgba(0, 168, 121, 0.22)",
                 },
               ]}
               onPress={() => {
@@ -249,7 +250,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               <Text
                 style={[
                   styles.chipText,
-                  { color: isDark ? "#35D6A0" : "#00A879" },
+                  { color: isDark ? "#10B981" : "#00A879" },
                 ]}
               >
                 {chip.label}
@@ -287,8 +288,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 7,
     right: 0,
-    top: 0,
-    bottom: 0,
+    top: "50%",
+    marginTop: -11,
+    height: 22,
     justifyContent: "center",
     overflow: "hidden",
   },
@@ -296,6 +298,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
+    height: 22,
+    lineHeight: 22,
     fontSize: FontSizes.body,
     fontFamily: Typography.regular,
   },

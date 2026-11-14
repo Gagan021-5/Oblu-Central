@@ -574,7 +574,7 @@ export default function EmployeeHomeScreen() {
               style={[
                 styles.stickyHeaderBorder,
                 {
-                  backgroundColor: isDark ? "rgba(45, 73, 63, 0.45)" : "rgba(216, 224, 220, 0.75)",
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(216, 224, 220, 0.75)",
                   opacity: scrollY.interpolate({
                     inputRange: [0, 30, 50],
                     outputRange: [0, 0.5, 1],
@@ -590,7 +590,7 @@ export default function EmployeeHomeScreen() {
         {(!searchQuery.trim() || filteredApps.length > 0) && (
           <View style={styles.categoriesContainer}>
             {filteredApps.length > 1 && (
-              <Text style={[styles.exploreAppsHeading, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              <Text style={[styles.exploreAppsHeading, { color: isDark ? "#F8FAFC" : "#101513" }]}>
                 Explore Apps
               </Text>
             )}
@@ -713,25 +713,25 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("hrms")}
                   activeOpacity={0.8}
                 >
                   <View style={styles.hrBentoHeader}>
-                    <View style={[styles.hrBentoIconBox, { backgroundColor: isDark ? "rgba(53, 214, 160, 0.14)" : "rgba(0, 168, 121, 0.10)" }]}>
-                      <Ionicons name="people" size={24} color={isDark ? "#35D6A0" : "#00A879"} />
+                    <View style={[styles.hrBentoIconBox, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(0, 168, 121, 0.10)" }]}>
+                      <Ionicons name="people" size={24} color={isDark ? "#10B981" : "#00A879"} />
                     </View>
                     <View style={styles.hrBentoTag}>
-                      <Text style={[styles.hrBentoTagText, { color: isDark ? "#35D6A0" : "#00A879" }]}>ACTIVE STAFF</Text>
+                      <Text style={[styles.hrBentoTagText, { color: isDark ? "#10B981" : "#00A879" }]}>ACTIVE STAFF</Text>
                     </View>
                   </View>
-                  <Text style={[styles.hrBentoStatNum, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                  <Text style={[styles.hrBentoStatNum, { color: isDark ? "#F8FAFC" : "#101513" }]}>
                     {hrmsData?.stats?.total_employees ?? 12}
                   </Text>
-                  <Text style={[styles.hrBentoStatSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                  <Text style={[styles.hrBentoStatSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
                     Employees enrolled across 5 departments
                   </Text>
                 </TouchableOpacity>
@@ -741,8 +741,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("hrms")}
@@ -756,10 +756,10 @@ export default function EmployeeHomeScreen() {
                       <Text style={[styles.hrBentoTagText, { color: "#10B981" }]}>TODAY PRESENT</Text>
                     </View>
                   </View>
-                  <Text style={[styles.hrBentoStatNum, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                  <Text style={[styles.hrBentoStatNum, { color: isDark ? "#F8FAFC" : "#101513" }]}>
                     {hrmsData?.stats?.present_today ?? 4}
                   </Text>
-                  <Text style={[styles.hrBentoStatSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                  <Text style={[styles.hrBentoStatSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
                     {hrmsData?.stats?.absent_today ?? 8} staff on leave / absent today
                   </Text>
                 </TouchableOpacity>
@@ -769,25 +769,25 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("hrms")}
                   activeOpacity={0.8}
                 >
                   <View style={styles.hrBentoHeader}>
-                    <View style={[styles.hrBentoIconBox, { backgroundColor: isDark ? "rgba(53, 214, 160, 0.14)" : "rgba(0, 168, 121, 0.10)" }]}>
-                      <Ionicons name="calendar" size={24} color={isDark ? "#35D6A0" : "#00A879"} />
+                    <View style={[styles.hrBentoIconBox, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(0, 168, 121, 0.10)" }]}>
+                      <Ionicons name="calendar" size={24} color={isDark ? "#10B981" : "#00A879"} />
                     </View>
-                    <View style={[styles.hrBentoTag, { backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "rgba(0, 168, 121, 0.10)" }]}>
-                      <Text style={[styles.hrBentoTagText, { color: isDark ? "#35D6A0" : "#00A879" }]}>ACTION REQUIRED</Text>
+                    <View style={[styles.hrBentoTag, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.12)" : "rgba(0, 168, 121, 0.10)" }]}>
+                      <Text style={[styles.hrBentoTagText, { color: isDark ? "#10B981" : "#00A879" }]}>ACTION REQUIRED</Text>
                     </View>
                   </View>
-                  <Text style={[styles.hrBentoStatNum, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                  <Text style={[styles.hrBentoStatNum, { color: isDark ? "#F8FAFC" : "#101513" }]}>
                     {hrmsData?.stats?.pending_leaves ?? 2}
                   </Text>
-                  <Text style={[styles.hrBentoStatSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                  <Text style={[styles.hrBentoStatSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
                     Pending leave requests awaiting review
                   </Text>
                 </TouchableOpacity>
@@ -805,8 +805,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.bentoModuleCard,
                     {
-                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("incentives")}
@@ -817,7 +817,7 @@ export default function EmployeeHomeScreen() {
                       appId="incentives"
                       size={48}
                       borderRadius={14}
-                      borderColor={isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.22)"}
+                      borderColor={isDark ? "rgba(16, 185, 129, 0.35)" : "rgba(0, 168, 121, 0.22)"}
                     />
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View
@@ -828,7 +828,7 @@ export default function EmployeeHomeScreen() {
                           },
                         ]}
                       >
-                        <Text style={[styles.hrBentoTagText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                        <Text style={[styles.hrBentoTagText, { color: isDark ? "#10B981" : "#00A879" }]}>
                           INCENTIVES
                         </Text>
                       </View>
@@ -836,19 +836,19 @@ export default function EmployeeHomeScreen() {
                         style={[
                           styles.bentoArrowCircle,
                           {
-                            backgroundColor: isDark ? "#1C3028" : "#F7F9F8",
-                            borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                            backgroundColor: isDark ? "#1A1E2B" : "#F7F9F8",
+                            borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
                           },
                         ]}
                       >
-                        <Ionicons name="arrow-forward" size={16} color={isDark ? "#35D6A0" : "#00A879"} />
+                        <Ionicons name="arrow-forward" size={16} color={isDark ? "#10B981" : "#00A879"} />
                       </View>
                     </View>
                   </View>
-                  <Text style={[styles.bentoModuleTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                  <Text style={[styles.bentoModuleTitle, { color: isDark ? "#F8FAFC" : "#101513" }]}>
                     Commission Matrix
                   </Text>
-                  <Text style={[styles.bentoModuleSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                  <Text style={[styles.bentoModuleSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
                     Tiered sales commission & performance payouts
                   </Text>
                 </TouchableOpacity>
@@ -857,8 +857,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.bentoModuleCard,
                     {
-                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("inventory")}
@@ -869,18 +869,18 @@ export default function EmployeeHomeScreen() {
                       appId="inventory"
                       size={48}
                       borderRadius={14}
-                      borderColor={isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.22)"}
+                      borderColor={isDark ? "rgba(16, 185, 129, 0.35)" : "rgba(0, 168, 121, 0.22)"}
                     />
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View
                         style={[
                           styles.hrBentoTag,
                           {
-                            backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "rgba(0, 168, 121, 0.10)",
+                            backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(0, 168, 121, 0.10)",
                           },
                         ]}
                       >
-                        <Text style={[styles.hrBentoTagText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                        <Text style={[styles.hrBentoTagText, { color: isDark ? "#10B981" : "#00A879" }]}>
                           WAREHOUSE
                         </Text>
                       </View>
@@ -888,19 +888,19 @@ export default function EmployeeHomeScreen() {
                         style={[
                           styles.bentoArrowCircle,
                           {
-                            backgroundColor: isDark ? "#1C3028" : "#F7F9F8",
-                            borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                            backgroundColor: isDark ? "#1A1E2B" : "#F7F9F8",
+                            borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
                           },
                         ]}
                       >
-                        <Ionicons name="arrow-forward" size={16} color={isDark ? "#35D6A0" : "#00A879"} />
+                        <Ionicons name="arrow-forward" size={16} color={isDark ? "#10B981" : "#00A879"} />
                       </View>
                     </View>
                   </View>
-                  <Text style={[styles.bentoModuleTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                  <Text style={[styles.bentoModuleTitle, { color: isDark ? "#F8FAFC" : "#101513" }]}>
                     540+ SKUs
                   </Text>
-                  <Text style={[styles.bentoModuleSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                  <Text style={[styles.bentoModuleSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
                     Live inventory & warehouse stock visibility
                   </Text>
                 </TouchableOpacity>
@@ -909,8 +909,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.bentoModuleCard,
                     {
-                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
                     },
                   ]}
                   onPress={() => openSubApp("proforma")}
@@ -921,18 +921,18 @@ export default function EmployeeHomeScreen() {
                       appId="proforma"
                       size={48}
                       borderRadius={14}
-                      borderColor={isDark ? "rgba(53, 214, 160, 0.25)" : "rgba(0, 168, 121, 0.22)"}
+                      borderColor={isDark ? "rgba(16, 185, 129, 0.35)" : "rgba(0, 168, 121, 0.22)"}
                     />
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View
                         style={[
                           styles.hrBentoTag,
                           {
-                            backgroundColor: isDark ? "rgba(53, 214, 160, 0.12)" : "rgba(0, 168, 121, 0.10)",
+                            backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(0, 168, 121, 0.10)",
                           },
                         ]}
                       >
-                        <Text style={[styles.hrBentoTagText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                        <Text style={[styles.hrBentoTagText, { color: isDark ? "#10B981" : "#00A879" }]}>
                           COMMERCIAL
                         </Text>
                       </View>
@@ -940,19 +940,19 @@ export default function EmployeeHomeScreen() {
                         style={[
                           styles.bentoArrowCircle,
                           {
-                            backgroundColor: isDark ? "#1C3028" : "#F7F9F8",
-                            borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                            backgroundColor: isDark ? "#1A1E2B" : "#F7F9F8",
+                            borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
                           },
                         ]}
                       >
-                        <Ionicons name="arrow-forward" size={16} color={isDark ? "#35D6A0" : "#00A879"} />
+                        <Ionicons name="arrow-forward" size={16} color={isDark ? "#10B981" : "#00A879"} />
                       </View>
                     </View>
                   </View>
-                  <Text style={[styles.bentoModuleTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                  <Text style={[styles.bentoModuleTitle, { color: isDark ? "#F8FAFC" : "#101513" }]}>
                     Proforma Invoices
                   </Text>
-                  <Text style={[styles.bentoModuleSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                  <Text style={[styles.bentoModuleSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
                     Issue quotations, commercial pricing & approvals
                   </Text>
                 </TouchableOpacity>
@@ -1734,18 +1734,18 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
                       padding: 14,
                     },
                   ]}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: Typography.bold, fontSize: 14, color: isDark ? "#F1F7F4" : "#101513" }}>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 14, color: isDark ? "#F8FAFC" : "#101513" }}>
                         {item.name}
                       </Text>
-                      <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: isDark ? "#8FA09A" : "#5E6964", marginTop: 2 }}>
+                      <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: isDark ? "#94A3B8" : "#5E6964", marginTop: 2 }}>
                         {item.sku} • Stock: {item.stock} units
                       </Text>
                     </View>
@@ -1820,18 +1820,18 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#15251F" : "#FFFFFF",
-                      borderColor: isDark ? "#2D493F" : "#D8E0DC",
+                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
                       padding: 14,
                     },
                   ]}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: Typography.bold, fontSize: 14, color: isDark ? "#F1F7F4" : "#101513" }}>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 14, color: isDark ? "#F8FAFC" : "#101513" }}>
                         {pi.customer}
                       </Text>
-                      <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: isDark ? "#8FA09A" : "#5E6964", marginTop: 2 }}>
+                      <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: isDark ? "#94A3B8" : "#5E6964", marginTop: 2 }}>
                         {pi.piNum} • Value: {pi.amount}
                       </Text>
                     </View>
@@ -1920,17 +1920,17 @@ export default function EmployeeHomeScreen() {
               style={[
                 styles.modalContent,
                 {
-                  backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                  borderColor: isDark ? "#294039" : "#D8E0DC",
+                  backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
                 },
               ]}
             >
               <View style={styles.modalHeader}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.modalTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                  <Text style={[styles.modalTitle, { color: isDark ? "#F8FAFC" : "#101513" }]}>
                     {getHRModalTitle(activeHRModal)}
                   </Text>
-                  <Text style={[styles.modalSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                  <Text style={[styles.modalSubtitle, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
                     {getHRModalSubtitle(activeHRModal)}
                   </Text>
                 </View>
