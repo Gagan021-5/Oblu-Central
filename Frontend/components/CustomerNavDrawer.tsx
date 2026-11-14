@@ -1,6 +1,6 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -198,8 +198,13 @@ export function CustomerNavDrawer({ visible, onClose, isAdmin = false }: Props) 
       : []),
   ];
 
+  const pathname = usePathname();
+  const selectedBg = isDark ? "rgba(32, 185, 154, 0.16)" : "#EAF8F4";
+  const selectedColor = "#159A7C";
+
   const navigate = (route: string) => {
     onClose();
+    if (pathname === route) return;
     router.push(route as never);
   };
 
@@ -226,17 +231,36 @@ export function CustomerNavDrawer({ visible, onClose, isAdmin = false }: Props) 
               .map((section) => (
                 <View key={section.title}>
                   <Text style={[styles.section, { color: muted }]}>{section.title}</Text>
-                  {section.entries.map((item) => (
-                    <TouchableOpacity
-                      key={item.title}
-                      onPress={() => navigate(item.route)}
-                      style={styles.entry}
-                    >
-                      <Ionicons name={item.icon} size={20} color={muted} />
-                      <Text style={[styles.entryText, { color: foreground }]}>{item.title}</Text>
-                      <Ionicons name="chevron-forward" size={16} color={muted} />
-                    </TouchableOpacity>
-                  ))}
+                  {section.entries.map((item) => {
+                    const isSelected = pathname === item.route;
+                    return (
+                      <TouchableOpacity
+                        key={item.title}
+                        onPress={() => navigate(item.route)}
+                        style={[styles.entry, isSelected && { backgroundColor: selectedBg }]}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={item.icon}
+                          size={20}
+                          color={isSelected ? selectedColor : muted}
+                        />
+                        <Text
+                          style={[
+                            styles.entryText,
+                            { color: isSelected ? selectedColor : foreground },
+                          ]}
+                        >
+                          {item.title}
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={16}
+                          color={isSelected ? selectedColor : muted}
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               ))}
           </ScrollView>

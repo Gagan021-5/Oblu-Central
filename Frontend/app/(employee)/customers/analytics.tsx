@@ -10,6 +10,7 @@ import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography } from "@/constants/theme";
 import { SkeletonBlock } from "@/components/ui/SkeletonCard";
 import { CustomerChartsData, fetchCustomerChartsApi } from "@/services/customerService";
+import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
 
 const PIE_COLORS = [
   "#20B99A",
@@ -42,6 +43,7 @@ export default function CustomerAnalyticsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   const load = useCallback(async () => {
     if (!canOpen) return;
@@ -137,26 +139,42 @@ export default function CustomerAnalyticsScreen() {
   if (!canOpen) return null;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 12) + 8, paddingBottom: 110 }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} />}
-    >
-      <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={[styles.back, card]}>
-          <Ionicons name="arrow-back" size={20} color={foreground} />
-        </TouchableOpacity>
-        <View>
-          <Text style={[styles.eyebrow, { color: "#20B99A" }]}>CUSTOMERS</Text>
-          <Text style={[styles.title, { color: foreground }]}>Analytics</Text>
-        </View>
-      </View>
+    <>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 12) + 8, paddingBottom: 110 }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} />}
+      >
+        <View style={styles.top}>
+          <View style={styles.topLeft}>
+            <TouchableOpacity
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/(employee)/customers"))}
+              style={[styles.back, card]}
+              accessibilityLabel="Go back"
+            >
+              <Ionicons name="arrow-back" size={20} color={foreground} />
+            </TouchableOpacity>
+            <View>
+              <Text style={[styles.eyebrow, { color: "#20B99A" }]}>CUSTOMERS</Text>
+              <Text style={[styles.title, { color: foreground }]}>Analytics</Text>
+            </View>
+          </View>
 
-      {error ? (
-        <TouchableOpacity onPress={() => { setLoading(true); void load(); }} style={[styles.notice, { backgroundColor: isDark ? "#33251A" : "#FFF4E5" }]}>
-          <Text style={{ color: foreground, fontFamily: Typography.regular }}>{error}</Text>
-        </TouchableOpacity>
-      ) : null}
+          <TouchableOpacity
+            accessibilityLabel="Open navigation menu"
+            onPress={() => setDrawerVisible(true)}
+            style={[styles.back, card]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="menu" size={22} color={foreground} />
+          </TouchableOpacity>
+        </View>
+
+        {error ? (
+          <TouchableOpacity onPress={() => { setLoading(true); void load(); }} style={[styles.notice, { backgroundColor: isDark ? "#33251A" : "#FFF4E5" }]}>
+            <Text style={{ color: foreground, fontFamily: Typography.regular }}>{error}</Text>
+          </TouchableOpacity>
+        ) : null}
 
       <View style={styles.kpis}>
         {[
@@ -268,12 +286,20 @@ export default function CustomerAnalyticsScreen() {
         )}
       </View>
     </ScrollView>
+
+    <CustomerNavDrawer
+      visible={drawerVisible}
+      onClose={() => setDrawerVisible(false)}
+      isAdmin={isAdminUser}
+    />
+  </>
   );
 }
 
 const styles = StyleSheet.create({
   content: { padding: 18, gap: 14 },
-  top: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
+  topLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   back: { borderWidth: 1, width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   eyebrow: { color: "#20B99A", fontFamily: Typography.bold, fontSize: 10, letterSpacing: 1 },
   title: { fontFamily: Typography.heading, fontSize: 25, marginTop: 3 },

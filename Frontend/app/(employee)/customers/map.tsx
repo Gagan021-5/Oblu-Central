@@ -23,6 +23,7 @@ import { SkeletonBlock } from "@/components/ui/SkeletonCard";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { Customer } from "@/data/customerTypes";
 import { fetchCustomerMapPointsFromApi } from "@/services/customerService";
+import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
 
 let WebViewComponent: any = null;
 if (Platform.OS !== "web") {
@@ -70,6 +71,7 @@ export default function CustomerMapScreen() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCluster, setSelectedCluster] = useState<DistrictCluster | null>(null);
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   const load = useCallback(async () => {
     if (!canOpen) return;
@@ -336,13 +338,27 @@ export default function CustomerMapScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} />}
       >
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.back, card]}>
-            <Ionicons name="arrow-back" size={20} color={foreground} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.eyebrow}>CUSTOMER WORKSPACE</Text>
-            <Text style={[styles.title, { color: foreground }]}>Distribution Map</Text>
+          <View style={styles.topLeft}>
+            <TouchableOpacity
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/(employee)/customers"))}
+              style={[styles.back, card]}
+              accessibilityLabel="Go back"
+            >
+              <Ionicons name="arrow-back" size={20} color={foreground} />
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.eyebrow}>CUSTOMER WORKSPACE</Text>
+              <Text style={[styles.title, { color: foreground }]}>Distribution Map</Text>
+            </View>
           </View>
+          <TouchableOpacity
+            accessibilityLabel="Open navigation menu"
+            onPress={() => setDrawerVisible(true)}
+            style={[styles.back, card]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="menu" size={22} color={foreground} />
+          </TouchableOpacity>
         </View>
 
         {error ? (
@@ -582,13 +598,20 @@ export default function CustomerMapScreen() {
           ))}
         </View>
       </ScrollView>
+
+      <CustomerNavDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        isAdmin={isAdminUser}
+      />
     </>
   );
 }
 
 const styles = StyleSheet.create({
   content: { padding: 18, gap: 14 },
-  top: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
+  topLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   back: { borderWidth: 1, width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   eyebrow: { color: "#20B99A", fontFamily: Typography.bold, fontSize: 10, letterSpacing: 1 },
   title: { fontFamily: Typography.heading, fontSize: 24, marginTop: 2 },

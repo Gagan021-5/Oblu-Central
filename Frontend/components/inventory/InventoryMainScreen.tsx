@@ -388,13 +388,25 @@ export function InventoryMainScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={() => void onRefresh()}
-          style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="refresh" size={18} color="#00A879" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => void onRefresh()}
+            style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
+            activeOpacity={0.7}
+            accessibilityLabel="Refresh inventory"
+          >
+            <Ionicons name="refresh" size={18} color="#00A879" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setDrawerVisible(true)}
+            style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
+            activeOpacity={0.7}
+            accessibilityLabel="Open inventory navigation drawer"
+          >
+            <Ionicons name="menu" size={20} color={foreground} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Tab Content Views ── */}

@@ -19,6 +19,7 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { TimelineItem } from "@/components/employee/TimelineItem";
 import { AddCustomerRemarkModal } from "@/components/employee/AddCustomerRemarkModal";
 import { ScheduleFollowUpModal } from "@/components/employee/ScheduleFollowUpModal";
+import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
 import { Customer } from "@/data/customerTypes";
 import {
   fetchCustomerByIdFromApi,
@@ -47,6 +48,7 @@ export default function CustomerDetailScreen() {
   const [activeTab, setActiveTab] = useState<SegmentTab>(() => tab === "purchases" || tab === "payments" || tab === "remarks" || tab === "followups" ? tab : "overview");
   const [remarkModalVisible, setRemarkModalVisible] = useState(false);
   const [followUpModalVisible, setFollowUpModalVisible] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   const fetchCustomer = useCallback(async () => {
     if (!customerId) return;
@@ -263,7 +265,25 @@ export default function CustomerDetailScreen() {
           Customer Profile
         </Text>
 
-        <View style={{ width: 38 }} />
+        <TouchableOpacity
+          style={[
+            styles.backBtn,
+            {
+              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
+              borderColor: isDark ? "#294039" : "#D8E0DC",
+            },
+            Shadows.card,
+          ]}
+          onPress={() => setDrawerVisible(true)}
+          activeOpacity={0.7}
+          accessibilityLabel="Open navigation menu"
+        >
+          <Ionicons
+            name="menu"
+            size={18}
+            color={isDark ? "#F1F7F4" : "#101513"}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -1085,6 +1105,11 @@ export default function CustomerDetailScreen() {
         onClose={() => setFollowUpModalVisible(false)}
         onSchedule={handleScheduleFollowUp}
         targetName={customer.name}
+      />
+
+      <CustomerNavDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
       />
     </View>
   );

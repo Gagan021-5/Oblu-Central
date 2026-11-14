@@ -21,6 +21,7 @@ import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography } from "@/constants/theme";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { SkeletonCardList } from "@/components/ui/SkeletonCard";
+import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
 
 type ToolRow = Record<string, any>;
 type RsmOption = { id: number | string; name: string };
@@ -111,6 +112,7 @@ export default function CustomerToolScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [summary, setSummary] = useState("");
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   // Filters State
   const [customerSearch, setCustomerSearch] = useState("");
@@ -1011,13 +1013,25 @@ export default function CustomerToolScreen() {
       >
         {/* Top Header */}
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.back, card]}>
+          <TouchableOpacity
+            onPress={() => (router.canGoBack() ? router.back() : router.replace("/(employee)/customers"))}
+            style={[styles.back, card]}
+            accessibilityLabel="Go back"
+          >
             <Ionicons name="arrow-back" size={20} color={foreground} />
           </TouchableOpacity>
           <View style={styles.heading}>
             <Text style={styles.eyebrow}>CUSTOMER WORKSPACE</Text>
             <Text style={[styles.title, { color: foreground }]}>{title}</Text>
           </View>
+          <TouchableOpacity
+            accessibilityLabel="Open navigation menu"
+            onPress={() => setDrawerVisible(true)}
+            style={[styles.back, card]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="menu" size={22} color={foreground} />
+          </TouchableOpacity>
         </View>
 
         {error ? (
@@ -1677,6 +1691,12 @@ export default function CustomerToolScreen() {
           </View>
         </View>
       </Modal>
+
+      <CustomerNavDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        isAdmin={isAdminUser}
+      />
     </>
   );
 }
