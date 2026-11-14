@@ -146,28 +146,18 @@ export default function CustomerAnalyticsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} />}
       >
         <View style={styles.top}>
-          <View style={styles.topLeft}>
-            <TouchableOpacity
-              onPress={() => (router.canGoBack() ? router.back() : router.replace("/(employee)/customers"))}
-              style={[styles.back, card]}
-              accessibilityLabel="Go back"
-            >
-              <Ionicons name="arrow-back" size={20} color={foreground} />
-            </TouchableOpacity>
-            <View>
-              <Text style={[styles.eyebrow, { color: "#20B99A" }]}>CUSTOMERS</Text>
-              <Text style={[styles.title, { color: foreground }]}>Analytics</Text>
-            </View>
-          </View>
-
           <TouchableOpacity
-            accessibilityLabel="Open navigation menu"
+            accessibilityLabel="Open customer navigation menu"
             onPress={() => setDrawerVisible(true)}
             style={[styles.back, card]}
             activeOpacity={0.7}
           >
             <Ionicons name="menu" size={22} color={foreground} />
           </TouchableOpacity>
+          <View>
+            <Text style={[styles.eyebrow, { color: "#20B99A" }]}>CUSTOMERS</Text>
+            <Text style={[styles.title, { color: foreground }]}>Analytics</Text>
+          </View>
         </View>
 
         {error ? (
@@ -298,8 +288,7 @@ export default function CustomerAnalyticsScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 18, gap: 14 },
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
-  topLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  top: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 },
   back: { borderWidth: 1, width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   eyebrow: { color: "#20B99A", fontFamily: Typography.bold, fontSize: 10, letterSpacing: 1 },
   title: { fontFamily: Typography.heading, fontSize: 25, marginTop: 3 },

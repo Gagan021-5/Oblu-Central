@@ -9,8 +9,10 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Typography, Radius } from "@/constants/theme";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import type { InventoryNavTab } from "./InventoryMainScreen";
@@ -38,6 +40,8 @@ export function InventoryNavDrawer({
 }: InventoryNavDrawerProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
+  const isAdmin = user?.role?.toLowerCase().includes("admin") || (user as any)?.is_superuser;
 
   const [catalogExpanded, setCatalogExpanded] = useState(true);
   const [poExpanded, setPoExpanded] = useState(true);
@@ -80,6 +84,22 @@ export function InventoryNavDrawer({
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
             {/* ── CORE OPERATIONS ── */}
             <Text style={[styles.sectionTitle, { color: muted }]}>CORE OPERATIONS</Text>
+
+            {/* Main App Home */}
+            <TouchableOpacity
+              onPress={() => {
+                onClose();
+                router.replace(isAdmin ? "/(admin)/users" : "/(employee)");
+              }}
+              style={styles.navEntry}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="apps-outline" size={18} color={muted} />
+              <Text style={[styles.navEntryText, { color: foreground }]}>
+                Main Home
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={muted} />
+            </TouchableOpacity>
 
             {/* Executive Dashboard */}
             <TouchableOpacity

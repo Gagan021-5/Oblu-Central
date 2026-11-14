@@ -379,34 +379,16 @@ export function ProformaMainScreen() {
     <View style={[styles.container, { backgroundColor: bg, paddingTop: Math.max(insets.top, 10) }]}>
       {/* ── Top Header Bar ── */}
       <View style={styles.topHeader}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <TouchableOpacity
-            onPress={() => {
-              triggerLightHaptic();
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                const isAdmin = user?.role?.toLowerCase().includes("admin") || (user as any)?.is_superuser;
-                router.replace(isAdmin ? "/(admin)/users" : "/(employee)");
-              }
-            }}
-            style={[styles.menuBtn, { backgroundColor: cardBg, borderColor: border }]}
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="arrow-back" size={20} color={foreground} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => {
-              triggerLightHaptic();
-              setDrawerOpen(true);
-            }}
-            style={[styles.menuBtn, { backgroundColor: cardBg, borderColor: border }]}
-            accessibilityLabel="Open Navigation Menu"
-          >
-            <Ionicons name="menu" size={22} color={foreground} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => {
+            triggerLightHaptic();
+            setDrawerOpen(true);
+          }}
+          style={[styles.menuBtn, { backgroundColor: cardBg, borderColor: border }]}
+          accessibilityLabel="Open Navigation Menu"
+        >
+          <Ionicons name="menu" size={22} color={foreground} />
+        </TouchableOpacity>
 
         <View style={styles.titleCluster}>
           <Text style={[styles.headerTitle, { color: foreground }]}>{getTabTitle()}</Text>

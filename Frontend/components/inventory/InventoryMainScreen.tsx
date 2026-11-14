@@ -346,12 +346,11 @@ export function InventoryMainScreen() {
       <View style={[styles.topBar, { borderBottomColor: cardBorder }]}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.replace(isAdmin ? "/(admin)/users" : "/(employee)")
-          }
+          onPress={() => setDrawerVisible(true)}
           activeOpacity={0.7}
+          accessibilityLabel="Open inventory navigation drawer"
         >
-          <Ionicons name="arrow-back" size={18} color={foreground} />
+          <Ionicons name="menu" size={20} color={foreground} />
         </TouchableOpacity>
 
         <View style={styles.topBarCenter}>
@@ -388,25 +387,14 @@ export function InventoryMainScreen() {
           </Text>
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <TouchableOpacity
-            onPress={() => void onRefresh()}
-            style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
-            activeOpacity={0.7}
-            accessibilityLabel="Refresh inventory"
-          >
-            <Ionicons name="refresh" size={18} color="#00A879" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setDrawerVisible(true)}
-            style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
-            activeOpacity={0.7}
-            accessibilityLabel="Open inventory navigation drawer"
-          >
-            <Ionicons name="menu" size={20} color={foreground} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => void onRefresh()}
+          style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
+          activeOpacity={0.7}
+          accessibilityLabel="Refresh inventory"
+        >
+          <Ionicons name="refresh" size={18} color="#00A879" />
+        </TouchableOpacity>
       </View>
 
       {/* ── Tab Content Views ── */}

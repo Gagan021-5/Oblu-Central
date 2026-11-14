@@ -12,8 +12,10 @@ import {
   Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Typography, Radius } from "@/constants/theme";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import type { ProformaPermissions, ProformaHubData } from "@/services/proformaService";
@@ -49,6 +51,8 @@ export function ProformaNavDrawer({
 }: ProformaNavDrawerProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
+  const isAdmin = user?.role?.toLowerCase().includes("admin") || (user as any)?.is_superuser;
 
   const permissions: ProformaPermissions = hubData?.permissions || {
     can_create_proforma: true,
@@ -206,6 +210,20 @@ export function ProformaNavDrawer({
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
             {/* ── 1. SALES & DOCUMENTS ── */}
             <Text style={[styles.sectionTitle, { color: muted }]}>SALES & DOCUMENTS</Text>
+
+            {/* Main App Home */}
+            <TouchableOpacity
+              onPress={() => {
+                handleClose();
+                router.replace(isAdmin ? "/(admin)/users" : "/(employee)");
+              }}
+              style={styles.navEntry}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="apps-outline" size={19} color={muted} />
+              <Text style={[styles.navText, { color: foreground }]}>Main Home</Text>
+              <Ionicons name="chevron-forward" size={16} color={muted} />
+            </TouchableOpacity>
 
             {/* Proforma Invoices */}
             {permissions.can_view_proformas && (

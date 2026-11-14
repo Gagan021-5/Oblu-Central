@@ -1014,24 +1014,17 @@ export default function CustomerToolScreen() {
         {/* Top Header */}
         <View style={styles.top}>
           <TouchableOpacity
-            onPress={() => (router.canGoBack() ? router.back() : router.replace("/(employee)/customers"))}
-            style={[styles.back, card]}
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="arrow-back" size={20} color={foreground} />
-          </TouchableOpacity>
-          <View style={styles.heading}>
-            <Text style={styles.eyebrow}>CUSTOMER WORKSPACE</Text>
-            <Text style={[styles.title, { color: foreground }]}>{title}</Text>
-          </View>
-          <TouchableOpacity
-            accessibilityLabel="Open navigation menu"
+            accessibilityLabel="Open customer navigation menu"
             onPress={() => setDrawerVisible(true)}
             style={[styles.back, card]}
             activeOpacity={0.7}
           >
             <Ionicons name="menu" size={22} color={foreground} />
           </TouchableOpacity>
+          <View style={styles.heading}>
+            <Text style={styles.eyebrow}>CUSTOMER WORKSPACE</Text>
+            <Text style={[styles.title, { color: foreground }]}>{title}</Text>
+          </View>
         </View>
 
         {error ? (
