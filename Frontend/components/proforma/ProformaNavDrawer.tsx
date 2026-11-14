@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   Modal,
   Pressable,
@@ -7,6 +7,9 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Animated,
+  Dimensions,
+  Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +35,9 @@ interface ProformaNavDrawerProps {
   onSelectTab: (tab: ProformaNavTab) => void;
   onOpenCreateModal: (type: "proforma" | "quotation") => void;
 }
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.82, 340);
 
 export function ProformaNavDrawer({
   visible,
@@ -69,16 +75,104 @@ export function ProformaNavDrawer({
   const activeBg = isDark ? "rgba(16, 185, 129, 0.14)" : "#E6F7F0";
   const activeColor = "#10B981";
 
+  const [modalVisible, setModalVisible] = useState(visible);
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setModalVisible(true);
+      anim.setValue(0);
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    } else if (modalVisible) {
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start(() => {
+        setModalVisible(false);
+      });
+    }
+  }, [visible, modalVisible, anim]);
+
+  const handleClose = useCallback(() => {
+    Animated.timing(anim, {
+      toValue: 0,
+      duration: 200,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setModalVisible(false);
+      onClose();
+    });
+  }, [onClose, anim]);
+
   const handleSelect = (tab: ProformaNavTab) => {
-    onClose();
+    handleClose();
     onSelectTab(tab);
   };
 
+  const handleCreate = (type: "proforma" | "quotation") => {
+    handleClose();
+    onOpenCreateModal(type);
+  };
+
+  const translateX = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-DRAWER_WIDTH, 0],
+  });
+
+  const scrimOpacity = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  if (!modalVisible && !visible) {
+    return null;
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={modalVisible}
+      transparent
+      animationType="none"
+      onRequestClose={handleClose}
+      statusBarTranslucent
+    >
       <View style={styles.frame}>
-        <Pressable style={styles.scrim} onPress={onClose} />
-        <View style={[styles.drawer, { backgroundColor: bg, paddingTop: Math.max(insets.top, 16) }]}>
+        {/* Animated Dim Glass Backdrop Overlay */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            styles.scrimBackdrop,
+            { opacity: scrimOpacity },
+          ]}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={handleClose}
+            accessibilityLabel="Close navigation drawer"
+          />
+        </Animated.View>
+
+        {/* Drawer Panel Sliding in from the LEFT */}
+        <Animated.View
+          style={[
+            styles.drawer,
+            {
+              width: DRAWER_WIDTH,
+              backgroundColor: bg,
+              borderRightColor: itemBorder,
+              paddingTop: Math.max(insets.top, 16),
+              transform: [{ translateX }],
+            },
+          ]}
+        >
           {/* Brand Header */}
           <View style={[styles.brandRow, { borderBottomColor: itemBorder }]}>
             <SubAppLogo appId="proforma" size={42} borderRadius={12} />
@@ -86,7 +180,12 @@ export function ProformaNavDrawer({
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Text style={[styles.brandTitle, { color: foreground }]}>OBLU</Text>
                 <View style={styles.dot} />
-                <View style={[styles.badgePill, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.16)" : "#DDF4EA" }]}>
+                <View
+                  style={[
+                    styles.badgePill,
+                    { backgroundColor: isDark ? "rgba(16, 185, 129, 0.16)" : "#DDF4EA" },
+                  ]}
+                >
                   <Text style={styles.badgePillText}>PROFORMA & QUOTES</Text>
                 </View>
               </View>
@@ -94,7 +193,11 @@ export function ProformaNavDrawer({
                 {hubData?.user?.name || "Employee Workspace"} • {hubData?.user?.role || "Staff"}
               </Text>
             </View>
-            <TouchableOpacity accessibilityLabel="Close menu" onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity
+              accessibilityLabel="Close menu"
+              onPress={handleClose}
+              style={styles.closeBtn}
+            >
               <Ionicons name="close" size={22} color={muted} />
             </TouchableOpacity>
           </View>
@@ -171,10 +274,7 @@ export function ProformaNavDrawer({
               <View style={styles.actionButtonGroup}>
                 <TouchableOpacity
                   style={[styles.createBtn, { backgroundColor: activeColor }]}
-                  onPress={() => {
-                    onClose();
-                    onOpenCreateModal("proforma");
-                  }}
+                  onPress={() => handleCreate("proforma")}
                   activeOpacity={0.8}
                 >
                   <Ionicons name="add-circle" size={18} color="#06281E" />
@@ -189,10 +289,7 @@ export function ProformaNavDrawer({
                       backgroundColor: isDark ? "rgba(16, 185, 129, 0.08)" : "#F0FDF4",
                     },
                   ]}
-                  onPress={() => {
-                    onClose();
-                    onOpenCreateModal("quotation");
-                  }}
+                  onPress={() => handleCreate("quotation")}
                   activeOpacity={0.8}
                 >
                   <Ionicons name="document" size={16} color={activeColor} />
@@ -359,7 +456,7 @@ export function ProformaNavDrawer({
               </>
             )}
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -370,20 +467,18 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
   },
-  scrim: {
-    flex: 1,
+  scrimBackdrop: {
     backgroundColor: "rgba(0, 0, 0, 0.55)",
   },
   drawer: {
-    width: "82%",
-    maxWidth: 340,
     height: "100%",
     paddingHorizontal: 16,
+    borderRightWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: -3, height: 0 },
+    shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 16,
+    shadowRadius: 16,
+    elevation: 20,
   },
   brandRow: {
     flexDirection: "row",

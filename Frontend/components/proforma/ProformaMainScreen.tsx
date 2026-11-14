@@ -430,29 +430,33 @@ export function ProformaMainScreen() {
 
       {/* ── KPI Stat Banner (Overview Tab Only) ── */}
       {activeTab === "overview" && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.statsScroll}
-        >
-          <View style={[styles.statTile, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.statTileLabel, { color: muted }]}>PIPELINE VALUE</Text>
-            <Text style={[styles.statTileVal, { color: activeColor }]}>{stats.pipeline_value}</Text>
-            <Text style={[styles.statTileSub, { color: muted }]}>{stats.total_count} documents</Text>
-          </View>
+        <View style={styles.statsContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.statsScroll}
+          >
+            <View style={[styles.statTile, { backgroundColor: cardBg, borderColor: border }]}>
+              <Text style={[styles.statTileLabel, { color: muted }]}>PIPELINE VALUE</Text>
+              <Text style={[styles.statTileVal, { color: activeColor }]}>{stats.pipeline_value}</Text>
+              <Text style={[styles.statTileSub, { color: muted }]}>{stats.total_count} documents</Text>
+            </View>
 
-          <View style={[styles.statTile, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.statTileLabel, { color: muted }]}>PENDING REVIEW</Text>
-            <Text style={[styles.statTileVal, { color: "#F59E0B" }]}>{stats.pending_approvals}</Text>
-            <Text style={[styles.statTileSub, { color: muted }]}>Price / credit approvals</Text>
-          </View>
+            <View style={[styles.statTile, { backgroundColor: cardBg, borderColor: border }]}>
+              <Text style={[styles.statTileLabel, { color: muted }]}>PENDING REVIEW</Text>
+              <Text style={[styles.statTileVal, { color: "#F59E0B" }]}>{stats.pending_approvals}</Text>
+              <Text style={[styles.statTileSub, { color: muted }]}>Price / credit approvals</Text>
+            </View>
 
-          <View style={[styles.statTile, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.statTileLabel, { color: muted }]}>APPROVED & BILLED</Text>
-            <Text style={[styles.statTileVal, { color: activeColor }]}>{stats.approved_count + stats.billed_count}</Text>
-            <Text style={[styles.statTileSub, { color: muted }]}>Ready for dispatch</Text>
-          </View>
-        </ScrollView>
+            <View style={[styles.statTile, { backgroundColor: cardBg, borderColor: border }]}>
+              <Text style={[styles.statTileLabel, { color: muted }]}>APPROVED & BILLED</Text>
+              <Text style={[styles.statTileVal, { color: activeColor }]}>
+                {stats.approved_count + stats.billed_count}
+              </Text>
+              <Text style={[styles.statTileSub, { color: muted }]}>Ready for dispatch</Text>
+            </View>
+          </ScrollView>
+        </View>
       )}
 
       {/* ── Tab Content Rendering ── */}
@@ -849,20 +853,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   searchContainer: { paddingHorizontal: 16, marginBottom: 8 },
+  statsContainer: {
+    height: 76,
+    marginBottom: 6,
+  },
   statsScroll: {
     paddingHorizontal: 16,
     gap: 10,
-    paddingBottom: 8,
+    alignItems: "center",
   },
   statTile: {
+    height: 68,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 14,
     borderWidth: 1,
-    minWidth: 130,
+    minWidth: 136,
+    justifyContent: "center",
   },
-  statTileLabel: { fontSize: 9, fontFamily: Typography.bold, letterSpacing: 0.5 },
-  statTileVal: { fontSize: 16, fontFamily: Typography.bold, marginVertical: 2 },
+  statTileLabel: { fontSize: 9.5, fontFamily: Typography.bold, letterSpacing: 0.5 },
+  statTileVal: { fontSize: 16, fontFamily: Typography.bold, marginVertical: 1 },
   statTileSub: { fontSize: 10, fontFamily: Typography.regular },
   filterPillsRow: {
     flexDirection: "row",
