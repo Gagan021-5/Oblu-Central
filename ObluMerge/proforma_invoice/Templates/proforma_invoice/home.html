@@ -10,6 +10,7 @@
     margin-bottom: 20px;
     width: 90%;
   }
+
   .btn {
     display: block;
     margin-bottom: 10px;
@@ -20,52 +21,42 @@
   <div class="card">
     <h1>Welcome to Proforma & Quotation Maker</h1>
 
-    <!-- ============================================================== -->
-    <!-- 📦 WAREHOUSE DASHBOARD: Warehouse, Accounts & Admin             -->
-    <!-- ============================================================== -->
-    {% if "warehouse" in user_roles or request.user.username == "warehouse" or "admin" in user_roles or request.user.is_superuser %}
-      <a href="{% url 'warehouse_dispatch_dashboard' %}" class="btn">Warehouse Dashboard</a>
+    <!-- 1. Warehouse Execution Dashboard -->
+    {% if request.user|can:"inventory.view" and not request.user|can:"proforma.create" %}
+    <a href="{% url 'warehouse_dispatch_dashboard' %}" class="btn">Warehouse Dashboard</a>
     {% endif %}
 
-    <!-- ============================================================== -->
-    <!-- 1. Document Creation (Sales Only: Hidden from Accounts & WH)   -->
-    <!-- ============================================================== -->
-    {% if request.user|can:"proforma.create" and "accounts_operations" not in user_roles and "warehouse" not in user_roles and request.user.username != "warehouse" %}
-      <a href="{% url 'create_proforma' %}" class="btn">Create New Proforma</a>
-      <a href="{% url 'quotation_create' %}" class="btn">Create Quotation</a>
+    <!-- 2. Document Creation & Sales Lists (Admin & Sales Roles Only) -->
+    {% if request.user|can:"proforma.create" %}
+    <a href="{% url 'create_proforma' %}" class="btn">Create New Proforma</a>
+    <a href="{% url 'quotation_create' %}" class="btn">Create Quotation</a>
+    <a href="{% url 'proforma_list' %}" class="btn">View My Proformas</a>
+    <a href="{% url 'quotation_list' %}" class="btn">View Quotation</a>
     {% endif %}
 
-    <!-- ============================================================== -->
-    <!-- 2. Document Lists (Sales Only: Hidden from Accounts & WH)      -->
-    <!-- ============================================================== -->
-    {% if request.user|can:"proforma.view" and "accounts_operations" not in user_roles and "warehouse" not in user_roles and request.user.username != "warehouse" %}
-      <a href="{% url 'proforma_list' %}" class="btn">View My Proformas</a>
-      <a href="{% url 'quotation_list' %}" class="btn">View Quotation</a>
+    <!-- 3. Product Catalog (All roles except Warehouse & HR) -->
+    {% if request.user|can:"product_price.view" %}
+    <a href="{% url 'proforma_product_list' %}" class="btn">View Products</a>
     {% endif %}
 
-    <!-- ============================================================== -->
-    <!-- 3. Product Catalog (Sales, Accounts & Admin  -->
-    <!-- ============================================================== -->
-    {% if request.user|can:"product_price.view" and "warehouse" not in user_roles and request.user.username != "warehouse" %}
-      <a href="{% url 'proforma_product_list' %}" class="btn">View Products</a>
+    <!-- 4. Price Change Approvals (Admin & Sales Head Only) -->
+    {% if request.user|can:"proforma.price_approval" %}
+    <a href="{% url 'proforma_price_change_requests' %}" class="btn">Price Change Requests</a>
     {% endif %}
 
-    <!-- ============================================================== -->
-    <!-- 4. Price Change Requests (Sales Head & Admin ONLY)             -->
-    <!-- ============================================================== -->
-    {% if "sales_head" in user_roles or "admin" in user_roles or request.user.is_superuser %}
-      {% if "accounts_operations" not in user_roles %}
-        <a href="{% url 'proforma_price_change_requests' %}" class="btn">Price Change Requests</a>
-      {% endif %}
+    <!-- 5. Stock Shortage Requests -->
+    {% if request.user|can:"stock.request" %}
+    <a href="{% url 'stock_request_dashboard' %}" class="btn">Stock Qty Request</a>
     {% endif %}
 
-    <!-- ============================================================== -->
-    <!-- 5, 6, 7. Operations & Finance Tools (Accounts & Admin ONLY)     -->
-    <!-- ============================================================== -->
-    {% if request.user|can:"product_tier.manage" or "accounts_operations" in user_roles or "admin" in user_roles or request.user.is_superuser %}
-      <a href="{% url 'stock_request_dashboard' %}" class="btn">Stock Qty Request</a>
-      <a href="{% url 'proforma_invoice_dispatch' %}" class="btn">Dispatch Dashboard</a>
-      <a href="{% url 'accountant_product_tier_manager' %}" class="btn">Bulk Product & Courier Change Price</a>
+    <!-- 6. Accounts Dispatch Queue (Admin & Accounts Operations Only) -->
+    {% if request.user|can:"dispatch.queue" %}
+    <a href="{% url 'proforma_invoice_dispatch' %}" class="btn">Dispatch Dashboard</a>
+    {% endif %}
+
+    <!-- 7. Pricing Slabs & Courier Editor (Admin & Accounts Operations Only) -->
+    {% if request.user|can:"product_tier.manage" %}
+    <a href="{% url 'accountant_product_tier_manager' %}" class="btn">Bulk Product & Courier Change Price</a>
     {% endif %}
 
   </div>
