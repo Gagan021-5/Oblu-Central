@@ -417,11 +417,11 @@ export default function CustomerDashboardScreen() {
   }, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: Customer }) => <CustomerListItem item={item} onPress={handleCustomerPress} />,
+    ({ item }: { item: Customer }) => item && item.id ? <CustomerListItem item={item} onPress={handleCustomerPress} /> : null,
     [handleCustomerPress]
   );
 
-  const keyExtractor = useCallback((item: Customer) => String(item.id), []);
+  const keyExtractor = useCallback((item: Customer, index: number) => (item?.id ? `customer-${item.id}` : `cust-${index}`), []);
 
   const emptyComponent = useMemo(
     () => (

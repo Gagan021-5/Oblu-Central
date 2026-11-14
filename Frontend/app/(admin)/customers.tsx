@@ -117,7 +117,12 @@ export default function CustomersScreen() {
           if (fallback.length > 0) customerList = fallback;
         } catch {}
       }
-      setCustomers((previous) => append ? [...previous, ...customerList] : customerList);
+      setCustomers((previous) => {
+        if (!append) return customerList.filter((c) => Boolean(c && c.id));
+        const existingIds = new Set(previous.map((c) => String(c.id)));
+        const uniqueNew = customerList.filter((c) => c && c.id && !existingIds.has(String(c.id)));
+        return [...previous, ...uniqueNew];
+      });
       setNextPage(result?.nextPage ?? null);
     } catch (error: any) {
       if (!append) setCustomers([]);
@@ -150,28 +155,29 @@ export default function CustomersScreen() {
     const q = search.toLowerCase().trim();
     let list = customers.filter(
       (c) =>
-        !q ||
-        (c.name || "").toLowerCase().includes(q) ||
-        (c.contactPerson || "").toLowerCase().includes(q) ||
-        (c.city || "").toLowerCase().includes(q) ||
-        (c.phone || "").includes(q)
+        Boolean(c && c.id) &&
+        (!q ||
+          (c.name || "").toLowerCase().includes(q) ||
+          (c.contactPerson || "").toLowerCase().includes(q) ||
+          (c.city || "").toLowerCase().includes(q) ||
+          (c.phone || "").includes(q))
     );
 
     if (paymentFilter !== "all") {
-      list = list.filter((customer) => customer.paymentStatus === paymentFilter);
+      list = list.filter((customer) => customer?.paymentStatus === paymentFilter);
     }
     if (balanceFilter === "outstanding") {
-      list = list.filter((customer) => getOutstandingAmount(customer.outstandingPayment) > 0);
+      list = list.filter((customer) => getOutstandingAmount(customer?.outstandingPayment) > 0);
     }
 
     if (sortOption === "name_asc") {
-      list.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) => (a?.name || "").localeCompare(b?.name || ""));
     } else if (sortOption === "name_desc") {
-      list.sort((a, b) => b.name.localeCompare(a.name));
+      list.sort((a, b) => (b?.name || "").localeCompare(a?.name || ""));
     } else if (sortOption === "outstanding_high") {
-      list.sort((a, b) => getOutstandingAmount(b.outstandingPayment) - getOutstandingAmount(a.outstandingPayment));
+      list.sort((a, b) => getOutstandingAmount(b?.outstandingPayment) - getOutstandingAmount(a?.outstandingPayment));
     } else if (sortOption === "outstanding_low") {
-      list.sort((a, b) => getOutstandingAmount(a.outstandingPayment) - getOutstandingAmount(b.outstandingPayment));
+      list.sort((a, b) => getOutstandingAmount(a?.outstandingPayment) - getOutstandingAmount(b?.outstandingPayment));
     }
     return list;
   }, [customers, search, paymentFilter, balanceFilter, sortOption]);
@@ -298,8 +304,10 @@ export default function CustomersScreen() {
   };
 
   const renderCustomerCard = ({ item }: { item: Customer }) => {
-    const paymentColor = getPaymentColor(item.paymentStatus);
-    const initials = (item.name || "Customer")
+    if (!item || !item.id) return null;
+
+    const paymentColor = getPaymentColor(item.paymentStatus || "");
+    const initials = String(item.name || "Customer")
       .split(" ")
       .filter(Boolean)
       .map((w: string) => w[0])
@@ -581,7 +589,7 @@ export default function CustomersScreen() {
       ) : (
         <FlatList
           data={filteredCustomers}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item, index) => (item?.id ? `customer-${item.id}` : `cust-${index}`)}
           renderItem={renderCustomerCard}
           onEndReached={loadNextPage}
           onEndReachedThreshold={0.5}
