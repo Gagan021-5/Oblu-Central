@@ -2246,10 +2246,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     letterSpacing: -0.4,
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 6,
   },
   categoriesList: {
     paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 6,
     gap: 12,
   },
   categoryItem: {

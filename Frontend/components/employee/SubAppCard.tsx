@@ -444,6 +444,8 @@ const styles = StyleSheet.create({
   // ─── Rail Item Styles ───
   railItemSlot: {
     alignItems: "center",
+    paddingTop: 4,
+    paddingBottom: 2,
   },
   railItemContainer: {
     alignItems: "center",

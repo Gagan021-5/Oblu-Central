@@ -1159,10 +1159,12 @@ const styles = StyleSheet.create({
     fontFamily: Typography.bold,
     fontSize: 22,
     letterSpacing: -0.4,
-    marginBottom: 12,
+    marginBottom: 6,
   },
   categoriesList: {
     paddingHorizontal: 0,
+    paddingTop: 8,
+    paddingBottom: 6,
     gap: 14,
   },
   categoryItem: {
