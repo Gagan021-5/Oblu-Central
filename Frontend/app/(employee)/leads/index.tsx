@@ -78,7 +78,7 @@ export default function LeadsDashboardScreen() {
         stage: activeStage,
         search: searchQuery,
       });
-      setLeads(data);
+      setLeads(Array.isArray(data) ? data : []);
     } catch {
       // Ignored
     } finally {

@@ -49,18 +49,21 @@ export default function LeadsScreen() {
     if (!isPull) setLoading(true);
     try {
       const data = await fetchLeadsFromApi();
-      setLeads(data);
-      if (data.length > 0) {
+      const safeData = Array.isArray(data) ? data : [];
+      setLeads(safeData);
+      if (safeData.length > 0) {
         setSelectedLead((prev) => {
-          if (!prev) return data[0];
-          const found = data.find((l) => l.id === prev.id);
-          return found || data[0];
+          if (!prev) return safeData[0];
+          const found = safeData.find((l) => l.id === prev.id);
+          return found || safeData[0];
         });
       } else {
         setSelectedLead(null);
       }
     } catch (err) {
       console.warn("[AdminLeads] Error loading leads:", err);
+      setLeads([]);
+      setSelectedLead(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -145,7 +148,7 @@ export default function LeadsScreen() {
             Lead Signal
           </Text>
           <Text style={[styles.topBarSub, { color: colors.textMuted }]}>
-            {leads.length > 0 ? `${leads.length} Live Prospects` : "Live CRM Database"}
+            {(leads?.length ?? 0) > 0 ? `${leads.length} Live Prospects` : "Live CRM Database"}
           </Text>
         </View>
 
@@ -469,7 +472,7 @@ export default function LeadsScreen() {
               </TouchableOpacity>
             </View>
 
-            {leads.length === 0 ? (
+            {(!leads || leads.length === 0) ? (
               <View style={{ padding: 24, alignItems: "center" }}>
                 <Text style={{ color: colors.textMuted, fontSize: FontSizes.bodySmall, fontFamily: Typography.regular }}>
                   No leads recorded in database.
@@ -477,7 +480,7 @@ export default function LeadsScreen() {
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
-                {leads.map((lead) => (
+                {(leads || []).map((lead) => (
                   <TouchableOpacity
                     key={lead.id}
                     activeOpacity={0.7}

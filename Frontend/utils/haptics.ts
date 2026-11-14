@@ -1,42 +1,29 @@
-import { Platform, NativeModules } from "react-native";
-
-let Haptics: any = null;
-try {
-  // Only bind if native module is actually linked in the current APK binary
-  if (NativeModules.ExpoHaptics || NativeModules.Haptics) {
-    Haptics = require("expo-haptics");
-  }
-} catch {
-  // Native module not linked
-}
+import { Platform, Vibration } from "react-native";
 
 /**
  * Triggers a light, non-blocking tactile haptic pulse on native platforms.
+ * Uses React Native core Vibration to guarantee stability across all Android
+ * and iOS runtime engines without suspend export or linking crashes.
  */
 export function triggerLightHaptic(): void {
-  if (Platform.OS === "web" || !Haptics) return;
+  if (Platform.OS === "web") return;
   try {
-    const res = Haptics.impactAsync?.(Haptics.ImpactFeedbackStyle?.Light);
-    if (res && typeof res.catch === "function") {
-      res.catch(() => {});
-    }
+    // 10ms micro pulse for tactile feedback
+    Vibration.vibrate(10);
   } catch {
-    // Ignore on unsupported simulators/hardware
+    // Silently ignore on unsupported hardware/simulators
   }
 }
 
 /**
- * Triggers a subtle selection tick haptic on tab/chip/filter interactions.
+ * Triggers a subtle selection tick on tab/chip/filter interactions.
  */
 export function triggerSelectionHaptic(): void {
-  if (Platform.OS === "web" || !Haptics) return;
+  if (Platform.OS === "web") return;
   try {
-    const res = Haptics.selectionAsync?.();
-    if (res && typeof res.catch === "function") {
-      res.catch(() => {});
-    }
+    // 6ms minimal selection tick
+    Vibration.vibrate(6);
   } catch {
-    // Ignore on unsupported simulators/hardware
+    // Silently ignore on unsupported hardware/simulators
   }
 }
-

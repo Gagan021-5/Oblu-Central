@@ -13,6 +13,39 @@ export interface LeadListResponse {
 }
 
 export function normalizeLead(raw: any): Lead {
+  if (!raw || typeof raw !== "object") {
+    return {
+      id: `lead-${Date.now()}`,
+      name: "Prospect",
+      companyName: "Prospect",
+      company: "Prospect",
+      contactPerson: "Prospect",
+      phone: "",
+      email: "",
+      city: "Office",
+      leadSource: "Website",
+      assignedSalesperson: "Sales Rep",
+      assignedEmployee: "Sales Rep",
+      stage: "New",
+      stage_name: "New",
+      stage_color: "#00A879",
+      intent: "High",
+      intentLevel: "High",
+      intentScore: 85,
+      estimatedValue: "₹0",
+      estimatedValueNum: 0,
+      createdDate: "Today",
+      lastContactTime: "No contact",
+      lastContactDate: "",
+      nextFollowUp: "None scheduled",
+      expectedClosingDate: "Open",
+      notes: [],
+      activities: [],
+      activity: [],
+      followUps: [],
+    };
+  }
+
   const comp = raw.companyName || raw.company || raw.name || "Prospect";
   const name = raw.name || comp;
   const stage = (raw.stage || raw.stage_name || "New") as LeadStage;
@@ -20,7 +53,7 @@ export function normalizeLead(raw: any): Lead {
   const acts = Array.isArray(raw.activity) ? raw.activity : (Array.isArray(raw.activities) ? raw.activities : []);
 
   return {
-    id: String(raw.id),
+    id: String(raw.id ?? `lead-${Date.now()}`),
     name,
     companyName: comp,
     company: comp,
@@ -66,12 +99,16 @@ export async function fetchLeadsFromApi(params?: {
     });
 
     let rawList: any[] = [];
-    if (Array.isArray(res.data)) {
+    if (Array.isArray(res?.data)) {
       rawList = res.data;
-    } else if (res.data && Array.isArray(res.data.results)) {
-      rawList = res.data.results;
+    } else if (res?.data && Array.isArray((res.data as any).results)) {
+      rawList = (res.data as any).results;
+    } else if (res?.data && Array.isArray((res.data as any).leads)) {
+      rawList = (res.data as any).leads;
+    } else if (res?.data && Array.isArray((res.data as any).data)) {
+      rawList = (res.data as any).data;
     }
-    return rawList.map(normalizeLead);
+    return Array.isArray(rawList) ? rawList.filter(Boolean).map(normalizeLead) : [];
   } catch (error) {
     console.warn("[LeadService] API fetch failed, falling back to mock leads:", error);
     return [];
