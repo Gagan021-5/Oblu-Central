@@ -46,14 +46,21 @@ def get_sqlite_tables(sqlite_conn):
 
 
 def get_postgres_columns(pg_cur, table_name):
-    """Get column names and data types for a table in PostgreSQL."""
+    """Get column names, data types, nullability, and default values for a table in PostgreSQL."""
     pg_cur.execute("""
-        SELECT column_name, data_type 
+        SELECT column_name, data_type, is_nullable, column_default 
         FROM information_schema.columns 
         WHERE table_name = %s
         ORDER BY ordinal_position;
     """, (table_name,))
-    return {row[0]: row[1] for row in pg_cur.fetchall()}
+    return {
+        row[0]: {
+            "type": row[1],
+            "nullable": row[2] == "YES",
+            "default": row[3]
+        }
+        for row in pg_cur.fetchall()
+    }
 
 
 def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
@@ -139,7 +146,52 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
             if not target_cols:
                 continue
 
-            boolean_cols = set(c for c in target_cols if pg_cols_info[c] == 'boolean')
+            # Pre-compute column specs for fast per-row mapping & NOT NULL fallback
+            col_specs = {}
+            for c in target_cols:
+                meta = pg_cols_info[c]
+                col_type = meta["type"]
+                is_null = meta["nullable"]
+                raw_default = meta["default"]
+
+                fallback_val = None
+                if not is_null:
+                    if c == "leave_policy_mode":
+                        fallback_val = "annual"
+                    elif raw_default and not raw_default.startswith("nextval"):
+                        cleaned = raw_default.split("::")[0].strip("'")
+                        if col_type == "boolean":
+                            fallback_val = (cleaned.lower() in ("true", "1", "t"))
+                        elif any(k in col_type for k in ("int", "numeric", "double", "real")):
+                            try:
+                                fallback_val = int(cleaned) if "int" in col_type else float(cleaned)
+                            except ValueError:
+                                fallback_val = 0
+                        else:
+                            fallback_val = cleaned
+                    else:
+                        if col_type == "boolean":
+                            fallback_val = False
+                        elif col_type in ("character varying", "text", "character"):
+                            fallback_val = ""
+                        elif "int" in col_type:
+                            fallback_val = 0
+                        elif any(k in col_type for k in ("numeric", "double", "real")):
+                            fallback_val = 0.0
+                        elif "date" in col_type:
+                            fallback_val = datetime.date.today()
+                        elif "timestamp" in col_type:
+                            fallback_val = datetime.datetime.now()
+                        elif col_type in ("json", "jsonb"):
+                            fallback_val = "{}"
+
+                col_specs[c] = {
+                    "type": col_type,
+                    "nullable": is_null,
+                    "fallback": fallback_val,
+                    "is_bool": (col_type == "boolean"),
+                    "is_text": col_type in ("character varying", "text", "character"),
+                }
 
             # Fetch count
             sq_cur.execute(f'SELECT COUNT(*) FROM "{table}";')
@@ -167,9 +219,20 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
                     row_vals = []
                     for idx, c in enumerate(target_cols):
                         val = row[idx]
-                        if c in boolean_cols:
-                            if val is not None:
-                                val = bool(val)
+                        spec = col_specs[c]
+
+                        # Boolean type conversion (SQLite stores 0/1)
+                        if spec["is_bool"] and val is not None:
+                            val = bool(val)
+
+                        # Blank string cleanup for non-text columns
+                        if val == "" and not spec["is_text"]:
+                            val = None
+
+                        # NOT NULL fallback
+                        if val is None and not spec["nullable"]:
+                            val = spec["fallback"]
+
                         row_vals.append(val)
                     batch_data.append(tuple(row_vals))
 
