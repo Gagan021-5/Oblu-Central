@@ -238,6 +238,10 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
                         val = row_dict.get(c)
                         spec = col_specs[c]
 
+                        # Clean null bytes from any string (PostgreSQL prohibits \0 / \u0000 in text/json)
+                        if isinstance(val, str) and ("\x00" in val or "\u0000" in val):
+                            val = val.replace("\x00", "").replace("\u0000", "")
+
                         # Boolean type conversion (SQLite stores 0/1)
                         if spec["is_bool"] and val is not None:
                             val = bool(val)
