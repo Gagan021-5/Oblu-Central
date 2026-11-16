@@ -105,12 +105,8 @@ class InventoryExecutiveDashboardAPIView(APIView):
             anchor_mode = "snapshot"
             ref_date = latest_db_date or today
         else:
-            if latest_db_date and (today - latest_db_date).days > 3:
-                anchor_mode = "snapshot"
-                ref_date = latest_db_date
-            else:
-                anchor_mode = "today"
-                ref_date = today
+            anchor_mode = "today"
+            ref_date = today
 
         is_custom = False
         if req_start and req_end:
