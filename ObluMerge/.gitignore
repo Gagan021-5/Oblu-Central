@@ -205,6 +205,8 @@ __marimo__/
 db.sqlite3
 *.sqlite3
 *.sqlite3.backup
+*.sqlite3.gz
+*.gz
 crm_data.json
 local-backups/
 # -----------------------------------------------------------------------------
