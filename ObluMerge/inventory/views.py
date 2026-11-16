@@ -90,8 +90,14 @@ class Index(AccountantRequiredMixin, TemplateView):
             anchor_mode = "snapshot"
             ref_date = latest_db_date or today
         else:
-            anchor_mode = "today"
-            ref_date = today
+            # If latest DB transaction date is older than 3 days, anchor presets to latest DB date
+            # so that Full Month, 3 Months, 3 Weeks, and 3 Days display real data instead of zeros
+            if latest_db_date and (today - latest_db_date).days > 3:
+                anchor_mode = "snapshot"
+                ref_date = latest_db_date
+            else:
+                anchor_mode = "today"
+                ref_date = today
 
         is_custom = False
 
