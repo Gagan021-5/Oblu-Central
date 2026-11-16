@@ -72,6 +72,8 @@ export default function CustomerMapScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCluster, setSelectedCluster] = useState<DistrictCluster | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const load = useCallback(async () => {
     if (!canOpen) return;
@@ -156,20 +158,36 @@ export default function CustomerMapScreen() {
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #map {
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
       width: 100%;
       height: 100%;
-      background: #e2e8f0;
+      overflow: hidden;
+      background: #0f172a;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      background: #0f172a;
     }
     .leaflet-popup-content-wrapper {
       border-radius: 14px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.22);
       padding: 4px;
       border: 1px solid #e2e8f0;
     }
@@ -213,15 +231,107 @@ export default function CustomerMapScreen() {
       border: none;
       cursor: pointer;
     }
+    /* Touch controls */
+    .touch-controls {
+      position: absolute;
+      right: 12px;
+      bottom: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .touch-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.95);
+      color: #0f172a;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    .touch-btn:active {
+      background: #e2e8f0;
+      transform: scale(0.92);
+    }
+    .recenter-btn {
+      font-size: 16px;
+    }
+    .layer-switcher-chip {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #0f172a;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
+
+  <div class="layer-switcher-chip" onclick="cycleLayer()">
+    <span id="layerName">🗺️ Streets</span>
+    <span style="color:#64748b; font-size:9px;">▼</span>
+  </div>
+
+  <div class="touch-controls">
+    <button class="touch-btn" onclick="map.zoomIn()" aria-label="Zoom In">+</button>
+    <button class="touch-btn" onclick="map.zoomOut()" aria-label="Zoom Out">−</button>
+    <button class="touch-btn recenter-btn" onclick="map.flyTo([22.5, 79.0], 5, { duration: 0.8 })" aria-label="Recenter India">⌖</button>
+  </div>
+
   <script>
     const map = L.map('map', {
-      zoomControl: true,
-      attributionControl: false
+      zoomControl: false,
+      attributionControl: false,
+      touchZoom: true,
+      bounceAtZoomLimits: false,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      wheelPxPerZoomLevel: 60,
+      wheelDebounceTime: 40,
+      inertia: true,
+      inertiaDeceleration: 3000,
+      maxZoom: 18,
+      minZoom: 4
     }).setView([22.5, 79.0], 5);
+
+    // Prevent default browser gesture zooming so only Leaflet handles pinch/zoom
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(function(evt) {
+      document.addEventListener(evt, function(e) { e.preventDefault(); }, { passive: false });
+    });
+
+    // Notify native wrapper about map touch state to prevent ScrollView conflict
+    window.addEventListener('touchstart', function() {
+      sendToNative({ type: 'TOUCH_START' });
+    }, { passive: true });
+    window.addEventListener('touchend', function() {
+      sendToNative({ type: 'TOUCH_END' });
+    }, { passive: true });
+    window.addEventListener('touchcancel', function() {
+      sendToNative({ type: 'TOUCH_END' });
+    }, { passive: true });
 
     // 1. High-resolution Esri World Street Map Layer (Globe, Terrain, Streets)
     const esriStreets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
@@ -236,11 +346,18 @@ export default function CustomerMapScreen() {
       maxZoom: 18
     });
 
-    L.control.layers({
-      "🗺️ Streets": esriStreets,
-      "🏔️ Terrain": esriTopo,
-      "🌐 OpenStreet": osm
-    }, null, { position: 'topright' }).addTo(map);
+    let currentLayerIdx = 0;
+    const layers = [
+      { name: "🗺️ Streets", layer: esriStreets },
+      { name: "🏔️ Topo", layer: esriTopo },
+      { name: "🌐 OpenStreet", layer: osm }
+    ];
+    function cycleLayer() {
+      map.removeLayer(layers[currentLayerIdx].layer);
+      currentLayerIdx = (currentLayerIdx + 1) % layers.length;
+      map.addLayer(layers[currentLayerIdx].layer);
+      document.getElementById('layerName').innerText = layers[currentLayerIdx].name;
+    }
 
     const clusters = ${JSON.stringify(clustersPayload)};
 
@@ -308,7 +425,11 @@ export default function CustomerMapScreen() {
     (event: any) => {
       try {
         const data = typeof event.nativeEvent?.data === "string" ? JSON.parse(event.nativeEvent.data) : event.data;
-        if (data?.type === "SELECT_DISTRICT") {
+        if (data?.type === "TOUCH_START") {
+          setScrollEnabled(false);
+        } else if (data?.type === "TOUCH_END") {
+          setScrollEnabled(true);
+        } else if (data?.type === "SELECT_DISTRICT") {
           const match = districtClusters.find(
             (dc) => dc.district.toLowerCase() === String(data.district).toLowerCase()
           );
@@ -333,6 +454,7 @@ export default function CustomerMapScreen() {
   return (
     <>
       <ScrollView
+        scrollEnabled={scrollEnabled}
         style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 12) + 8, paddingBottom: 110 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} />}
@@ -396,18 +518,34 @@ export default function CustomerMapScreen() {
                 Pinch to zoom · Tap pin for details
               </Text>
             </View>
-            <View style={[styles.mapLiveBadge, { backgroundColor: isDark ? "#142820" : "#E6F7F2" }]}>
-              <Text style={styles.mapLiveBadgeText}>LIVE</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setIsExpanded((prev) => !prev)}
+                style={[styles.expandBadge, { backgroundColor: isDark ? "#142820" : "#E6F7F2" }]}
+                activeOpacity={0.7}
+                accessibilityLabel={isExpanded ? "Collapse map height" : "Expand map height"}
+              >
+                <Ionicons name={isExpanded ? "contract-outline" : "expand-outline"} size={13} color="#159A7C" />
+                <Text style={styles.expandBadgeText}>{isExpanded ? "Collapse" : "Expand"}</Text>
+              </TouchableOpacity>
+              <View style={[styles.mapLiveBadge, { backgroundColor: isDark ? "#142820" : "#E6F7F2" }]}>
+                <Text style={styles.mapLiveBadgeText}>LIVE</Text>
+              </View>
             </View>
           </View>
 
           {loading ? (
-            <SkeletonBlock height={360} borderRadius={16} />
+            <SkeletonBlock height={isExpanded ? 520 : 380} borderRadius={16} />
           ) : (
-            <View style={styles.canvasWrapper}>
+            <View
+              style={[styles.canvasWrapper, { height: isExpanded ? 520 : 380 }]}
+              onTouchStart={() => setScrollEnabled(false)}
+              onTouchEnd={() => setScrollEnabled(true)}
+              onTouchCancel={() => setScrollEnabled(true)}
+            >
               {Platform.OS === "web" ? (
                 // Web rendering via standard DOM iframe
-                <View style={{ width: "100%", height: 380, overflow: "hidden" }}>
+                <View style={{ width: "100%", height: isExpanded ? 520 : 380, overflow: "hidden" }}>
                   {React.createElement("iframe", {
                     srcDoc: mapHtml,
                     title: "Customer Map",
@@ -416,15 +554,22 @@ export default function CustomerMapScreen() {
                 </View>
               ) : WebViewComponent ? (
                 // Native iOS/Android WebView (when native module is linked)
-                <View style={{ width: "100%", height: 380, overflow: "hidden" }}>
+                <View style={{ width: "100%", height: isExpanded ? 520 : 380, overflow: "hidden" }}>
                   <WebViewComponent
                     originWhitelist={["*"]}
                     source={{ html: mapHtml }}
-                    style={{ width: "100%", height: 380, backgroundColor: "transparent" }}
+                    style={{ width: "100%", height: isExpanded ? 520 : 380, backgroundColor: "transparent" }}
                     onMessage={handleWebMessage}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
                     scrollEnabled={false}
+                    scalesPageToFit={false}
+                    overScrollMode="never"
+                    bounces={false}
+                    showsHorizontalScrollIndicator={false}
+                    showsVerticalScrollIndicator={false}
+                    androidLayerType="hardware"
+                    nestedScrollEnabled={true}
                   />
                 </View>
               ) : (
@@ -637,8 +782,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 0.5,
   },
+  expandBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  expandBadgeText: {
+    color: "#159A7C",
+    fontFamily: Typography.semiBold,
+    fontSize: 10,
+    letterSpacing: 0.3,
+  },
   mapLoading: { height: 380, alignItems: "center", justifyContent: "center" },
-  canvasWrapper: { width: "100%", height: 380, overflow: "hidden" },
+  canvasWrapper: { width: "100%", overflow: "hidden" },
   mapLegend: { flexDirection: "row", justifyContent: "space-around", paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E2E8F0" },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },

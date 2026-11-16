@@ -710,7 +710,7 @@ export function ProformaMainScreen() {
               {/* Warehouse Packing Photos Section */}
               <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
                 <Text style={[styles.detailCardLabel, { color: muted }]}>PACKING PHOTOS ({dispatchInfo.photos.length})</Text>
-                
+
                 {/* Existing uploaded photos */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 8 }}>
                   {dispatchInfo.photos.map((ph) => (
@@ -781,7 +781,7 @@ export function ProformaMainScreen() {
               {/* Courier Docket Section */}
               <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
                 <Text style={[styles.detailCardLabel, { color: muted }]}>COURIER DOCKET & AWB</Text>
-                
+
                 {dispatchInfo.can_dispatch ? (
                   <View style={{ marginTop: 6 }}>
                     <TextInput
