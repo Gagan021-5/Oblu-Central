@@ -248,6 +248,9 @@ export const SubAppCard: React.FC<SubAppCardProps> = React.memo(({
               },
             ]}
             numberOfLines={1}
+            ellipsizeMode="tail"
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
           >
             {label || finalAppId}
           </Text>

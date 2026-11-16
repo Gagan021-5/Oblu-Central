@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -71,8 +71,8 @@ export default function CustomerAnalyticsScreen() {
   const foreground = isDark ? "#F1F7F4" : "#101827";
   const muted = isDark ? "#9AA9A3" : "#637083";
   const card = { backgroundColor: isDark ? "#111B18" : "#FFFFFF", borderColor: isDark ? "#263A32" : "#E4EAF0" };
-  const screenWidth = Dimensions.get("window").width;
-  const chartWidth = Math.max(280, screenWidth - 68);
+  const { width: screenWidth } = useWindowDimensions();
+  const chartWidth = Math.max(260, screenWidth - 72);
 
   const maxState = Math.max(1, ...(data?.stateDistribution.map((x) => x.count) || [1]));
   const maxSales = Math.max(1, ...(data?.salespersonDistribution.map((x) => x.customers) || [1]));
@@ -154,9 +154,11 @@ export default function CustomerAnalyticsScreen() {
           >
             <Ionicons name="menu" size={22} color={foreground} />
           </TouchableOpacity>
-          <View>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[styles.eyebrow, { color: "#20B99A" }]}>CUSTOMERS</Text>
-            <Text style={[styles.title, { color: foreground }]}>Analytics</Text>
+            <Text style={[styles.title, { color: foreground }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              Analytics
+            </Text>
           </View>
         </View>
 
@@ -173,8 +175,17 @@ export default function CustomerAnalyticsScreen() {
         ].map((x) => (
           <View key={x.label} style={[styles.kpi, card]}>
             <Ionicons name={x.icon} size={19} color="#20B99A" />
-            <Text style={[styles.kpiValue, { color: foreground }]}>{x.value ?? (x.label.includes("Exposure") ? "₹0" : 0)}</Text>
-            <Text style={[styles.kpiLabel, { color: muted }]}>{x.label}</Text>
+            <Text
+              style={[styles.kpiValue, { color: foreground }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {x.value ?? (x.label.includes("Exposure") ? "₹0" : 0)}
+            </Text>
+            <Text style={[styles.kpiLabel, { color: muted }]} numberOfLines={1}>
+              {x.label}
+            </Text>
           </View>
         ))}
       </View>

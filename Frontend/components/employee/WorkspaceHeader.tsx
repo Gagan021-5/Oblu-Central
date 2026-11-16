@@ -195,6 +195,8 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
                 ]}
                 numberOfLines={1}
                 ellipsizeMode="tail"
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
               >
                 {formattedDate}
               </Text>
@@ -358,6 +360,9 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
             styles.greetingTitle,
             { color: isDark ? "#F8FAFC" : "#101513" },
           ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
         >
           {roleContext.subGreeting}, {displayName}
         </Text>
@@ -390,20 +395,22 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     justifyContent: "center",
     flex: 1,
-    marginRight: 8,
+    minWidth: 0,
+    marginRight: 6,
   },
   brandDateRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
     flex: 1,
+    minWidth: 0,
   },
   dateAndStatusRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap",
+    gap: 6,
     flex: 1,
+    minWidth: 0,
   },
   brandLogoContainer: {
     width: 36,
@@ -414,6 +421,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000000",
+    flexShrink: 0,
   },
   brandLogo: {
     width: "100%",
@@ -422,6 +430,8 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: FontSizes.bodySmall,
     fontFamily: Typography.semiBold,
+    flexShrink: 1,
+    minWidth: 0,
   },
   liveStatusPill: {
     flexDirection: "row",
@@ -431,6 +441,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 999,
     borderWidth: 1,
+    flexShrink: 0,
   },
   liveStatusDot: {
     width: 5.5,
@@ -445,7 +456,8 @@ const styles = StyleSheet.create({
   rightActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
   actionButton: {
     width: 38,

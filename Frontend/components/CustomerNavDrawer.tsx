@@ -220,11 +220,11 @@ export function CustomerNavDrawer({ visible, onClose, isAdmin = false }: Props) 
         <View style={[styles.drawer, { backgroundColor: bg, paddingTop: Math.max(insets.top, 16) }]}>
           <View style={[styles.brandRow, { borderBottomColor: dividerColor }]}>
             <SubAppLogo appId="customers" size={42} borderRadius={14} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.brand, { color: foreground }]} numberOfLines={1}>
+            <View style={{ flex: 1, minWidth: 0, marginHorizontal: 10 }}>
+              <Text style={[styles.brand, { color: foreground }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 Customer Overview
               </Text>
-              <Text style={[styles.caption, { color: muted }]}>Customer workspace</Text>
+              <Text style={[styles.caption, { color: muted }]} numberOfLines={1}>Customer workspace</Text>
             </View>
             <TouchableOpacity accessibilityLabel="Close menu" onPress={onClose} style={styles.close}>
               <Ionicons name="close" size={23} color={muted} />
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   },
   brand: { fontFamily: Typography.headingSemi, fontSize: 16 },
   caption: { fontFamily: Typography.regular, fontSize: 11, marginTop: 3 },
-  close: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
+  close: { width: 38, height: 38, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   section: {
     fontFamily: Typography.bold,
     marginTop: 24,

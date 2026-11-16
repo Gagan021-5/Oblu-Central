@@ -85,6 +85,8 @@ const CustomerCardComponent: React.FC<CustomerCardProps> = ({ customer, onPress 
                 { color: isDark ? "#F1F7F4" : "#101513" },
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
             >
               {customerName}
             </Text>
@@ -250,6 +252,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    minWidth: 0,
     marginRight: 8,
   },
   avatar: {
@@ -260,6 +263,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
+    flexShrink: 0,
   },
   avatarText: {
     fontSize: FontSizes.caption,
@@ -267,6 +271,7 @@ const styles = StyleSheet.create({
   },
   titleInfo: {
     flex: 1,
+    minWidth: 0,
   },
   companyName: {
     fontSize: FontSizes.body,
@@ -317,15 +322,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   salespersonText: {
     fontSize: FontSizes.caption,
     fontFamily: Typography.regular,
+    flexShrink: 1,
   },
   actionButtons: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexShrink: 0,
   },
   callButton: {
     flexDirection: "row",

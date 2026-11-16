@@ -161,11 +161,11 @@ export const WeeklyActivityChart: React.FC<WeeklyActivityChartProps> = ({
       ]}
     >
       <View style={styles.header}>
-        <View style={{ flex: 1, marginRight: 8 }}>
-          <Text style={[styles.title, { color: isDark ? "#F8FAFC" : "#101513" }]}>
+        <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+          <Text style={[styles.title, { color: isDark ? "#F8FAFC" : "#101513" }]} numberOfLines={1}>
             Weekly Customer Activity
           </Text>
-          <Text style={[styles.subtitle, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
+          <Text style={[styles.subtitle, { color: isDark ? "#94A3B8" : "#5E6964" }]} numberOfLines={1}>
             Touchpoints & follow-ups across 7 days
           </Text>
         </View>
@@ -281,6 +281,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     borderWidth: 1,
     maxWidth: "54%",
+    flexShrink: 0,
   },
   tooltipText: {
     fontSize: FontSizes.micro,

@@ -70,6 +70,8 @@ const TabButton: React.FC<TabButtonProps> = React.memo(({ item, isDark }) => {
         <Text
           numberOfLines={1}
           adjustsFontSizeToFit
+          minimumFontScale={0.75}
+          maxFontSizeMultiplier={1.1}
           style={[
             styles.tabLabel,
             {
@@ -395,13 +397,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderRadius: 32,
     borderWidth: 1,
     width: "92%",
     maxWidth: 380,
-    height: 64,
+    minHeight: 64,
   },
   tabButton: {
     flex: 1,

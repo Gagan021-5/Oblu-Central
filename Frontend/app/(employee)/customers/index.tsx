@@ -296,10 +296,15 @@ export default function CustomerDashboardScreen() {
           </TouchableOpacity>
 
           <View style={styles.titleColumn}>
-            <Text style={[styles.screenTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+            <Text
+              style={[styles.screenTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {isBusinessManager ? "Enterprise Accounts" : "Customers"}
             </Text>
-            <Text style={[styles.screenSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+            <Text style={[styles.screenSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>
               {effectiveTotalCount}{" "}
               {isBusinessManager || user?.hierarchy_scope?.can_view_all_salespersons
                 ? "enterprise relationships"
@@ -323,31 +328,51 @@ export default function CustomerDashboardScreen() {
           </Text>
           <View style={styles.summaryMetricsRow}>
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryVal, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              <Text
+                style={[styles.summaryVal, { color: isDark ? "#F1F7F4" : "#101513" }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
                 {dashboardStats?.totalCustomers ?? effectiveTotalCount}
               </Text>
-              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Total</Text>
+              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>Total</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: isDark ? "#1C2D26" : "#E8EFEB" }]} />
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryVal, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+              <Text
+                style={[styles.summaryVal, { color: isDark ? "#35D6A0" : "#00A879" }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
                 {dashboardStats?.activeCustomersCount ?? 0}
               </Text>
-              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Active</Text>
+              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>Active</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: isDark ? "#1C2D26" : "#E8EFEB" }]} />
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryVal, { color: isDark ? "#B7F34A" : "#2E7D32" }]}>
+              <Text
+                style={[styles.summaryVal, { color: isDark ? "#B7F34A" : "#2E7D32" }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
                 {dashboardStats?.followUpsDueCount ?? 0}
               </Text>
-              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Follow-ups</Text>
+              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>Follow-ups</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: isDark ? "#1C2D26" : "#E8EFEB" }]} />
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryVal, { color: isDark ? "#F2B84B" : "#C97A1E" }]}>
+              <Text
+                style={[styles.summaryVal, { color: isDark ? "#F2B84B" : "#C97A1E" }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
                 {dashboardStats?.pendingPaymentsCount ?? 0}
               </Text>
-              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Pending</Text>
+              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>Pending</Text>
             </View>
           </View>
         </View>
@@ -644,9 +669,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   titleColumn: {
     flex: 1,
+    minWidth: 0,
     marginLeft: 12,
   },
   screenTitle: {
@@ -677,6 +704,7 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     flex: 1,
+    minWidth: 0,
     alignItems: "center",
   },
   summaryVal: {
@@ -701,6 +729,7 @@ const styles = StyleSheet.create({
   },
   searchInputWrap: {
     flex: 1,
+    minWidth: 0,
   },
   filterButton: {
     width: 44,
@@ -709,6 +738,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderRadius: 13,
+    flexShrink: 0,
   },
   listHeaderRow: {
     paddingHorizontal: 2,

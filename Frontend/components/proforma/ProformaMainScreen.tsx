@@ -320,7 +320,7 @@ export function ProformaMainScreen() {
         activeOpacity={0.7}
       >
         <View style={styles.docCardHeader}>
-          <View style={{ flex: 1, marginRight: 8 }}>
+          <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text style={[styles.piNumber, { color: activeColor }]}>{item.piNumber}</Text>
               <View style={[styles.docTypePill, { backgroundColor: isQuotation ? "#3B82F620" : "rgba(16, 185, 129, 0.16)" }]}>
@@ -329,7 +329,12 @@ export function ProformaMainScreen() {
                 </Text>
               </View>
             </View>
-            <Text style={[styles.clientName, { color: foreground }]} numberOfLines={1}>
+            <Text
+              style={[styles.clientName, { color: foreground }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
               {item.clientName}
             </Text>
           </View>
@@ -343,13 +348,20 @@ export function ProformaMainScreen() {
         <View style={styles.docCardDivider} />
 
         <View style={styles.docCardFooter}>
-          <View>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[styles.amountLabel, { color: muted }]}>Grand Total</Text>
-            <Text style={[styles.amountVal, { color: foreground }]}>{item.amount}</Text>
+            <Text
+              style={[styles.amountVal, { color: foreground }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              {item.amount}
+            </Text>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={[styles.dateText, { color: muted }]}>{item.date}</Text>
-            <Text style={[styles.repText, { color: muted }]}>{item.rep}</Text>
+          <View style={{ alignItems: "flex-end", flexShrink: 1, minWidth: 0 }}>
+            <Text style={[styles.dateText, { color: muted }]} numberOfLines={1}>{item.date}</Text>
+            <Text style={[styles.repText, { color: muted }]} numberOfLines={1}>{item.rep}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -391,7 +403,14 @@ export function ProformaMainScreen() {
         </TouchableOpacity>
 
         <View style={styles.titleCluster}>
-          <Text style={[styles.headerTitle, { color: foreground }]}>{getTabTitle()}</Text>
+          <Text
+            style={[styles.headerTitle, { color: foreground }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
+            {getTabTitle()}
+          </Text>
         </View>
 
         {hubData?.permissions.can_create_proforma ? (
@@ -838,8 +857,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  titleCluster: { alignItems: "center" },
+  titleCluster: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+    marginHorizontal: 8,
+  },
   headerTitle: { fontSize: 17, fontFamily: Typography.bold },
   headerRole: { fontSize: 11, fontFamily: Typography.regular, marginTop: 1 },
   addBtn: {
@@ -848,6 +874,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   searchContainer: { paddingHorizontal: 16, marginBottom: 8 },
   statsContainer: {

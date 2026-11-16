@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
   Animated,
-  Dimensions,
+  useWindowDimensions,
   Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -38,9 +38,6 @@ interface ProformaNavDrawerProps {
   onOpenCreateModal: (type: "proforma" | "quotation") => void;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.82, 340);
-
 export function ProformaNavDrawer({
   visible,
   activeTab,
@@ -51,6 +48,8 @@ export function ProformaNavDrawer({
 }: ProformaNavDrawerProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const drawerWidth = Math.min(windowWidth * 0.82, 340);
   const { user } = useAuth();
   const isAdmin = user?.role?.toLowerCase().includes("admin") || (user as any)?.is_superuser;
 
@@ -128,7 +127,7 @@ export function ProformaNavDrawer({
 
   const translateX = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [-DRAWER_WIDTH, 0],
+    outputRange: [-drawerWidth, 0],
   });
 
   const scrimOpacity = anim.interpolate({
@@ -169,7 +168,7 @@ export function ProformaNavDrawer({
           style={[
             styles.drawer,
             {
-              width: DRAWER_WIDTH,
+              width: drawerWidth,
               backgroundColor: bg,
               borderRightColor: itemBorder,
               paddingTop: Math.max(insets.top, 16),
@@ -180,8 +179,8 @@ export function ProformaNavDrawer({
           {/* Brand Header */}
           <View style={[styles.brandRow, { borderBottomColor: itemBorder }]}>
             <SubAppLogo appId="proforma" size={42} borderRadius={12} />
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ flex: 1, minWidth: 0, marginHorizontal: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <Text style={[styles.brandTitle, { color: foreground }]}>OBLU</Text>
                 <View style={styles.dot} />
                 <View
@@ -193,7 +192,7 @@ export function ProformaNavDrawer({
                   <Text style={styles.badgePillText}>PROFORMA & QUOTES</Text>
                 </View>
               </View>
-              <Text style={[styles.brandSubtitle, { color: muted }]}>
+              <Text style={[styles.brandSubtitle, { color: muted }]} numberOfLines={1}>
                 Sales & Billing Workspace
               </Text>
             </View>
@@ -534,6 +533,7 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: 6,
+    flexShrink: 0,
   },
   sectionTitle: {
     fontSize: 10,

@@ -7,7 +7,7 @@ import {
   RefreshControl,
   ScrollView,
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,8 +31,6 @@ import { InventoryDeadStockTab } from "./InventoryDeadStockTab";
 import { InventoryProcurementTab } from "./InventoryProcurementTab";
 import { InventoryAnalyticsTab } from "./InventoryAnalyticsTab";
 import { InventoryNavDrawer } from "./InventoryNavDrawer";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export type InventoryNavTab =
   | "overview"
@@ -141,6 +139,8 @@ export function InventoryMainScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
+  const { width: windowWidth } = useWindowDimensions();
+  const chartWidth = Math.max(260, windowWidth - 64);
   const scrollRef = useRef<any>(null);
 
   // Active feature tab navigation
@@ -354,7 +354,12 @@ export function InventoryMainScreen() {
         </TouchableOpacity>
 
         <View style={styles.topBarCenter}>
-          <Text style={[styles.screenHeading, { color: foreground }]}>
+          <Text
+            style={[styles.screenHeading, { color: foreground }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
             {currentTab === "overview"
               ? "Dashboard"
               : currentTab === "catalog"
@@ -797,7 +802,7 @@ export function InventoryMainScreen() {
                     },
                   ],
                 }}
-                width={SCREEN_WIDTH - 64}
+                width={chartWidth}
                 height={180}
                 chartConfig={{
                   backgroundColor: cardBg,
@@ -1553,8 +1558,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  topBarCenter: { flex: 1, alignItems: "center" },
+  topBarCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+    marginHorizontal: 8,
+  },
   screenHeading: { fontFamily: Typography.bold, fontSize: 15 },
   screenSub: { fontFamily: Typography.regular, fontSize: 11, marginTop: 1 },
   content: { padding: 16, gap: 14 },

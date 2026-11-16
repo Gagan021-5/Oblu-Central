@@ -13,8 +13,22 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { Colors } from "@/constants/theme";
-import { View, ActivityIndicator, LogBox } from "react-native";
+import { View, Text, TextInput, ActivityIndicator, LogBox } from "react-native";
 import { registerBackgroundSync } from "@/services/backgroundSync";
+
+// ── Global Accessibility & Responsiveness Guard ──────────────────────────────
+// Caps system accessibility font scaling to 1.15x (15% growth) to prevent
+// Android skins (e.g. Vivo Funtouch OS, Xiaomi MIUI) with custom display/font
+// zoom from blowing out navigation bars, header rows, and metric cards.
+if ((Text as any).defaultProps == null) {
+  (Text as any).defaultProps = {};
+}
+(Text as any).defaultProps.maxFontSizeMultiplier = 1.15;
+
+if ((TextInput as any).defaultProps == null) {
+  (TextInput as any).defaultProps = {};
+}
+(TextInput as any).defaultProps.maxFontSizeMultiplier = 1.15;
 
 LogBox.ignoreLogs([
   "expo-notifications: Custom sound 'default' not found",

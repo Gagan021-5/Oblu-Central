@@ -65,15 +65,15 @@ export function InventoryNavDrawer({
           {/* Brand Header */}
           <View style={[styles.brandRow, { borderBottomColor: itemBorder }]}>
             <SubAppLogo appId="inventory" size={40} borderRadius={12} />
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ flex: 1, minWidth: 0, marginHorizontal: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <Text style={[styles.brandTitle, { color: foreground }]}>OBLU</Text>
                 <View style={styles.dot} />
                 <View style={[styles.badgePill, { backgroundColor: isDark ? "rgba(0,168,121,0.2)" : "#DDF4EA" }]}>
                   <Text style={styles.badgePillText}>INVENTORY</Text>
                 </View>
               </View>
-              <Text style={[styles.brandSubtitle, { color: muted }]}>Warehouse Telemetry</Text>
+              <Text style={[styles.brandSubtitle, { color: muted }]} numberOfLines={1}>Warehouse Telemetry</Text>
             </View>
             <TouchableOpacity accessibilityLabel="Close menu" onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={22} color={muted} />
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   brandSubtitle: { fontFamily: Typography.regular, fontSize: 10.5, marginTop: 2 },
-  closeBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
+  closeBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   sectionTitle: {
     fontFamily: Typography.bold,
     marginTop: 18,

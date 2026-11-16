@@ -347,6 +347,7 @@ export const MetricCard: React.FC<MetricCardProps> = React.memo(({
             ]}
             numberOfLines={1}
             adjustsFontSizeToFit
+            minimumFontScale={0.7}
           >
             {displayValue}
           </Text>
@@ -514,6 +515,8 @@ const styles = StyleSheet.create({
   },
   subText: {
     flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
     fontSize: 12,
     fontFamily: Typography.medium,
   },
@@ -524,6 +527,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   bottomAccentTrack: {
     height: 2.5,

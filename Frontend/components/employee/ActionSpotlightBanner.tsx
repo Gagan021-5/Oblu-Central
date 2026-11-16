@@ -5,7 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Animated,
-  Dimensions,
+  useWindowDimensions,
   FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -15,9 +15,6 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Typography } from "@/constants/theme";
 import { triggerLightHaptic, triggerSelectionHaptic } from "@/utils/haptics";
 import { router } from "expo-router";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = SCREEN_WIDTH - 32;
 
 export interface SpotlightCardItem {
   id: string;
@@ -48,6 +45,9 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
   onQuickActionPress,
 }) => {
   const { isDark } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const cardWidth = Math.max(260, windowWidth - 32);
+
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const isInteracting = useRef(false);
@@ -153,7 +153,7 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;
-    const idx = Math.round(x / CARD_WIDTH);
+    const idx = Math.round(x / cardWidth);
     if (idx !== activeIndex && idx >= 0 && idx < spotlightCards.length) {
       setActiveIndex(idx);
     }
@@ -179,7 +179,7 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        snapToInterval={CARD_WIDTH}
+        snapToInterval={cardWidth}
         decelerationRate="fast"
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -192,7 +192,7 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
           }, 3000);
         }}
         renderItem={({ item }) => (
-          <View style={[styles.cardWrapper, { width: CARD_WIDTH }]}>
+          <View style={[styles.cardWrapper, { width: cardWidth }]}>
             <Pressable
               onPress={() => handleCardPress(item)}
               style={({ pressed }) => [
@@ -261,6 +261,8 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
                       { color: isDark ? "#F8FAFC" : "#101513" },
                     ]}
                     numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
                   >
                     {item.title}
                   </Text>
@@ -271,6 +273,7 @@ export const ActionSpotlightBanner: React.FC<ActionSpotlightBannerProps> = ({
                     { color: isDark ? "#94A3B8" : "#5E6964" },
                   ]}
                   numberOfLines={1}
+                  ellipsizeMode="tail"
                 >
                   {item.subtitle}
                 </Text>
@@ -378,6 +381,8 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
     marginRight: 8,
   },
   titleRow: {
@@ -396,11 +401,12 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   actionButton: {
-    paddingHorizontal: 13,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   actionButtonText: {
     fontSize: 11.5,
