@@ -109,8 +109,9 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
     """)
     pg_all_tables = set(row[0] for row in pg_cur.fetchall())
 
-    common_tables = [t for t in sq_tables if t in pg_all_tables]
-    print(f"[INFO] Found {len(common_tables)} matching tables in PostgreSQL.")
+    # Note: Preserve django_migrations on PostgreSQL so migration version history is retained
+    common_tables = [t for t in sq_tables if t in pg_all_tables and t != "django_migrations"]
+    print(f"[INFO] Found {len(common_tables)} matching tables to sync in PostgreSQL.")
 
     if not common_tables:
         print("[ERROR] No matching tables found! Have migrations been run on PostgreSQL?")
@@ -141,8 +142,16 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
             sq_cur.execute(f'PRAGMA table_info("{table}");')
             sq_col_names = set(row[1] for row in sq_cur.fetchall())
 
-            # Intersect columns
-            target_cols = [c for c in pg_cols_info.keys() if c in sq_col_names]
+            # Target columns:
+            # 1. Any column in PostgreSQL that is present in SQLite
+            # 2. ANY column in PostgreSQL that is NOT NULL (even if missing from SQLite)
+            target_cols = []
+            for c, meta in pg_cols_info.items():
+                if c in sq_col_names:
+                    target_cols.append(c)
+                elif not meta["nullable"]:
+                    target_cols.append(c)
+
             if not target_cols:
                 continue
 
@@ -156,8 +165,14 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
 
                 fallback_val = None
                 if not is_null:
+                    # Specific known column fallbacks
                     if c == "leave_policy_mode":
                         fallback_val = "annual"
+                    elif c in ("manual_override", "is_encashed"):
+                        fallback_val = False
+                    elif c in ("credits_used", "comp_off_used", "attendance_penalty", 
+                              "comp_off_earned", "comp_off_encashment", "comp_off_remaining"):
+                        fallback_val = 0
                     elif raw_default and not raw_default.startswith("nextval"):
                         cleaned = raw_default.split("::")[0].strip("'")
                         if col_type == "boolean":
@@ -177,7 +192,7 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
                         elif "int" in col_type:
                             fallback_val = 0
                         elif any(k in col_type for k in ("numeric", "double", "real")):
-                            fallback_val = 0.0
+                            fallback_val = 0
                         elif "date" in col_type:
                             fallback_val = datetime.date.today()
                         elif "timestamp" in col_type:
@@ -201,8 +216,9 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
                 summary.append((table, 0, 0, True))
                 continue
 
-            # Query rows from SQLite
-            cols_quoted_sq = ", ".join([f'"{c}"' for c in target_cols])
+            # Query rows from SQLite for columns that actually exist in SQLite
+            sq_cols_to_query = [c for c in target_cols if c in sq_col_names]
+            cols_quoted_sq = ", ".join([f'"{c}"' for c in sq_cols_to_query])
             sq_cur.execute(f'SELECT {cols_quoted_sq} FROM "{table}";')
 
             cols_quoted_pg = ", ".join([f'"{c}"' for c in target_cols])
@@ -216,9 +232,10 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
 
                 batch_data = []
                 for row in rows:
+                    row_dict = dict(zip(sq_cols_to_query, row))
                     row_vals = []
-                    for idx, c in enumerate(target_cols):
-                        val = row[idx]
+                    for c in target_cols:
+                        val = row_dict.get(c)
                         spec = col_specs[c]
 
                         # Boolean type conversion (SQLite stores 0/1)
@@ -259,8 +276,7 @@ def run_sync(sqlite_path: str, pg_url: str, batch_size: int = 2000):
                             (SELECT COUNT(*) > 0 FROM "{table}")
                         );
                     """, (table,))
-                except Exception as seq_err:
-                    # Ignore if table doesn't have an auto sequence
+                except Exception:
                     pass
 
         # Commit everything
