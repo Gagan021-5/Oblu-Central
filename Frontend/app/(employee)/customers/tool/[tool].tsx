@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import api from "@/services/api";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography } from "@/constants/theme";
@@ -66,6 +67,7 @@ export default function CustomerToolScreen() {
   const { tool } = useLocalSearchParams<{ tool: string }>();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { t } = useEmployeeTheme();
   const { user, permissionProfile } = useAuth();
   const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
   const isSuperuser =
@@ -342,7 +344,7 @@ export default function CustomerToolScreen() {
 
   const foreground = isDark ? "#F1F7F4" : "#101827";
   const muted = isDark ? "#9AA9A3" : "#637083";
-  const card = { backgroundColor: isDark ? "#111B18" : "#FFFFFF", borderColor: isDark ? "#263A32" : "#E4EAF0" };
+  const card = { backgroundColor: t.surface, borderColor: t.border };
 
   // Salesperson Options from server and rows
   const salespersonOptions = useMemo(() => {
@@ -713,7 +715,7 @@ export default function CustomerToolScreen() {
       <View key={`cs-${row.id || index}`} style={[styles.csCard, card]}>
         {/* Customer Header */}
         <View style={styles.csHeader}>
-          <View style={[styles.csAvatar, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9" }]}>
+          <View style={[styles.csAvatar, { backgroundColor: t.surfaceAlt }]}>
             <Text style={{ fontFamily: Typography.bold, color: foreground, fontSize: 13 }}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>

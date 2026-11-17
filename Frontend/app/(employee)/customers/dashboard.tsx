@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { DashboardStats, fetchDashboardStatsApi, fetchCustomerChartsApi } from "@/services/customerService";
@@ -28,7 +29,8 @@ const links = [
 
 export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?: boolean }) {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
   const { user, permissionProfile } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,7 +94,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
   }, [load]);
 
   const open = (route: string) => router.push(route as never);
-  const cardBg = isDark ? "#111B18" : "#FFFFFF";
+  const cardBg = t.surface;
   const text = isDark ? "#F1F7F4" : "#101827";
   const muted = isDark ? "#9AA9A3" : "#637083";
 
@@ -184,7 +186,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
               onPress={() => open(item.route)}
               style={[
                 styles.metric,
-                { backgroundColor: cardBg, borderColor: isDark ? "#263A32" : "#E4EAF0" },
+                { backgroundColor: cardBg, borderColor: t.border },
               ]}
             >
               <View style={[styles.metricIcon, { backgroundColor: item.tint }]}>
@@ -237,7 +239,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
             activeOpacity={0.75}
             style={[
               styles.linkCard,
-              { backgroundColor: cardBg, borderColor: isDark ? "#263A32" : "#E4EAF0" },
+              { backgroundColor: cardBg, borderColor: t.border },
             ]}
           >
             <View style={[styles.linkIcon, { backgroundColor: `${item.color}18` }]}>

@@ -30,6 +30,7 @@ import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import AppLineChart from "@/components/charts/AppLineChart";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { SkeletonCardList, SkeletonBlock } from "@/components/ui/SkeletonCard";
@@ -51,7 +52,8 @@ type AnalysisTab = "Analysis" | "Transcript" | "Moments" | "Details";
 export default function CallLogsScreen() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const { isDark, colors } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
   const params = useLocalSearchParams<{ user_id?: string; username?: string }>();
 
   const [logs, setLogs] = useState<CallLogItem[]>([]);
@@ -130,19 +132,19 @@ export default function CallLogsScreen() {
   const missedPct = Math.round((missedCalls / totalStatsCalls) * 100);
 
   const chartConfig = {
-    backgroundGradientFrom: colors.card,
-    backgroundGradientTo: colors.card,
+    backgroundGradientFrom: t.surface,
+    backgroundGradientTo: t.surface,
     color: (opacity = 1) =>
-      isDark ? `rgba(53, 214, 160, ${opacity})` : `rgba(0, 168, 121, ${opacity})`,
+      isDark ? `rgba(16, 185, 129, ${opacity})` : `rgba(0, 168, 121, ${opacity})`,
     labelColor: (opacity = 1) =>
-      isDark ? `rgba(143, 160, 154, ${opacity})` : `rgba(94, 105, 100, ${opacity})`,
+      isDark ? `rgba(148, 163, 184, ${opacity})` : `rgba(94, 105, 100, ${opacity})`,
     strokeWidth: 2.5,
     barPercentage: 0.55,
     decimalPlaces: 0,
-    propsForDots: { r: "4", strokeWidth: "2", stroke: colors.primary },
+    propsForDots: { r: "4", strokeWidth: "2", stroke: t.primary },
     propsForBackgroundLines: {
       strokeDasharray: "4",
-      stroke: isDark ? "rgba(41, 64, 57, 0.6)" : "rgba(216, 224, 220, 0.8)",
+      stroke: t.border,
     },
   };
 
@@ -251,14 +253,14 @@ export default function CallLogsScreen() {
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
       {/* ── Top Bar ────────────────────────────────────────────── */}
       <View
         style={[
           styles.topBar,
           {
             paddingTop: Math.max(insets.top, 14),
-            borderBottomColor: colors.borderLight,
+            borderBottomColor: t.border,
           },
         ]}
       >
@@ -267,50 +269,58 @@ export default function CallLogsScreen() {
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/(admin)/users"))}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={22} color={t.text} />
         </TouchableOpacity>
-        <Text style={[styles.screenHeading, { color: colors.textPrimary }]}>
+        <Text style={[styles.screenHeading, { color: t.text }]}>
           Calls & Tracking
         </Text>
         <View style={styles.topBarRight}>
           <TouchableOpacity
             style={[
               styles.iconBtn,
-              { backgroundColor: colors.card, borderColor: colors.border },
+              { backgroundColor: t.surface, borderColor: t.border },
             ]}
             onPress={() => setActiveMainTab(activeMainTab === "timeline" ? "analytics" : "timeline")}
           >
             <Ionicons
               name={activeMainTab === "timeline" ? "bar-chart-outline" : "list-outline"}
               size={18}
-              color={colors.primary}
+              color={t.primary}
             />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* ── Segmented Navigation: Timeline vs Analytics & Reports ─ */}
-      <View style={styles.segmentContainer}>
+      <View
+        style={[
+          styles.segmentTrack,
+          {
+            backgroundColor: t.surfaceAlt,
+            borderColor: t.border,
+          },
+        ]}
+      >
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setActiveMainTab("timeline")}
           style={[
             styles.segmentBtn,
             activeMainTab === "timeline"
-              ? { backgroundColor: colors.primary }
-              : { backgroundColor: colors.card, borderColor: colors.borderLight, borderWidth: 1 },
+              ? { backgroundColor: t.primary }
+              : { backgroundColor: "transparent" },
           ]}
         >
           <Ionicons
             name="list"
             size={15}
-            color={activeMainTab === "timeline" ? "#FFFFFF" : colors.textSecondary}
+            color={activeMainTab === "timeline" ? "#FFFFFF" : t.textSecondary}
           />
           <Text
             style={[
               styles.segmentText,
               {
-                color: activeMainTab === "timeline" ? "#FFFFFF" : colors.textSecondary,
+                color: activeMainTab === "timeline" ? "#FFFFFF" : t.textSecondary,
                 fontFamily: activeMainTab === "timeline" ? Typography.bold : Typography.medium,
               },
             ]}
@@ -325,20 +335,20 @@ export default function CallLogsScreen() {
           style={[
             styles.segmentBtn,
             activeMainTab === "analytics"
-              ? { backgroundColor: colors.primary }
-              : { backgroundColor: colors.card, borderColor: colors.borderLight, borderWidth: 1 },
+              ? { backgroundColor: t.primary }
+              : { backgroundColor: "transparent" },
           ]}
         >
           <Ionicons
             name="pie-chart"
             size={15}
-            color={activeMainTab === "analytics" ? "#FFFFFF" : colors.textSecondary}
+            color={activeMainTab === "analytics" ? "#FFFFFF" : t.textSecondary}
           />
           <Text
             style={[
               styles.segmentText,
               {
-                color: activeMainTab === "analytics" ? "#FFFFFF" : colors.textSecondary,
+                color: activeMainTab === "analytics" ? "#FFFFFF" : t.textSecondary,
                 fontFamily: activeMainTab === "analytics" ? Typography.bold : Typography.medium,
               },
             ]}
@@ -356,52 +366,55 @@ export default function CallLogsScreen() {
             style={[
               styles.kpiStrip,
               {
-                backgroundColor: colors.card,
-                borderColor: colors.cardBorder,
+                backgroundColor: t.surface,
+                borderColor: t.border,
+                borderWidth: 1,
+                borderRadius: 20,
               },
+              isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
             ]}
           >
             <View style={styles.kpiItem}>
-              <Text style={[styles.kpiNum, { color: colors.textPrimary }]}>
+              <Text style={[styles.kpiNum, { color: t.text }]}>
                 {stats?.total_calls || logs.length}
               </Text>
-              <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>Total</Text>
+              <Text style={[styles.kpiLabel, { color: t.textSecondary }]}>TOTAL</Text>
             </View>
 
-            <View style={[styles.kpiDivider, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.kpiDivider, { backgroundColor: t.border, height: 28 }]} />
 
             <View style={styles.kpiItem}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <Ionicons name="arrow-down" size={13} color={colors.primary} />
-                <Text style={[styles.kpiNum, { color: colors.primary }]}>
+                <Ionicons name="arrow-down" size={13} color={t.primary} />
+                <Text style={[styles.kpiNum, { color: t.primary }]}>
                   {incomingCalls}
                 </Text>
               </View>
-              <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>Incoming</Text>
+              <Text style={[styles.kpiLabel, { color: t.textSecondary }]}>INCOMING</Text>
             </View>
 
-            <View style={[styles.kpiDivider, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.kpiDivider, { backgroundColor: t.border, height: 28 }]} />
 
             <View style={styles.kpiItem}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <Ionicons name="arrow-up" size={13} color={colors.cyan || "#0EA5E9"} />
-                <Text style={[styles.kpiNum, { color: colors.cyan || "#0EA5E9" }]}>
+                <Ionicons name="arrow-up" size={13} color={t.primary} />
+                <Text style={[styles.kpiNum, { color: t.primary }]}>
                   {outgoingCalls}
                 </Text>
               </View>
-              <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>Outgoing</Text>
+              <Text style={[styles.kpiLabel, { color: t.textSecondary }]}>OUTGOING</Text>
             </View>
 
-            <View style={[styles.kpiDivider, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.kpiDivider, { backgroundColor: t.border, height: 28 }]} />
 
             <View style={styles.kpiItem}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <Ionicons name="close" size={14} color={colors.error || "#EF4444"} />
-                <Text style={[styles.kpiNum, { color: colors.error || "#EF4444" }]}>
+                <Ionicons name="close" size={14} color={t.danger || "#EF4444"} />
+                <Text style={[styles.kpiNum, { color: t.danger || "#EF4444" }]}>
                   {missedCalls}
                 </Text>
               </View>
-              <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>Missed</Text>
+              <Text style={[styles.kpiLabel, { color: t.textSecondary }]}>MISSED</Text>
             </View>
           </View>
 
@@ -432,8 +445,8 @@ export default function CallLogsScreen() {
                   style={[
                     styles.filterChip,
                     {
-                      backgroundColor: isSelected ? colors.primary : colors.card,
-                      borderColor: isSelected ? colors.primary : colors.borderLight,
+                      backgroundColor: isSelected ? t.primary : t.surface,
+                      borderColor: isSelected ? t.primary : t.border,
                     },
                   ]}
                 >
@@ -441,7 +454,7 @@ export default function CallLogsScreen() {
                     style={[
                       styles.filterChipText,
                       {
-                        color: isSelected ? "#FFFFFF" : colors.textSecondary,
+                        color: isSelected ? "#FFFFFF" : t.textSecondary,
                         fontFamily: isSelected ? Typography.semiBold : Typography.regular,
                       },
                     ]}
@@ -458,11 +471,11 @@ export default function CallLogsScreen() {
             <SkeletonCardList count={5} height={86} style={{ paddingHorizontal: 16, paddingTop: 6 }} />
           ) : filteredLogs.length === 0 ? (
             <View style={styles.emptyWrap}>
-              <Ionicons name="call-outline" size={44} color={colors.textMuted} />
-              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              <Ionicons name="call-outline" size={44} color={t.textSecondary} />
+              <Text style={[styles.emptyTitle, { color: t.text }]}>
                 No Call Logs Found
               </Text>
-              <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+              <Text style={[styles.emptySubtitle, { color: t.textSecondary }]}>
                 Sync calls or adjust your search filters.
               </Text>
             </View>
@@ -478,7 +491,7 @@ export default function CallLogsScreen() {
               onEndReachedThreshold={0.4}
               renderItem={({ item: group }) => (
                 <View style={styles.groupSection}>
-                  <Text style={[styles.groupHeader, { color: colors.textSecondary }]}>
+                  <Text style={[styles.groupHeader, { color: t.textSecondary }]}>
                     {group.title}
                   </Text>
 
@@ -486,10 +499,10 @@ export default function CallLogsScreen() {
                     const isIncoming = log.call_type === "incoming";
                     const isMissed = log.call_type === "missed";
                     const iconColor = isMissed
-                      ? colors.error
+                      ? t.danger
                       : isIncoming
-                      ? colors.primary
-                      : colors.textSecondary;
+                      ? t.primary
+                      : t.textSecondary;
                     const iconName = isMissed
                       ? "close"
                       : isIncoming
@@ -502,7 +515,7 @@ export default function CallLogsScreen() {
                         : "rgba(239, 68, 68, 0.12)"
                       : isIncoming
                       ? isDark
-                        ? "rgba(53, 214, 160, 0.16)"
+                        ? "rgba(16, 185, 129, 0.16)"
                         : "rgba(0, 168, 121, 0.12)"
                       : isDark
                       ? "rgba(59, 130, 246, 0.16)"
@@ -516,9 +529,10 @@ export default function CallLogsScreen() {
                         style={[
                           styles.callRow,
                           {
-                            backgroundColor: colors.card,
-                            borderColor: colors.cardBorder,
+                            backgroundColor: t.surface,
+                            borderColor: t.border,
                           },
+                          isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                         ]}
                       >
                         {/* Avatar */}
@@ -534,13 +548,13 @@ export default function CallLogsScreen() {
                         {/* Details */}
                         <View style={styles.callDetails}>
                           <Text
-                            style={[styles.callerName, { color: colors.textPrimary }]}
+                            style={[styles.callerName, { color: t.text }]}
                             numberOfLines={1}
                           >
                             {log.username || log.phone_number}
                           </Text>
                           <Text
-                            style={[styles.callMeta, { color: colors.textSecondary }]}
+                            style={[styles.callMeta, { color: t.textSecondary }]}
                             numberOfLines={1}
                           >
                             {log.phone_number}
@@ -551,12 +565,12 @@ export default function CallLogsScreen() {
                         <View style={styles.callRight}>
                           <View style={styles.callTimeCol}>
                             <Text
-                              style={[styles.callDurationText, { color: colors.textSecondary }]}
+                              style={[styles.callDurationText, { color: t.textSecondary }]}
                             >
                               {formatDuration(log.duration)}
                             </Text>
                             <Text
-                              style={[styles.callTimeText, { color: colors.textSecondary }]}
+                              style={[styles.callTimeText, { color: t.textSecondary }]}
                             >
                               {formatTime(log.timestamp)}
                             </Text>
@@ -564,7 +578,7 @@ export default function CallLogsScreen() {
                           <Ionicons
                             name="chevron-forward"
                             size={16}
-                            color={colors.textMuted}
+                            color={t.textSecondary}
                           />
                         </View>
                       </TouchableOpacity>
@@ -595,9 +609,9 @@ export default function CallLogsScreen() {
                 styles.memberPill,
                 {
                   backgroundColor:
-                    selectedStatsUser === "all" ? colors.primary : colors.card,
+                    selectedStatsUser === "all" ? t.primary : t.surface,
                   borderColor:
-                    selectedStatsUser === "all" ? colors.primary : colors.cardBorder,
+                    selectedStatsUser === "all" ? t.primary : t.border,
                 },
               ]}
               onPress={() => setSelectedStatsUser("all")}
@@ -605,13 +619,13 @@ export default function CallLogsScreen() {
               <Ionicons
                 name="globe-outline"
                 size={13}
-                color={selectedStatsUser === "all" ? "#FFFFFF" : colors.textSecondary}
+                color={selectedStatsUser === "all" ? "#FFFFFF" : t.textSecondary}
               />
               <Text
                 style={[
                   styles.pillText,
                   {
-                    color: selectedStatsUser === "all" ? "#FFFFFF" : colors.textSecondary,
+                    color: selectedStatsUser === "all" ? "#FFFFFF" : t.textSecondary,
                     fontFamily:
                       selectedStatsUser === "all" ? Typography.semiBold : Typography.regular,
                   },
@@ -629,8 +643,8 @@ export default function CallLogsScreen() {
                   style={[
                     styles.memberPill,
                     {
-                      backgroundColor: active ? colors.primary : colors.card,
-                      borderColor: active ? colors.primary : colors.cardBorder,
+                      backgroundColor: active ? t.primary : t.surface,
+                      borderColor: active ? t.primary : t.border,
                     },
                   ]}
                   onPress={() => setSelectedStatsUser(m.id.toString())}
@@ -639,7 +653,7 @@ export default function CallLogsScreen() {
                     style={[
                       styles.pillText,
                       {
-                        color: active ? "#FFFFFF" : colors.textSecondary,
+                        color: active ? "#FFFFFF" : t.textSecondary,
                         fontFamily: active ? Typography.semiBold : Typography.regular,
                       },
                     ]}
@@ -664,21 +678,22 @@ export default function CallLogsScreen() {
                 <View
                   style={[
                     styles.analyticsKpiCard,
-                    { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                    { backgroundColor: t.surface, borderColor: t.border },
+                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                   ]}
                 >
                   <View
                     style={[
                       styles.analyticsKpiIcon,
-                      { backgroundColor: colors.mintTintedSurface },
+                      { backgroundColor: t.primarySurface },
                     ]}
                   >
-                    <Ionicons name="call" size={16} color={colors.primary} />
+                    <Ionicons name="call" size={16} color={t.primary} />
                   </View>
-                  <Text style={[styles.analyticsKpiVal, { color: colors.textPrimary }]}>
+                  <Text style={[styles.analyticsKpiVal, { color: t.text }]}>
                     {stats?.total_calls || 0}
                   </Text>
-                  <Text style={[styles.analyticsKpiLbl, { color: colors.textMuted }]}>
+                  <Text style={[styles.analyticsKpiLbl, { color: t.textSecondary }]}>
                     Total Calls
                   </Text>
                 </View>
@@ -686,21 +701,22 @@ export default function CallLogsScreen() {
                 <View
                   style={[
                     styles.analyticsKpiCard,
-                    { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                    { backgroundColor: t.surface, borderColor: t.border },
+                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                   ]}
                 >
                   <View
                     style={[
                       styles.analyticsKpiIcon,
-                      { backgroundColor: colors.secondarySurface },
+                      { backgroundColor: t.surfaceAlt },
                     ]}
                   >
-                    <Ionicons name="time" size={16} color={colors.textPrimary} />
+                    <Ionicons name="time" size={16} color={t.text} />
                   </View>
-                  <Text style={[styles.analyticsKpiVal, { color: colors.textPrimary }]}>
+                  <Text style={[styles.analyticsKpiVal, { color: t.text }]}>
                     {formatDuration(stats?.total_duration || 0)}
                   </Text>
-                  <Text style={[styles.analyticsKpiLbl, { color: colors.textMuted }]}>
+                  <Text style={[styles.analyticsKpiLbl, { color: t.textSecondary }]}>
                     Talk Time
                   </Text>
                 </View>
@@ -708,23 +724,24 @@ export default function CallLogsScreen() {
                 <View
                   style={[
                     styles.analyticsKpiCard,
-                    { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                    { backgroundColor: t.surface, borderColor: t.border },
+                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                   ]}
                 >
                   <View
                     style={[
                       styles.analyticsKpiIcon,
-                      { backgroundColor: colors.mintTintedSurface },
+                      { backgroundColor: t.primarySurface },
                     ]}
                   >
-                    <Ionicons name="speedometer" size={16} color={colors.primary} />
+                    <Ionicons name="speedometer" size={16} color={t.primary} />
                   </View>
-                  <Text style={[styles.analyticsKpiVal, { color: colors.textPrimary }]}>
+                  <Text style={[styles.analyticsKpiVal, { color: t.text }]}>
                     {stats?.total_calls
                       ? formatDuration(Math.round(stats.total_duration / stats.total_calls))
                       : "0s"}
                   </Text>
-                  <Text style={[styles.analyticsKpiLbl, { color: colors.textMuted }]}>
+                  <Text style={[styles.analyticsKpiLbl, { color: t.textSecondary }]}>
                     Avg/Call
                   </Text>
                 </View>
@@ -734,20 +751,21 @@ export default function CallLogsScreen() {
               <View
                 style={[
                   styles.analyticsChartCard,
-                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                  { backgroundColor: t.surface, borderColor: t.border },
+                  isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                 ]}
               >
                 <View style={styles.analyticsChartHeader}>
-                  <Text style={[styles.analyticsChartTitle, { color: colors.textPrimary }]}>
+                  <Text style={[styles.analyticsChartTitle, { color: t.text }]}>
                     Daily Call Volume
                   </Text>
                   <View
                     style={[
                       styles.analyticsChartBadge,
-                      { backgroundColor: colors.mintTintedSurface },
+                      { backgroundColor: t.primarySurface },
                     ]}
                   >
-                    <Text style={[styles.analyticsChartBadgeText, { color: colors.primary }]}>
+                    <Text style={[styles.analyticsChartBadgeText, { color: t.primary }]}>
                       7 Days
                     </Text>
                   </View>
@@ -777,27 +795,28 @@ export default function CallLogsScreen() {
               <View
                 style={[
                   styles.analyticsSectionCard,
-                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                  { backgroundColor: t.surface, borderColor: t.border },
+                  isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                 ]}
               >
-                <Text style={[styles.analyticsSectionTitle, { color: colors.textPrimary }]}>
+                <Text style={[styles.analyticsSectionTitle, { color: t.text }]}>
                   Call Breakdown by Type
                 </Text>
 
                 {/* Incoming */}
                 <View style={styles.distRow}>
                   <View style={styles.distLabelRow}>
-                    <Text style={[styles.distType, { color: colors.primary }]}>
+                    <Text style={[styles.distType, { color: t.primary }]}>
                       Incoming ({incomingPct}%)
                     </Text>
-                    <Text style={[styles.distCount, { color: colors.textPrimary }]}>
+                    <Text style={[styles.distCount, { color: t.text }]}>
                       {incomingCalls} calls
                     </Text>
                   </View>
                   <View
                     style={[
                       styles.distTrack,
-                      { backgroundColor: colors.borderLight },
+                      { backgroundColor: t.surfaceAlt },
                     ]}
                   >
                     <View
@@ -805,7 +824,7 @@ export default function CallLogsScreen() {
                         styles.distBar,
                         {
                           width: `${incomingPct}%`,
-                          backgroundColor: colors.primary,
+                          backgroundColor: t.primary,
                         },
                       ]}
                     />
@@ -815,17 +834,17 @@ export default function CallLogsScreen() {
                 {/* Outgoing */}
                 <View style={styles.distRow}>
                   <View style={styles.distLabelRow}>
-                    <Text style={[styles.distType, { color: colors.cyan || "#0EA5E9" }]}>
+                    <Text style={[styles.distType, { color: t.primaryLight || t.primary }]}>
                       Outgoing ({outgoingPct}%)
                     </Text>
-                    <Text style={[styles.distCount, { color: colors.textPrimary }]}>
+                    <Text style={[styles.distCount, { color: t.text }]}>
                       {outgoingCalls} calls
                     </Text>
                   </View>
                   <View
                     style={[
                       styles.distTrack,
-                      { backgroundColor: colors.borderLight },
+                      { backgroundColor: t.surfaceAlt },
                     ]}
                   >
                     <View
@@ -833,7 +852,7 @@ export default function CallLogsScreen() {
                         styles.distBar,
                         {
                           width: `${outgoingPct}%`,
-                          backgroundColor: colors.cyan || "#0EA5E9",
+                          backgroundColor: t.primaryLight || t.primary,
                         },
                       ]}
                     />
@@ -843,17 +862,17 @@ export default function CallLogsScreen() {
                 {/* Missed */}
                 <View style={styles.distRow}>
                   <View style={styles.distLabelRow}>
-                    <Text style={[styles.distType, { color: colors.error || "#EF4444" }]}>
+                    <Text style={[styles.distType, { color: t.danger }]}>
                       Missed ({missedPct}%)
                     </Text>
-                    <Text style={[styles.distCount, { color: colors.textPrimary }]}>
+                    <Text style={[styles.distCount, { color: t.text }]}>
                       {missedCalls} calls
                     </Text>
                   </View>
                   <View
                     style={[
                       styles.distTrack,
-                      { backgroundColor: colors.borderLight },
+                      { backgroundColor: t.surfaceAlt },
                     ]}
                   >
                     <View
@@ -861,7 +880,7 @@ export default function CallLogsScreen() {
                         styles.distBar,
                         {
                           width: `${missedPct}%`,
-                          backgroundColor: colors.error || "#EF4444",
+                          backgroundColor: t.danger,
                         },
                       ]}
                     />
@@ -873,10 +892,11 @@ export default function CallLogsScreen() {
               <View
                 style={[
                   styles.analyticsSectionCard,
-                  { backgroundColor: colors.card, borderColor: colors.cardBorder },
+                  { backgroundColor: t.surface, borderColor: t.border },
+                  isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                 ]}
               >
-                <Text style={[styles.analyticsSectionTitle, { color: colors.textPrimary }]}>
+                <Text style={[styles.analyticsSectionTitle, { color: t.text }]}>
                   Top Contacted Numbers
                 </Text>
 
@@ -886,38 +906,38 @@ export default function CallLogsScreen() {
                       key={item.phone_number}
                       style={[
                         styles.topNumberRow,
-                        { borderBottomColor: colors.borderLight },
+                        { borderBottomColor: t.border },
                       ]}
                     >
                       <View style={styles.topNumberLeft}>
                         <View
                           style={[
                             styles.topRankBadge,
-                            { backgroundColor: colors.mintTintedSurface },
+                            { backgroundColor: t.primarySurface },
                           ]}
                         >
-                          <Text style={[styles.topRankText, { color: colors.primary }]}>
+                          <Text style={[styles.topRankText, { color: t.primary }]}>
                             {index + 1}
                           </Text>
                         </View>
-                        <Text style={[styles.topPhone, { color: colors.textPrimary }]}>
+                        <Text style={[styles.topPhone, { color: t.text }]}>
                           {item.phone_number}
                         </Text>
                       </View>
                       <View
                         style={[
                           styles.topCallsBadge,
-                          { backgroundColor: colors.secondarySurface },
+                          { backgroundColor: t.surfaceAlt },
                         ]}
                       >
-                        <Text style={[styles.topCallsText, { color: colors.textSecondary }]}>
+                        <Text style={[styles.topCallsText, { color: t.textSecondary }]}>
                           {item.count} {item.count === 1 ? "call" : "calls"}
                         </Text>
                       </View>
                     </View>
                   ))
                 ) : (
-                  <Text style={{ color: colors.textMuted, fontSize: 13, paddingVertical: 8, fontFamily: Typography.regular }}>
+                  <Text style={{ color: t.textSecondary, fontSize: 13, paddingVertical: 8, fontFamily: Typography.regular }}>
                     No call records available for this selection.
                   </Text>
                 )}
@@ -934,14 +954,14 @@ export default function CallLogsScreen() {
         transparent={false}
         onRequestClose={() => setSelectedCall(null)}
       >
-        <View style={[styles.modalScreen, { backgroundColor: colors.background }]}>
+        <View style={[styles.modalScreen, { backgroundColor: t.bg }]}>
           {/* Header */}
           <View
             style={[
               styles.recordedHeader,
               {
                 paddingTop: Math.max(insets.top, 14),
-                borderBottomColor: colors.borderLight,
+                borderBottomColor: t.border,
               },
             ]}
           >
@@ -949,15 +969,15 @@ export default function CallLogsScreen() {
               onPress={() => setSelectedCall(null)}
               style={styles.navBtn}
             >
-              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+              <Ionicons name="arrow-back" size={22} color={t.text} />
             </TouchableOpacity>
 
-            <Text style={[styles.recordedTitle, { color: colors.textPrimary }]}>
+            <Text style={[styles.recordedTitle, { color: t.text }]}>
               Recorded Call
             </Text>
 
             <TouchableOpacity style={styles.navBtn}>
-              <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
+              <Ionicons name="ellipsis-horizontal" size={20} color={t.text} />
             </TouchableOpacity>
           </View>
 
@@ -975,19 +995,19 @@ export default function CallLogsScreen() {
                 style={[
                   styles.companyLogo,
                   {
-                    backgroundColor: isDark ? "#182B25" : "#18312A",
-                    borderColor: isDark ? "#294039" : "transparent",
+                    backgroundColor: t.primarySurface,
+                    borderColor: t.border,
                   },
                 ]}
               >
-                <Text style={styles.companyLogoLetter}>O</Text>
+                <Text style={[styles.companyLogoLetter, { color: t.primary }]}>O</Text>
               </View>
 
               <View style={styles.companyTextWrap}>
-                <Text style={[styles.recordCompanyName, { color: colors.textPrimary }]}>
+                <Text style={[styles.recordCompanyName, { color: t.text }]}>
                   {selectedCall?.username || "Orion Systems"}
                 </Text>
-                <Text style={[styles.recordCompanySub, { color: colors.textMuted }]}>
+                <Text style={[styles.recordCompanySub, { color: t.textSecondary }]}>
                   Discovery Call · May 14, 2025 ·{" "}
                   {selectedCall ? formatDuration(selectedCall.duration) : "28:17"}
                 </Text>
@@ -995,7 +1015,7 @@ export default function CallLogsScreen() {
             </View>
 
             {/* Analysis Tabs */}
-            <View style={[styles.tabsRow, { borderBottomColor: colors.borderLight }]}>
+            <View style={[styles.tabsRow, { borderBottomColor: t.border }]}>
               {(["Analysis", "Transcript", "Moments", "Details"] as AnalysisTab[]).map(
                 (tab) => {
                   const isActive = activeTab === tab;
@@ -1005,14 +1025,14 @@ export default function CallLogsScreen() {
                       onPress={() => setActiveTab(tab)}
                       style={[
                         styles.tabBtn,
-                        isActive && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
+                        isActive && { borderBottomColor: t.primary, borderBottomWidth: 2 },
                       ]}
                     >
                       <Text
                         style={[
                           styles.tabText,
                           {
-                            color: isActive ? colors.primary : colors.textMuted,
+                            color: isActive ? t.primary : t.textSecondary,
                             fontFamily: isActive ? Typography.semiBold : Typography.regular,
                           },
                         ]}
@@ -1030,9 +1050,10 @@ export default function CallLogsScreen() {
               style={[
                 styles.waveformCard,
                 {
-                  backgroundColor: colors.card,
-                  borderColor: colors.cardBorder,
+                  backgroundColor: t.surface,
+                  borderColor: t.border,
                 },
+                isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
               ]}
             >
               {/* Bars */}
@@ -1046,7 +1067,7 @@ export default function CallLogsScreen() {
                         styles.waveBar,
                         {
                           height: h,
-                          backgroundColor: isPlayed ? colors.primary : colors.borderDark,
+                          backgroundColor: isPlayed ? t.primary : t.border,
                           opacity: isPlayed ? 1 : 0.45,
                         },
                       ]}
@@ -1055,14 +1076,14 @@ export default function CallLogsScreen() {
                 })}
                 {/* Active Playhead */}
                 <View
-                  style={[styles.playheadLine, { left: "45%", backgroundColor: colors.acidLime }]}
+                  style={[styles.playheadLine, { left: "45%", backgroundColor: t.primaryLight || t.primary }]}
                 />
               </View>
 
               {/* Timestamps */}
               <View style={styles.waveTimeRow}>
-                <Text style={[styles.waveTime, { color: colors.textMuted }]}>00:00</Text>
-                <Text style={[styles.waveTime, { color: colors.textMuted }]}>
+                <Text style={[styles.waveTime, { color: t.textSecondary }]}>00:00</Text>
+                <Text style={[styles.waveTime, { color: t.textSecondary }]}>
                   {selectedCall ? formatDuration(selectedCall.duration) : "28:17"}
                 </Text>
               </View>
@@ -1073,8 +1094,8 @@ export default function CallLogsScreen() {
                   style={styles.scrubBtn}
                   onPress={() => Alert.alert("Rewind", "Rewound 15s")}
                 >
-                  <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
-                  <Text style={[styles.scrubText, { color: colors.textMuted }]}>15</Text>
+                  <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
+                  <Text style={[styles.scrubText, { color: t.textSecondary }]}>15</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1083,14 +1104,14 @@ export default function CallLogsScreen() {
                   style={[
                     styles.playPauseBtn,
                     {
-                      backgroundColor: colors.textPrimary,
+                      backgroundColor: t.text,
                     },
                   ]}
                 >
                   <Ionicons
                     name={isPlaying ? "pause" : "play"}
                     size={24}
-                    color={colors.background}
+                    color={t.bg}
                     style={{ marginLeft: isPlaying ? 0 : 2 }}
                   />
                 </TouchableOpacity>
@@ -1099,8 +1120,8 @@ export default function CallLogsScreen() {
                   style={styles.scrubBtn}
                   onPress={() => Alert.alert("Forward", "Forwarded 15s")}
                 >
-                  <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
-                  <Text style={[styles.scrubText, { color: colors.textMuted }]}>15</Text>
+                  <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
+                  <Text style={[styles.scrubText, { color: t.textSecondary }]}>15</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1115,10 +1136,10 @@ export default function CallLogsScreen() {
                   }
                   style={[
                     styles.speedPill,
-                    { backgroundColor: colors.secondarySurface, borderColor: colors.border },
+                    { backgroundColor: t.surfaceAlt, borderColor: t.border },
                   ]}
                 >
-                  <Text style={[styles.speedText, { color: colors.textPrimary }]}>
+                  <Text style={[styles.speedText, { color: t.text }]}>
                     {playbackSpeed}
                   </Text>
                 </TouchableOpacity>
@@ -1128,12 +1149,12 @@ export default function CallLogsScreen() {
             {/* Talk / Listen Section */}
             <View style={styles.talkListenSection}>
               <View style={styles.talkHeaderRow}>
-                <Text style={[styles.talkTitle, { color: colors.textPrimary }]}>
+                <Text style={[styles.talkTitle, { color: t.text }]}>
                   Talk / Listen
                 </Text>
                 <View style={styles.balanceBadge}>
-                  <View style={[styles.balanceDot, { backgroundColor: colors.primary }]} />
-                  <Text style={[styles.balanceText, { color: colors.textSecondary }]}>
+                  <View style={[styles.balanceDot, { backgroundColor: t.primary }]} />
+                  <Text style={[styles.balanceText, { color: t.textSecondary }]}>
                     Good balance
                   </Text>
                 </View>
@@ -1144,23 +1165,23 @@ export default function CallLogsScreen() {
                 <View
                   style={[
                     styles.talkBarLeft,
-                    { width: "46%", backgroundColor: colors.primary },
+                    { width: "46%", backgroundColor: t.primary },
                   ]}
                 />
                 <View
                   style={[
                     styles.talkBarRight,
-                    { width: "54%", backgroundColor: isDark ? "#1B2B25" : "#18312A" },
+                    { width: "54%", backgroundColor: t.surfaceAlt },
                   ]}
                 />
               </View>
 
               <View style={styles.talkLabelsRow}>
-                <Text style={[styles.talkSub, { color: colors.textSecondary }]}>
-                  You <Text style={{ color: colors.textPrimary, fontFamily: Typography.bold }}>46%</Text>
+                <Text style={[styles.talkSub, { color: t.textSecondary }]}>
+                  You <Text style={{ color: t.text, fontFamily: Typography.bold }}>46%</Text>
                 </Text>
-                <Text style={[styles.talkSub, { color: colors.textSecondary }]}>
-                  Them <Text style={{ color: colors.textPrimary, fontFamily: Typography.bold }}>54%</Text>
+                <Text style={[styles.talkSub, { color: t.textSecondary }]}>
+                  Them <Text style={{ color: t.text, fontFamily: Typography.bold }}>54%</Text>
                 </Text>
               </View>
             </View>
@@ -1168,17 +1189,17 @@ export default function CallLogsScreen() {
             {/* Sentiment Trajectory Section */}
             <View style={styles.sentimentSection}>
               <View style={styles.sentimentHeaderRow}>
-                <Text style={[styles.talkTitle, { color: colors.textPrimary }]}>
+                <Text style={[styles.talkTitle, { color: t.text }]}>
                   Sentiment
                 </Text>
                 {/* Acid Lime Tooltip */}
                 <View
                   style={[
                     styles.peakBadge,
-                    { backgroundColor: colors.acidLime },
+                    { backgroundColor: t.primarySurface },
                   ]}
                 >
-                  <Text style={styles.peakText}>Peak interest at 21:14</Text>
+                  <Text style={[styles.peakText, { color: t.primary }]}>Peak interest at 21:14</Text>
                 </View>
               </View>
 
@@ -1186,37 +1207,38 @@ export default function CallLogsScreen() {
                 style={[
                   styles.sentimentCard,
                   {
-                    backgroundColor: colors.card,
-                    borderColor: colors.cardBorder,
+                    backgroundColor: t.surface,
+                    borderColor: t.border,
                   },
+                  isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                 ]}
               >
                 <View style={styles.sentimentYAxis}>
-                  <Text style={[styles.sentAxisText, { color: colors.textMuted }]}>Positive</Text>
-                  <Text style={[styles.sentAxisText, { color: colors.textMuted }]}>Neutral</Text>
-                  <Text style={[styles.sentAxisText, { color: colors.textMuted }]}>Negative</Text>
+                  <Text style={[styles.sentAxisText, { color: t.textSecondary }]}>Positive</Text>
+                  <Text style={[styles.sentAxisText, { color: t.textSecondary }]}>Neutral</Text>
+                  <Text style={[styles.sentAxisText, { color: t.textSecondary }]}>Negative</Text>
                 </View>
 
                 {/* Trajectory Simulation Curve */}
                 <View style={styles.sentimentGraph}>
-                  <View style={[styles.sentGridLine, { top: "15%", borderColor: colors.borderLight }]} />
-                  <View style={[styles.sentGridLine, { top: "50%", borderColor: colors.borderLight }]} />
-                  <View style={[styles.sentGridLine, { top: "85%", borderColor: colors.borderLight }]} />
+                  <View style={[styles.sentGridLine, { top: "15%", borderColor: t.border }]} />
+                  <View style={[styles.sentGridLine, { top: "50%", borderColor: t.border }]} />
+                  <View style={[styles.sentGridLine, { top: "85%", borderColor: t.border }]} />
 
                   {/* Nodes along the curve */}
-                  <View style={[styles.curvePoint, { left: "10%", top: "60%", backgroundColor: colors.primary }]} />
-                  <View style={[styles.curvePoint, { left: "30%", top: "45%", backgroundColor: colors.primary }]} />
-                  <View style={[styles.curvePoint, { left: "55%", top: "40%", backgroundColor: colors.primary }]} />
-                  <View style={[styles.curvePoint, { left: "75%", top: "15%", backgroundColor: colors.acidLime, width: 10, height: 10 }]} />
-                  <View style={[styles.curvePoint, { left: "90%", top: "25%", backgroundColor: colors.primary }]} />
+                  <View style={[styles.curvePoint, { left: "10%", top: "60%", backgroundColor: t.primary }]} />
+                  <View style={[styles.curvePoint, { left: "30%", top: "45%", backgroundColor: t.primary }]} />
+                  <View style={[styles.curvePoint, { left: "55%", top: "40%", backgroundColor: t.primary }]} />
+                  <View style={[styles.curvePoint, { left: "75%", top: "15%", backgroundColor: t.primary, width: 10, height: 10 }]} />
+                  <View style={[styles.curvePoint, { left: "90%", top: "25%", backgroundColor: t.primary }]} />
                 </View>
               </View>
               <View style={styles.sentTimeRow}>
-                <Text style={[styles.sentTimeLabel, { color: colors.textMuted }]}>0m</Text>
-                <Text style={[styles.sentTimeLabel, { color: colors.textMuted }]}>7m</Text>
-                <Text style={[styles.sentTimeLabel, { color: colors.textMuted }]}>14m</Text>
-                <Text style={[styles.sentTimeLabel, { color: colors.textMuted }]}>21m</Text>
-                <Text style={[styles.sentTimeLabel, { color: colors.textMuted }]}>28m</Text>
+                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>0m</Text>
+                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>7m</Text>
+                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>14m</Text>
+                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>21m</Text>
+                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>28m</Text>
               </View>
             </View>
 
@@ -1226,16 +1248,16 @@ export default function CallLogsScreen() {
                 <View
                   style={[
                     styles.aiSparkIcon,
-                    { backgroundColor: colors.mintTintedSurface },
+                    { backgroundColor: t.primarySurface },
                   ]}
                 >
-                  <Ionicons name="sparkles" size={14} color={colors.primary} />
+                  <Ionicons name="sparkles" size={14} color={t.primary} />
                 </View>
                 <View>
-                  <Text style={[styles.aiTitle, { color: colors.textPrimary }]}>
+                  <Text style={[styles.aiTitle, { color: t.text }]}>
                     AI insights
                   </Text>
-                  <Text style={[styles.aiSub, { color: colors.textMuted }]}>
+                  <Text style={[styles.aiSub, { color: t.textSecondary }]}>
                     Generated from call analysis
                   </Text>
                 </View>
@@ -1247,84 +1269,87 @@ export default function CallLogsScreen() {
                   style={[
                     styles.insightCard,
                     {
-                      backgroundColor: colors.card,
-                      borderColor: colors.cardBorder,
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                     },
+                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                   ]}
                 >
                   <View
                     style={[
                       styles.numCircle,
-                      { backgroundColor: colors.secondarySurface },
+                      { backgroundColor: t.surfaceAlt },
                     ]}
                   >
-                    <Text style={[styles.numText, { color: colors.textPrimary }]}>1</Text>
+                    <Text style={[styles.numText, { color: t.text }]}>1</Text>
                   </View>
                   <View style={styles.insightContent}>
-                    <Text style={[styles.insightHeading, { color: colors.textPrimary }]}>
+                    <Text style={[styles.insightHeading, { color: t.text }]}>
                       Strong interest in Q2 rollout
                     </Text>
-                    <Text style={[styles.insightDesc, { color: colors.textMuted }]}>
+                    <Text style={[styles.insightDesc, { color: t.textSecondary }]}>
                       Confirmed budget and internal alignment.
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  <Ionicons name="chevron-forward" size={16} color={t.textSecondary} />
                 </View>
 
                 <View
                   style={[
                     styles.insightCard,
                     {
-                      backgroundColor: colors.card,
-                      borderColor: colors.cardBorder,
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                     },
+                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                   ]}
                 >
                   <View
                     style={[
                       styles.numCircle,
-                      { backgroundColor: colors.secondarySurface },
+                      { backgroundColor: t.surfaceAlt },
                     ]}
                   >
-                    <Text style={[styles.numText, { color: colors.textPrimary }]}>2</Text>
+                    <Text style={[styles.numText, { color: t.text }]}>2</Text>
                   </View>
                   <View style={styles.insightContent}>
-                    <Text style={[styles.insightHeading, { color: colors.textPrimary }]}>
+                    <Text style={[styles.insightHeading, { color: t.text }]}>
                       Security and data residency are key concerns
                     </Text>
-                    <Text style={[styles.insightDesc, { color: colors.textMuted }]}>
+                    <Text style={[styles.insightDesc, { color: t.textSecondary }]}>
                       Send security overview and compliance docs.
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  <Ionicons name="chevron-forward" size={16} color={t.textSecondary} />
                 </View>
 
                 <View
                   style={[
                     styles.insightCard,
                     {
-                      backgroundColor: colors.card,
-                      borderColor: colors.cardBorder,
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                     },
+                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                   ]}
                 >
                   <View
                     style={[
                       styles.numCircle,
-                      { backgroundColor: colors.secondarySurface },
+                      { backgroundColor: t.surfaceAlt },
                     ]}
                   >
-                    <Text style={[styles.numText, { color: colors.textPrimary }]}>3</Text>
+                    <Text style={[styles.numText, { color: t.text }]}>3</Text>
                   </View>
                   <View style={styles.insightContent}>
-                    <Text style={[styles.insightHeading, { color: colors.textPrimary }]}>
+                    <Text style={[styles.insightHeading, { color: t.text }]}>
                       Next step
                     </Text>
-                    <Text style={[styles.insightDesc, { color: colors.textMuted }]}>
+                    <Text style={[styles.insightDesc, { color: t.textSecondary }]}>
                       Send custom proposal by end of week.
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  <Ionicons name="chevron-forward" size={16} color={t.textSecondary} />
                 </View>
               </View>
             </View>
@@ -1337,7 +1362,7 @@ export default function CallLogsScreen() {
               }}
               style={[
                 styles.createTaskBtn,
-                { backgroundColor: colors.primary },
+                { backgroundColor: t.primary },
               ]}
             >
               <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
@@ -1836,11 +1861,13 @@ const styles = StyleSheet.create({
   },
 
   // ── Segmented Switcher & Live KPI Strip ──
-  segmentContainer: {
+  segmentTrack: {
     flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: Spacing.screenPadding,
+    marginHorizontal: Spacing.screenPadding,
     marginBottom: 12,
+    padding: 4,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   segmentBtn: {
     flex: 1,
@@ -1848,8 +1875,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: 9,
-    borderRadius: Radius.lg,
+    paddingVertical: 8,
+    borderRadius: 999,
   },
   segmentText: {
     fontFamily: Typography.semiBold,
@@ -1862,10 +1889,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     marginHorizontal: Spacing.screenPadding,
     marginBottom: 12,
-    paddingVertical: 10,
-    borderRadius: Radius.lg,
+    paddingVertical: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    ...Shadows.card,
   },
   kpiItem: {
     alignItems: "center",

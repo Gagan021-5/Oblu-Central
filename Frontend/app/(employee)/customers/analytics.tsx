@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PieChart } from "react-native-chart-kit";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography } from "@/constants/theme";
@@ -27,7 +28,8 @@ const PIE_COLORS = [
 
 export default function CustomerAnalyticsScreen() {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
   const { user, permissionProfile } = useAuth();
   const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
   const isSuperuser = Boolean((user as any)?.is_superuser || roleText.includes("superuser"));
@@ -70,7 +72,7 @@ export default function CustomerAnalyticsScreen() {
 
   const foreground = isDark ? "#F1F7F4" : "#101827";
   const muted = isDark ? "#9AA9A3" : "#637083";
-  const card = { backgroundColor: isDark ? "#111B18" : "#FFFFFF", borderColor: isDark ? "#263A32" : "#E4EAF0" };
+  const card = { backgroundColor: t.surface, borderColor: t.border };
   const { width: screenWidth } = useWindowDimensions();
   const chartWidth = Math.max(260, screenWidth - 72);
 
@@ -130,8 +132,8 @@ export default function CustomerAnalyticsScreen() {
   ].filter((item) => item.count > 0);
 
   const chartConfig = {
-    backgroundGradientFrom: isDark ? "#111B18" : "#FFFFFF",
-    backgroundGradientTo: isDark ? "#111B18" : "#FFFFFF",
+    backgroundGradientFrom: t.surface,
+    backgroundGradientTo: t.surface,
     color: (opacity = 1) => `rgba(32, 185, 154, ${opacity})`,
     labelColor: () => muted,
   };

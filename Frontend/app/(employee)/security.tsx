@@ -11,6 +11,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes, Radius, Shadows } from "@/constants/theme";
 import { MetricCard } from "@/components/employee/MetricCard";
@@ -36,7 +37,8 @@ const INITIAL_DEVICES: DeviceItem[] = [
 
 export default function SecurityScreen() {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -48,7 +50,7 @@ export default function SecurityScreen() {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: t.bg, paddingTop: insets.top }]}>
       <View style={[styles.topBar, { borderBottomColor: colors.borderLight }]}>
         <TouchableOpacity
           style={[

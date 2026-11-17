@@ -13,6 +13,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { Typography, FontSizes } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { FilterChip } from "@/components/ui/FilterChip";
@@ -62,7 +63,8 @@ const STAGES: Array<{ key: LeadStage; label: string; count: number }> = [
 
 export default function LeadsDashboardScreen() {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -125,8 +127,8 @@ export default function LeadsDashboardScreen() {
           style={[
             styles.backBtn,
             {
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/(employee)"))}
@@ -135,7 +137,7 @@ export default function LeadsDashboardScreen() {
           <Ionicons
             name="arrow-back"
             size={18}
-            color={isDark ? "#F1F7F4" : "#101513"}
+            color={t.text}
           />
         </TouchableOpacity>
 
@@ -143,7 +145,7 @@ export default function LeadsDashboardScreen() {
           <Text
             style={[
               styles.screenTitle,
-              { color: isDark ? "#F1F7F4" : "#101513" },
+              { color: t.text },
             ]}
           >
             Leads Pipeline
@@ -151,7 +153,7 @@ export default function LeadsDashboardScreen() {
           <Text
             style={[
               styles.screenSubtitle,
-              { color: isDark ? "#8FA09A" : "#5E6964" },
+              { color: t.textSecondary },
             ]}
           >
             34 active prospects
@@ -169,7 +171,7 @@ export default function LeadsDashboardScreen() {
                 : isDark
                 ? "#121F1B"
                 : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              borderColor: t.border,
             },
           ]}
           onPress={() => setShowSearch(!showSearch)}
@@ -196,15 +198,15 @@ export default function LeadsDashboardScreen() {
         style={[
           styles.ribbonContainer,
           {
-            backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-            borderColor: isDark ? "#294039" : "#D8E0DC",
+            backgroundColor: t.surface,
+            borderColor: t.border,
           },
         ]}
       >
         <Text
           style={[
             styles.ribbonLabel,
-            { color: isDark ? "#8FA09A" : "#5E6964" },
+            { color: t.textSecondary },
           ]}
         >
           PIPELINE STAGE BREAKDOWN
@@ -276,7 +278,7 @@ export default function LeadsDashboardScreen() {
                     <Ionicons
                       name="chevron-forward"
                       size={14}
-                      color={isDark ? "#294039" : "#D8E0DC"}
+                      color={t.border}
                     />
                   </View>
                 )}
@@ -365,7 +367,7 @@ export default function LeadsDashboardScreen() {
         <Text
           style={[
             styles.listCountText,
-            { color: isDark ? "#8FA09A" : "#5E6964" },
+            { color: t.textSecondary },
           ]}
         >
           Showing {filteredLeads.length} lead{filteredLeads.length === 1 ? "" : "s"}
@@ -414,7 +416,7 @@ export default function LeadsDashboardScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: t.bg, paddingTop: insets.top }]}>
       {loading ? (
         <View style={styles.loadingContainer}>
           {listHeaderComponent}

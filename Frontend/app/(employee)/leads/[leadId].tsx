@@ -12,6 +12,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { Typography, FontSizes, Shadows, Radius } from "@/constants/theme";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { TimelineItem } from "@/components/employee/TimelineItem";
@@ -35,7 +36,8 @@ const STAGE_STEPS: LeadStage[] = ["New", "Contacted", "Qualified", "Proposal", "
 export default function LeadDetailScreen() {
   const { leadId } = useLocalSearchParams<{ leadId: string }>();
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
 
   const [lead, setLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<LeadTab>("overview");
@@ -135,7 +137,7 @@ export default function LeadDetailScreen() {
           },
         ]}
       >
-        <Text style={{ color: isDark ? "#8FA09A" : "#5E6964", fontFamily: Typography.regular }}>
+        <Text style={{ color: t.textSecondary, fontFamily: Typography.regular }}>
           Loading lead profile...
         </Text>
       </View>
@@ -163,15 +165,15 @@ export default function LeadDetailScreen() {
       : "#5E6964";
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: t.bg, paddingTop: insets.top }]}>
       {/* Top Nav */}
       <View style={styles.topNav}>
         <TouchableOpacity
           style={[
             styles.backBtn,
             {
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
             Shadows.card,
           ]}
@@ -181,14 +183,14 @@ export default function LeadDetailScreen() {
           <Ionicons
             name="arrow-back"
             size={18}
-            color={isDark ? "#F1F7F4" : "#101513"}
+            color={t.text}
           />
         </TouchableOpacity>
 
         <Text
           style={[
             styles.headerTitle,
-            { color: isDark ? "#F1F7F4" : "#101513" },
+            { color: t.text },
           ]}
         >
           Lead Profile
@@ -209,8 +211,8 @@ export default function LeadDetailScreen() {
           style={[
             styles.profileCard,
             {
-              backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
         >
@@ -241,7 +243,7 @@ export default function LeadDetailScreen() {
                 <Text
                   style={[
                     styles.companyName,
-                    { color: isDark ? "#F1F7F4" : "#101513" },
+                    { color: t.text },
                   ]}
                 >
                   {lead.companyName}
@@ -251,7 +253,7 @@ export default function LeadDetailScreen() {
               <Text
                 style={[
                   styles.contactPerson,
-                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                  { color: t.textSecondary },
                 ]}
               >
                 {lead.contactPerson} • {lead.phone}
@@ -280,7 +282,7 @@ export default function LeadDetailScreen() {
           {/* Intent Meter Visualization */}
           <View style={styles.meterContainer}>
             <View style={styles.meterLabels}>
-              <Text style={[styles.meterText, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+              <Text style={[styles.meterText, { color: t.textSecondary }]}>
                 Opportunity Intent Score
               </Text>
               <Text style={[styles.meterTextBold, { color: intentColor }]}>
@@ -347,12 +349,12 @@ export default function LeadDetailScreen() {
               <Ionicons
                 name="document-text-outline"
                 size={15}
-                color={isDark ? "#F1F7F4" : "#101513"}
+                color={t.text}
               />
               <Text
                 style={[
                   styles.actionBtnText,
-                  { color: isDark ? "#F1F7F4" : "#101513" },
+                  { color: t.text },
                 ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
@@ -375,12 +377,12 @@ export default function LeadDetailScreen() {
               <Ionicons
                 name="calendar-outline"
                 size={15}
-                color={isDark ? "#F1F7F4" : "#101513"}
+                color={t.text}
               />
               <Text
                 style={[
                   styles.actionBtnText,
-                  { color: isDark ? "#F1F7F4" : "#101513" },
+                  { color: t.text },
                 ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
@@ -396,15 +398,15 @@ export default function LeadDetailScreen() {
           style={[
             styles.pipelineCard,
             {
-              backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
         >
           <Text
             style={[
               styles.boxTitle,
-              { color: isDark ? "#8FA09A" : "#5E6964" },
+              { color: t.textSecondary },
             ]}
           >
             PIPELINE STAGE POSITION (TAP TO MOVE)
@@ -487,8 +489,8 @@ export default function LeadDetailScreen() {
           style={[
             styles.segmentBar,
             {
-              backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
         >
@@ -545,15 +547,15 @@ export default function LeadDetailScreen() {
             style={[
               styles.cardBox,
               {
-                backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: t.border,
               },
             ]}
           >
             <Text
               style={[
                 styles.boxTitle,
-                { color: isDark ? "#8FA09A" : "#5E6964" },
+                { color: t.textSecondary },
               ]}
             >
               OPPORTUNITY DETAILS
@@ -573,7 +575,7 @@ export default function LeadDetailScreen() {
                 <Text style={[styles.paramLabel, { color: isDark ? "#65756F" : "#87928D" }]}>
                   Lead Source
                 </Text>
-                <Text style={[styles.paramValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.paramValue, { color: t.text }]}>
                   {lead.leadSource}
                 </Text>
               </View>
@@ -582,7 +584,7 @@ export default function LeadDetailScreen() {
                 <Text style={[styles.paramLabel, { color: isDark ? "#65756F" : "#87928D" }]}>
                   Assigned Employee
                 </Text>
-                <Text style={[styles.paramValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.paramValue, { color: t.text }]}>
                   {lead.assignedEmployee}
                 </Text>
               </View>
@@ -591,7 +593,7 @@ export default function LeadDetailScreen() {
                 <Text style={[styles.paramLabel, { color: isDark ? "#65756F" : "#87928D" }]}>
                   Last Contact
                 </Text>
-                <Text style={[styles.paramValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.paramValue, { color: t.text }]}>
                   {lead.lastContactDate}
                 </Text>
               </View>
@@ -614,7 +616,7 @@ export default function LeadDetailScreen() {
                 <Text style={[styles.paramLabel, { color: isDark ? "#65756F" : "#87928D" }]}>
                   Expected Closing
                 </Text>
-                <Text style={[styles.paramValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.paramValue, { color: t.text }]}>
                   {lead.expectedClosingDate}
                 </Text>
               </View>
@@ -628,15 +630,15 @@ export default function LeadDetailScreen() {
             style={[
               styles.cardBox,
               {
-                backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: t.border,
               },
             ]}
           >
             <Text
               style={[
                 styles.boxTitle,
-                { color: isDark ? "#8FA09A" : "#5E6964" },
+                { color: t.textSecondary },
               ]}
             >
               LEAD ACTIVITY TIMELINE
@@ -667,8 +669,8 @@ export default function LeadDetailScreen() {
             style={[
               styles.cardBox,
               {
-                backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: t.border,
               },
             ]}
           >
@@ -676,7 +678,7 @@ export default function LeadDetailScreen() {
               <Text
                 style={[
                   styles.boxTitle,
-                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                  { color: t.textSecondary },
                 ]}
               >
                 PROSPECT NOTES
@@ -720,8 +722,8 @@ export default function LeadDetailScreen() {
             style={[
               styles.cardBox,
               {
-                backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: t.border,
               },
             ]}
           >
@@ -729,7 +731,7 @@ export default function LeadDetailScreen() {
               <Text
                 style={[
                   styles.boxTitle,
-                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                  { color: t.textSecondary },
                 ]}
               >
                 SCHEDULED FOLLOW-UPS
@@ -775,7 +777,7 @@ export default function LeadDetailScreen() {
                     <Text
                       style={[
                         styles.followUpDateText,
-                        { color: isDark ? "#F1F7F4" : "#101513" },
+                        { color: t.text },
                       ]}
                     >
                       {fol.date} at {fol.time}
@@ -790,7 +792,7 @@ export default function LeadDetailScreen() {
                 <Text
                   style={[
                     styles.followUpPurpose,
-                    { color: isDark ? "#F1F7F4" : "#101513" },
+                    { color: t.text },
                   ]}
                 >
                   {fol.purpose}
@@ -799,7 +801,7 @@ export default function LeadDetailScreen() {
                   <Text
                     style={[
                       styles.followUpNotes,
-                      { color: isDark ? "#8FA09A" : "#5E6964" },
+                      { color: t.textSecondary },
                     ]}
                   >
                     {fol.notes}

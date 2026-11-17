@@ -12,6 +12,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography, FontSizes, Shadows, Radius } from "@/constants/theme";
@@ -36,7 +37,8 @@ type SegmentTab = "overview" | "remarks" | "followups" | "payments" | "purchases
 export default function CustomerDetailScreen() {
   const { customerId, tab } = useLocalSearchParams<{ customerId: string; tab?: string }>();
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
   const { user, permissionProfile } = useAuth();
   const { notifyPaymentTicket } = useNotifications();
   const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
@@ -218,8 +220,8 @@ export default function CustomerDetailScreen() {
           },
         ]}
       >
-        {customerLoading ? <Text style={{ color: isDark ? "#8FA09A" : "#5E6964", fontFamily: Typography.regular }}>Loading customer record...</Text> : <>
-          <Text style={{ color: isDark ? "#F1F7F4" : "#101513", textAlign: "center", marginBottom: 12, fontFamily: Typography.medium }}>{customerLoadError || "Customer record is not available to your account."}</Text>
+        {customerLoading ? <Text style={{ color: t.textSecondary, fontFamily: Typography.regular }}>Loading customer record...</Text> : <>
+          <Text style={{ color: t.text, textAlign: "center", marginBottom: 12, fontFamily: Typography.medium }}>{customerLoadError || "Customer record is not available to your account."}</Text>
           <TouchableOpacity onPress={() => { setCustomerLoading(true); void fetchCustomer(); }} style={{ padding: 12, borderRadius: 10, backgroundColor: "#0E9E83" }}><Text style={{ color: "#FFFFFF", fontFamily: Typography.semiBold }}>Retry</Text></TouchableOpacity>
         </>}
       </View>
@@ -234,15 +236,15 @@ export default function CustomerDetailScreen() {
     .toUpperCase();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: t.bg, paddingTop: insets.top }]}>
       {/* Top Header Row */}
       <View style={styles.topNav}>
         <TouchableOpacity
           style={[
             styles.backBtn,
             {
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
             Shadows.card,
           ]}
@@ -252,14 +254,14 @@ export default function CustomerDetailScreen() {
           <Ionicons
             name="arrow-back"
             size={18}
-            color={isDark ? "#F1F7F4" : "#101513"}
+            color={t.text}
           />
         </TouchableOpacity>
 
         <Text
           style={[
             styles.headerTitle,
-            { color: isDark ? "#F1F7F4" : "#101513" },
+            { color: t.text },
           ]}
         >
           Customer Profile
@@ -269,8 +271,8 @@ export default function CustomerDetailScreen() {
           style={[
             styles.backBtn,
             {
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
             Shadows.card,
           ]}
@@ -281,7 +283,7 @@ export default function CustomerDetailScreen() {
           <Ionicons
             name="menu"
             size={18}
-            color={isDark ? "#F1F7F4" : "#101513"}
+            color={t.text}
           />
         </TouchableOpacity>
       </View>
@@ -298,8 +300,8 @@ export default function CustomerDetailScreen() {
           style={[
             styles.profileCard,
             {
-              backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
         >
@@ -329,7 +331,7 @@ export default function CustomerDetailScreen() {
                 <Text
                   style={[
                     styles.companyName,
-                    { color: isDark ? "#F1F7F4" : "#101513" },
+                    { color: t.text },
                   ]}
                 >
                   {customer.name}
@@ -341,13 +343,13 @@ export default function CustomerDetailScreen() {
                 />
               </View>
 
-              {customer.contactPerson ? <Text style={[styles.contactPerson, { color: isDark ? "#8FA09A" : "#5E6964" }]}>{customer.contactPerson}</Text> : null}
+              {customer.contactPerson ? <Text style={[styles.contactPerson, { color: t.textSecondary }]}>{customer.contactPerson}</Text> : null}
 
               <View style={styles.contactDetails}>
                 <Text
                   style={[
                     styles.detailItem,
-                    { color: isDark ? "#8FA09A" : "#5E6964" },
+                    { color: t.textSecondary },
                   ]}
                 >
                   {customer.phone} • {customer.city}
@@ -355,7 +357,7 @@ export default function CustomerDetailScreen() {
                 <Text
                   style={[
                     styles.detailItem,
-                    { color: isDark ? "#8FA09A" : "#5E6964" },
+                    { color: t.textSecondary },
                   ]}
                 >
                   {customer.email}
@@ -405,12 +407,12 @@ export default function CustomerDetailScreen() {
               <Ionicons
                 name="chatbubble-outline"
                 size={15}
-                color={isDark ? "#F1F7F4" : "#101513"}
+                color={t.text}
               />
               <Text
                 style={[
                   styles.actionBtnText,
-                  { color: isDark ? "#F1F7F4" : "#101513" },
+                  { color: t.text },
                 ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
@@ -433,12 +435,12 @@ export default function CustomerDetailScreen() {
               <Ionicons
                 name="add-outline"
                 size={15}
-                color={isDark ? "#F1F7F4" : "#101513"}
+                color={t.text}
               />
               <Text
                 style={[
                   styles.actionBtnText,
-                  { color: isDark ? "#F1F7F4" : "#101513" },
+                  { color: t.text },
                 ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
@@ -461,12 +463,12 @@ export default function CustomerDetailScreen() {
               <Ionicons
                 name="calendar-outline"
                 size={15}
-                color={isDark ? "#F1F7F4" : "#101513"}
+                color={t.text}
               />
               <Text
                 style={[
                   styles.actionBtnText,
-                  { color: isDark ? "#F1F7F4" : "#101513" },
+                  { color: t.text },
                 ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
@@ -504,7 +506,7 @@ export default function CustomerDetailScreen() {
                   styles.segmentItem,
                   isSelected && [
                     {
-                      backgroundColor: isDark ? "#162620" : "#FFFFFF",
+                      backgroundColor: t.surface,
                     },
                     Shadows.card,
                   ],
@@ -544,8 +546,8 @@ export default function CustomerDetailScreen() {
             style={[
               styles.cardBox,
               {
-                backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: t.border,
                 borderTopColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.85)",
               },
             ]}
@@ -553,7 +555,7 @@ export default function CustomerDetailScreen() {
             <Text
               style={[
                 styles.boxTitle,
-                { color: isDark ? "#8FA09A" : "#5E6964" },
+                { color: t.textSecondary },
               ]}
             >
               RELATIONSHIP PARAMETERS
@@ -572,7 +574,7 @@ export default function CustomerDetailScreen() {
                 <Text style={[styles.paramLabel, { color: isDark ? "#65756F" : "#87928D" }]}>
                   Assigned Salesperson
                 </Text>
-                <Text style={[styles.paramValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.paramValue, { color: t.text }]}>
                   {customer.assignedSalesperson}
                 </Text>
               </View>
@@ -589,7 +591,7 @@ export default function CustomerDetailScreen() {
                 <Text style={[styles.paramLabel, { color: isDark ? "#65756F" : "#87928D" }]}>
                   Customer Since
                 </Text>
-                <Text style={[styles.paramValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.paramValue, { color: t.text }]}>
                   {customer.customerSince}
                 </Text>
               </View>
@@ -606,7 +608,7 @@ export default function CustomerDetailScreen() {
                 <Text style={[styles.paramLabel, { color: isDark ? "#65756F" : "#87928D" }]}>
                   Credit Period
                 </Text>
-                <Text style={[styles.paramValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.paramValue, { color: t.text }]}>
                   {customer.creditPeriod}
                 </Text>
               </View>
@@ -654,7 +656,7 @@ export default function CustomerDetailScreen() {
                 <Text style={[styles.paramLabel, { color: isDark ? "#65756F" : "#87928D" }]}>
                   Last Interaction
                 </Text>
-                <Text style={[styles.paramValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.paramValue, { color: t.text }]}>
                   {customer.lastContactTime}
                 </Text>
               </View>
@@ -690,8 +692,8 @@ export default function CustomerDetailScreen() {
             style={[
               styles.cardBox,
               {
-                backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: t.border,
               },
             ]}
           >
@@ -699,7 +701,7 @@ export default function CustomerDetailScreen() {
               <Text
                 style={[
                   styles.boxTitle,
-                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                  { color: t.textSecondary },
                 ]}
               >
                 REMARKS TIMELINE
@@ -743,8 +745,8 @@ export default function CustomerDetailScreen() {
             style={[
               styles.cardBox,
               {
-                backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: t.border,
               },
             ]}
           >
@@ -752,7 +754,7 @@ export default function CustomerDetailScreen() {
               <Text
                 style={[
                   styles.boxTitle,
-                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                  { color: t.textSecondary },
                 ]}
               >
                 SCHEDULED FOLLOW-UPS
@@ -798,7 +800,7 @@ export default function CustomerDetailScreen() {
                     <Text
                       style={[
                         styles.followUpDateText,
-                        { color: isDark ? "#F1F7F4" : "#101513" },
+                        { color: t.text },
                       ]}
                     >
                       {fol.date} at {fol.time}
@@ -813,7 +815,7 @@ export default function CustomerDetailScreen() {
                 <Text
                   style={[
                     styles.followUpPurpose,
-                    { color: isDark ? "#F1F7F4" : "#101513" },
+                    { color: t.text },
                   ]}
                 >
                   {fol.purpose}
@@ -822,7 +824,7 @@ export default function CustomerDetailScreen() {
                   <Text
                     style={[
                       styles.followUpNotes,
-                      { color: isDark ? "#8FA09A" : "#5E6964" },
+                      { color: t.textSecondary },
                     ]}
                   >
                     {fol.notes}
@@ -835,13 +837,13 @@ export default function CustomerDetailScreen() {
 
         {/* Tab 4: Payments */}
           {activeTab === "purchases" && (
-            <View style={[styles.cardBox, { backgroundColor: isDark ? "#0E1714" : "#FFFFFF", borderColor: isDark ? "#294039" : "#D8E0DC" }]}>
-              <Text style={[styles.boxTitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>PURCHASE HISTORY</Text>
-              {(customer.purchases || []).length === 0 ? <Text style={[styles.emptySubtext, { color: isDark ? "#8FA09A" : "#5E6964" }]}>No invoice purchases found for this ledger.</Text> : (customer.purchases || []).map((purchase, index) => (
+            <View style={[styles.cardBox, { backgroundColor: t.surface, borderColor: t.border }]}>
+              <Text style={[styles.boxTitle, { color: t.textSecondary }]}>PURCHASE HISTORY</Text>
+              {(customer.purchases || []).length === 0 ? <Text style={[styles.emptySubtext, { color: t.textSecondary }]}>No invoice purchases found for this ledger.</Text> : (customer.purchases || []).map((purchase, index) => (
                 <View key={`${purchase.product}-${index}`} style={[styles.paymentCard, { backgroundColor: isDark ? "#121F1B" : "#F7F9F8", borderColor: isDark ? "#1C2D26" : "#E8EFEB" }]}>
-                  <View style={styles.paymentCardHeader}><Text style={[styles.invoiceNum, { color: isDark ? "#F1F7F4" : "#101513", flex: 1 }]}>{purchase.product}</Text><Text style={[styles.paymentAmountLarge, { color: isDark ? "#35D6A0" : "#008E66" }]}>×{purchase.quantity}</Text></View>
-                  <View style={styles.paymentDetailRow}><Text style={[styles.paymentSubLabel, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Total purchase value</Text><Text style={[styles.paymentDetailValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>₹{Number(purchase.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</Text></View>
-                  {purchase.entries?.slice(0, 4).map((entry, entryIndex) => <Text key={`${entry.date}-${entryIndex}`} style={[styles.detailItem, { color: isDark ? "#8FA09A" : "#5E6964" }]}>{entry.date}  ·  Qty {entry.quantity}</Text>)}
+                  <View style={styles.paymentCardHeader}><Text style={[styles.invoiceNum, { color: t.text, flex: 1 }]}>{purchase.product}</Text><Text style={[styles.paymentAmountLarge, { color: isDark ? "#35D6A0" : "#008E66" }]}>×{purchase.quantity}</Text></View>
+                  <View style={styles.paymentDetailRow}><Text style={[styles.paymentSubLabel, { color: t.textSecondary }]}>Total purchase value</Text><Text style={[styles.paymentDetailValue, { color: t.text }]}>₹{Number(purchase.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</Text></View>
+                  {purchase.entries?.slice(0, 4).map((entry, entryIndex) => <Text key={`${entry.date}-${entryIndex}`} style={[styles.detailItem, { color: t.textSecondary }]}>{entry.date}  ·  Qty {entry.quantity}</Text>)}
                 </View>
               ))}
             </View>
@@ -853,15 +855,15 @@ export default function CustomerDetailScreen() {
             style={[
               styles.cardBox,
               {
-                backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: t.border,
               },
             ]}
           >
             <Text
               style={[
                 styles.boxTitle,
-                { color: isDark ? "#8FA09A" : "#5E6964" },
+                { color: t.textSecondary },
               ]}
             >
               INVOICES & RECOVERY
@@ -871,7 +873,7 @@ export default function CustomerDetailScreen() {
               <Text
                 style={[
                   styles.emptySubtext,
-                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                  { color: t.textSecondary },
                 ]}
               >
                 No pending or past invoices recorded for this customer.
@@ -909,7 +911,7 @@ export default function CustomerDetailScreen() {
                         <Text
                           style={[
                             styles.invoiceNum,
-                            { color: isDark ? "#F1F7F4" : "#101513" },
+                            { color: t.text },
                           ]}
                         >
                           {p.invoiceNumber}
@@ -936,18 +938,18 @@ export default function CustomerDetailScreen() {
                     {/* Amount & Due Date Details */}
                     <View style={styles.paymentDetailRow}>
                       <View>
-                        <Text style={[styles.paymentSubLabel, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                        <Text style={[styles.paymentSubLabel, { color: t.textSecondary }]}>
                           Amount
                         </Text>
-                        <Text style={[styles.paymentAmountLarge, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                        <Text style={[styles.paymentAmountLarge, { color: t.text }]}>
                           {p.amount}
                         </Text>
                       </View>
                       <View style={{ alignItems: "flex-end" }}>
-                        <Text style={[styles.paymentSubLabel, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                        <Text style={[styles.paymentSubLabel, { color: t.textSecondary }]}>
                           Due Date
                         </Text>
-                        <Text style={[styles.paymentDetailValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                        <Text style={[styles.paymentDetailValue, { color: t.text }]}>
                           {p.dueDate}
                         </Text>
                       </View>
@@ -964,7 +966,7 @@ export default function CustomerDetailScreen() {
                               : isDark ? "#162821" : "#EEF5F1",
                             borderColor: p.isDateCrossed
                               ? isDark ? "rgba(255, 77, 79, 0.3)" : "#FFCCC7"
-                              : isDark ? "#294039" : "#D8E0DC",
+                              : t.border,
                           },
                         ]}
                       >
@@ -980,7 +982,7 @@ export default function CustomerDetailScreen() {
                               {
                                 color: p.isDateCrossed
                                   ? "#FF4D4F"
-                                  : isDark ? "#F1F7F4" : "#101513",
+                                  : t.text,
                               },
                             ]}
                           >
@@ -988,7 +990,7 @@ export default function CustomerDetailScreen() {
                             {p.isDateCrossed ? " (Crossed - Overdue)" : ""}
                           </Text>
                           {p.ticketRaisedAt && (
-                            <Text style={[styles.ticketRaisedSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                            <Text style={[styles.ticketRaisedSub, { color: t.textSecondary }]}>
                               Ticket raised at {p.ticketRaisedAt}
                             </Text>
                           )}
@@ -1040,7 +1042,7 @@ export default function CustomerDetailScreen() {
                       {isTicketRaised ? (
                         <>
                           <TouchableOpacity
-                            style={[styles.actionBtnSecondary, { borderColor: isDark ? "#294039" : "#D8E0DC" }]}
+                            style={[styles.actionBtnSecondary, { borderColor: t.border }]}
                             onPress={() => handleSendReminderEmail(p.id, p.invoiceNumber)}
                           >
                             <Ionicons name="mail" size={13} color={isDark ? "#35D6A0" : "#00A879"} />
@@ -1050,7 +1052,7 @@ export default function CustomerDetailScreen() {
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            style={[styles.actionBtnSecondary, { borderColor: isDark ? "#294039" : "#D8E0DC" }]}
+                            style={[styles.actionBtnSecondary, { borderColor: t.border }]}
                             onPress={() => handleUpdateExpectedDate(p.id, p.invoiceNumber)}
                           >
                             <Ionicons name="calendar" size={13} color={isDark ? "#35D6A0" : "#00A879"} />

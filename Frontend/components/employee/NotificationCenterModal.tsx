@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Modal,
   View,
@@ -6,32 +6,305 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  TouchableWithoutFeedback,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  FadeInDown,
+} from "react-native-reanimated";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Typography, FontSizes, Shadows } from "@/constants/theme";
+import { Typography, FontSizes } from "@/constants/theme";
+import { employeeTheme } from "@/constants/employeeTheme";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { FollowUpNotificationItem } from "@/services/followUpNotificationService";
+import { triggerLightHaptic, triggerSelectionHaptic } from "@/utils/haptics";
 
-interface NotificationCenterModalProps {
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+export interface NotificationCenterModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
 type FilterTab = "all" | "unread" | "followups" | "tickets";
 
+interface NotificationCardItemProps {
+  item: FollowUpNotificationItem;
+  index: number;
+  isDark: boolean;
+  onPress: () => void;
+  onDelete: () => void;
+}
+
+const NotificationCardItem: React.FC<NotificationCardItemProps> = ({
+  item,
+  index,
+  isDark,
+  onPress,
+  onDelete,
+}) => {
+  const scale = useSharedValue(1);
+  const pulseOpacity = useSharedValue(1);
+  const isTicket = item.type === "payment_ticket_raised";
+  const isUnread = !item.read;
+
+  useEffect(() => {
+    if (isUnread) {
+      pulseOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.4, { duration: 800 }),
+          withTiming(1.0, { duration: 800 })
+        ),
+        -1,
+        true
+      );
+    }
+  }, [isUnread, pulseOpacity]);
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, { damping: 16, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1.0, { damping: 18, stiffness: 280 });
+  };
+
+  const handlePress = () => {
+    triggerLightHaptic();
+    onPress();
+  };
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const pulseDotStyle = useAnimatedStyle(() => ({
+    opacity: pulseOpacity.value,
+  }));
+
+  const accentColor = isTicket
+    ? "#EF4444"
+    : isDark
+    ? "#10B981"
+    : "#00A879";
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(Math.min(index, 8) * 35).springify().damping(18).stiffness(240)}
+      style={animStyle}
+    >
+      <AnimatedPressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={handlePress}
+        style={[
+          styles.notifCard,
+          {
+            backgroundColor: isDark
+              ? isUnread
+                ? "#12151E"
+                : "#0D0F17"
+              : isUnread
+              ? "#FFFFFF"
+              : "#F7F9F8",
+            borderColor: isDark
+              ? isUnread
+                ? "rgba(16, 185, 129, 0.28)"
+                : "rgba(255, 255, 255, 0.07)"
+              : isUnread
+              ? "rgba(0, 168, 121, 0.25)"
+              : "#E1E8E4",
+            borderTopColor: isDark
+              ? isUnread
+                ? "rgba(255, 255, 255, 0.14)"
+                : "rgba(255, 255, 255, 0.08)"
+              : "rgba(255, 255, 255, 0.95)",
+            shadowColor: isDark ? "#000000" : "#0D2B20",
+          },
+        ]}
+      >
+        {/* Subtle Left Accent Bar for Unread */}
+        {isUnread && (
+          <View
+            style={[
+              styles.leftAccentBar,
+              { backgroundColor: accentColor },
+            ]}
+          />
+        )}
+
+        {/* Top Row: Clean Category Pill + Time + Delete */}
+        <View style={styles.notifTopRow}>
+          <View style={styles.pillContainer}>
+            {isUnread && (
+              <Animated.View
+                style={[
+                  styles.liveDot,
+                  { backgroundColor: accentColor },
+                  pulseDotStyle,
+                ]}
+              />
+            )}
+            <View
+              style={[
+                styles.cleanPill,
+                {
+                  backgroundColor: isTicket
+                    ? isDark
+                      ? "rgba(239, 68, 68, 0.14)"
+                      : "#FDECEB"
+                    : isDark
+                    ? "rgba(16, 185, 129, 0.14)"
+                    : "#DDF4EA",
+                },
+              ]}
+            >
+              <Ionicons
+                name={isTicket ? "alert-circle" : "calendar"}
+                size={11}
+                color={accentColor}
+              />
+              <Text style={[styles.cleanPillText, { color: accentColor }]}>
+                {isTicket ? "Payment Ticket" : "Follow-up"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.topRightActions}>
+            <Text
+              style={[
+                styles.itemDate,
+                {
+                  color: isTicket
+                    ? isDark
+                      ? "#F87171"
+                      : "#DC2626"
+                    : isDark
+                    ? "#94A3B8"
+                    : "#5E6964",
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {isTicket
+                ? `Overdue • ${item.expectedDate || "Passed"}`
+                : `${item.followUpDate || "Scheduled"} • ${item.followUpTime || ""}`}
+            </Text>
+
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                triggerLightHaptic();
+                onDelete();
+              }}
+              style={styles.trashIconBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={14}
+                color={isDark ? "#64748B" : "#8FA09A"}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Customer Name */}
+        <Text
+          style={[
+            styles.customerTitle,
+            { color: isDark ? "#F8FAFC" : "#101513" },
+          ]}
+          numberOfLines={1}
+        >
+          {item.customerName}
+        </Text>
+
+        {/* Context Line: Invoice or Purpose */}
+        <View style={styles.contextLine}>
+          <Ionicons
+            name={isTicket ? "receipt-outline" : "bookmark-outline"}
+            size={13}
+            color={isDark ? "#94A3B8" : "#5E6964"}
+          />
+          <Text
+            style={[
+              styles.contextText,
+              { color: isDark ? "#94A3B8" : "#5E6964" },
+            ]}
+            numberOfLines={1}
+          >
+            {isTicket
+              ? `Invoice #${item.invoiceNumber || "INV"} • Amount: ${item.amount || ""}`
+              : item.purpose || "Customer Follow-up"}
+          </Text>
+        </View>
+
+        {/* Note / Snippet */}
+        {isTicket ? (
+          <Text
+            style={[
+              styles.messageSnippet,
+              { color: isDark ? "#CBD5E1" : "#4A5852" },
+            ]}
+            numberOfLines={2}
+          >
+            Expected payment date ({item.expectedDate}) passed. Automated alert dispatched to accounts.
+          </Text>
+        ) : item.notes ? (
+          <Text
+            style={[
+              styles.messageSnippet,
+              { color: isDark ? "#CBD5E1" : "#4A5852" },
+            ]}
+            numberOfLines={2}
+          >
+            "{item.notes}"
+          </Text>
+        ) : null}
+
+        {/* Footer Action Link */}
+        <View style={styles.notifFooter}>
+          <Text
+            style={[
+              styles.actionHint,
+              { color: isDark ? "#10B981" : "#00A879" },
+            ]}
+          >
+            {isTicket ? "View invoice details" : "View customer profile"}
+          </Text>
+          <Ionicons
+            name="arrow-forward"
+            size={12}
+            color={isDark ? "#10B981" : "#00A879"}
+          />
+        </View>
+      </AnimatedPressable>
+    </Animated.View>
+  );
+};
+
 export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = ({
   visible,
   onClose,
 }) => {
   const { isDark } = useTheme();
+  const t = isDark ? employeeTheme.dark : employeeTheme.light;
   const {
     notifications,
     unreadCount,
     markAllAsRead,
     deleteNotification,
-    clearAllNotifications,
   } = useNotifications();
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
 
@@ -68,468 +341,314 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
     }
   };
 
+  if (!visible) return null;
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View
+      <View style={styles.modalRoot}>
+        {/* Backdrop */}
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
           style={[
             styles.backdrop,
-            { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(16,21,19,0.5)" },
+            { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(16,21,19,0.52)" },
           ]}
         >
-          <TouchableWithoutFeedback>
-            <View
-              style={[
-                styles.modalCard,
-                {
-                  backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-                  borderColor: isDark ? "#294039" : "#D8E0DC",
-                },
-                Shadows.cardElevated,
-              ]}
-            >
-              {/* Clean Header */}
-              <View
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        </Animated.View>
+
+        {/* Modal Tray Sheet */}
+        <Animated.View
+          entering={SlideInDown.springify().damping(17).stiffness(240)}
+          style={[
+            styles.modalCard,
+            {
+              backgroundColor: isDark ? "#0D0F17" : "#FFFFFF",
+              borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
+              borderTopColor: isDark ? "rgba(255, 255, 255, 0.14)" : "rgba(255, 255, 255, 0.95)",
+            },
+          ]}
+        >
+          {/* Drag Handle Pill */}
+          <View
+            style={[
+              styles.handle,
+              { backgroundColor: isDark ? "rgba(255, 255, 255, 0.16)" : t.border },
+            ]}
+          />
+
+          {/* Clean Header */}
+          <View
+            style={[
+              styles.header,
+              {
+                borderBottomColor: isDark
+                  ? "rgba(255, 255, 255, 0.06)"
+                  : "rgba(216, 224, 220, 0.8)",
+              },
+            ]}
+          >
+            <View style={styles.headerLeft}>
+              <Text
                 style={[
-                  styles.header,
-                  {
-                    borderBottomColor: isDark
-                      ? "rgba(41, 64, 57, 0.6)"
-                      : "rgba(216, 224, 220, 0.8)",
-                  },
+                  styles.headerTitle,
+                  { color: isDark ? "#F8FAFC" : "#101513" },
                 ]}
               >
-                <View style={styles.headerLeft}>
+                Notifications
+              </Text>
+              {unreadCount > 0 && (
+                <View
+                  style={[
+                    styles.unreadBadge,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(16, 185, 129, 0.14)"
+                        : "#DDF4EA",
+                    },
+                  ]}
+                >
                   <Text
                     style={[
-                      styles.headerTitle,
-                      { color: isDark ? "#F1F7F4" : "#101513" },
+                      styles.unreadBadgeText,
+                      { color: isDark ? "#10B981" : "#00A879" },
                     ]}
                   >
-                    Notifications
+                    {unreadCount} new
                   </Text>
-                  {unreadCount > 0 && (
-                    <View
-                      style={[
-                        styles.unreadBadge,
-                        {
-                          backgroundColor: isDark
-                            ? "rgba(53, 214, 160, 0.16)"
-                            : "#DDF4EA",
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.unreadBadgeText,
-                          { color: isDark ? "#35D6A0" : "#00A879" },
-                        ]}
-                      >
-                        {unreadCount} new
-                      </Text>
-                    </View>
-                  )}
                 </View>
+              )}
+            </View>
 
-                <View style={styles.headerRight}>
-                  {unreadCount > 0 && (
-                    <TouchableOpacity
-                      onPress={markAllAsRead}
-                      style={styles.markAllReadBtn}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Text
-                        style={[
-                          styles.markAllReadText,
-                          { color: isDark ? "#35D6A0" : "#00A879" },
-                        ]}
-                      >
-                        Mark all read
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    onPress={onClose}
+            <View style={styles.headerRight}>
+              {unreadCount > 0 && (
+                <TouchableOpacity
+                  onPress={() => {
+                    triggerSelectionHaptic();
+                    markAllAsRead();
+                  }}
+                  style={styles.markAllReadBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text
                     style={[
-                      styles.closeBtn,
-                      {
-                        backgroundColor: isDark ? "#15221D" : "#F7F9F8",
-                        borderColor: isDark ? "#294039" : "#D8E0DC",
-                      },
+                      styles.markAllReadText,
+                      { color: isDark ? "#10B981" : "#00A879" },
                     ]}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Ionicons
-                      name="close"
-                      size={16}
-                      color={isDark ? "#8FA09A" : "#5E6964"}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
+                    Mark all read
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-              {/* Refined Filter Chips */}
-              <View
+              <TouchableOpacity
+                onPress={() => {
+                  triggerLightHaptic();
+                  onClose();
+                }}
                 style={[
-                  styles.filterRow,
+                  styles.closeBtn,
                   {
-                    borderBottomColor: isDark
-                      ? "rgba(41, 64, 57, 0.4)"
-                      : "rgba(216, 224, 220, 0.6)",
+                    backgroundColor: isDark ? "#161A26" : "#F7F9F8",
+                    borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
                   },
                 ]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.filterScrollContent}
-                >
-                  {(
-                    [
-                      { key: "all", label: `All (${notifications.length})` },
-                      { key: "unread", label: `Unread (${unreadCount})` },
-                      { key: "followups", label: `Follow-ups (${followUpCount})` },
-                      { key: "tickets", label: `Tickets (${ticketCount})` },
-                    ] as const
-                  ).map((tab) => {
-                    const isSelected = activeFilter === tab.key;
-                    return (
-                      <TouchableOpacity
-                        key={tab.key}
-                        style={[
-                          styles.filterChip,
-                          {
-                            backgroundColor: isSelected
-                              ? isDark
-                                ? "rgba(53, 214, 160, 0.16)"
-                                : "#DDF4EA"
-                              : isDark
-                              ? "#121F1B"
-                              : "#F7F9F8",
-                            borderColor: isSelected
-                              ? isDark
-                                ? "#35D6A0"
-                                : "#00A879"
-                              : isDark
-                              ? "#294039"
-                              : "#D8E0DC",
-                          },
-                        ]}
-                        onPress={() => setActiveFilter(tab.key)}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.filterChipText,
-                            {
-                              color: isSelected
-                                ? isDark
-                                  ? "#35D6A0"
-                                  : "#00A879"
-                                : isDark
-                                ? "#8FA09A"
-                                : "#5E6964",
-                              fontFamily: isSelected
-                                ? Typography.semiBold
-                                : Typography.medium,
-                            },
-                          ]}
-                        >
-                          {tab.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+                <Ionicons
+                  name="close"
+                  size={16}
+                  color={isDark ? "#94A3B8" : "#5E6964"}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-              {/* Notification Cards List */}
-              <ScrollView
-                style={styles.list}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContent}
-              >
-                {filteredNotifications.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <View
+          {/* Refined Filter Chips */}
+          <View
+            style={[
+              styles.filterRow,
+              {
+                borderBottomColor: isDark
+                  ? "rgba(255, 255, 255, 0.05)"
+                  : "rgba(216, 224, 220, 0.6)",
+              },
+            ]}
+          >
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScrollContent}
+            >
+              {(
+                [
+                  { key: "all", label: `All (${notifications.length})` },
+                  { key: "unread", label: `Unread (${unreadCount})` },
+                  { key: "followups", label: `Follow-ups (${followUpCount})` },
+                  { key: "tickets", label: `Tickets (${ticketCount})` },
+                ] as const
+              ).map((tab) => {
+                const isSelected = activeFilter === tab.key;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: isSelected
+                          ? isDark
+                            ? "rgba(16, 185, 129, 0.14)"
+                            : "#DDF4EA"
+                          : isDark
+                          ? "#161A26"
+                          : "#F7F9F8",
+                        borderColor: isSelected
+                          ? isDark
+                            ? "#10B981"
+                            : "#00A879"
+                          : isDark
+                          ? "rgba(255, 255, 255, 0.08)"
+                          : "#D8E0DC",
+                      },
+                    ]}
+                    onPress={() => {
+                      triggerSelectionHaptic();
+                      setActiveFilter(tab.key);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
                       style={[
-                        styles.emptyIconBg,
+                        styles.filterChipText,
                         {
-                          backgroundColor: isDark
-                            ? "rgba(53, 214, 160, 0.08)"
-                            : "#EEF8F4",
+                          color: isSelected
+                            ? isDark
+                              ? "#10B981"
+                              : "#00A879"
+                            : isDark
+                            ? "#94A3B8"
+                            : "#5E6964",
+                          fontFamily: isSelected
+                            ? Typography.semiBold
+                            : Typography.medium,
                         },
                       ]}
                     >
-                      <Ionicons
-                        name="checkmark-done-circle-outline"
-                        size={36}
-                        color={isDark ? "#35D6A0" : "#00A879"}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.emptyTitle,
-                        { color: isDark ? "#F1F7F4" : "#101513" },
-                      ]}
-                    >
-                      All caught up
+                      {tab.label}
                     </Text>
-                    <Text
-                      style={[
-                        styles.emptyBody,
-                        { color: isDark ? "#8FA09A" : "#5E6964" },
-                      ]}
-                    >
-                      {activeFilter === "unread"
-                        ? "You have no unread notifications."
-                        : activeFilter === "tickets"
-                        ? "No raised payment tickets."
-                        : "Follow-up reminders and payment alerts will appear here."}
-                    </Text>
-                  </View>
-                ) : (
-                  filteredNotifications.map((item) => {
-                    const isTicket = item.type === "payment_ticket_raised";
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[
-                          styles.notifCard,
-                          {
-                            backgroundColor: isDark
-                              ? item.read
-                                ? "#111D19"
-                                : "#14251F"
-                              : item.read
-                              ? "#FFFFFF"
-                              : "#F6FAF8",
-                            borderColor: isDark
-                              ? item.read
-                                ? "#1E3029"
-                                : "rgba(53, 214, 160, 0.35)"
-                              : item.read
-                              ? "#E1E8E4"
-                              : "rgba(0, 168, 121, 0.3)",
-                          },
-                        ]}
-                        onPress={() => handleItemPress(item.customerId)}
-                        activeOpacity={0.85}
-                      >
-                        {/* Top Row: Clean Category Pill + Time + Delete */}
-                        <View style={styles.notifTopRow}>
-                          <View style={styles.pillContainer}>
-                            {!item.read && (
-                              <View
-                                style={[
-                                  styles.liveDot,
-                                  {
-                                    backgroundColor: isTicket
-                                      ? "#FF4D4F"
-                                      : isDark
-                                      ? "#35D6A0"
-                                      : "#00A879",
-                                  },
-                                ]}
-                              />
-                            )}
-                            <View
-                              style={[
-                                styles.cleanPill,
-                                {
-                                  backgroundColor: isTicket
-                                    ? isDark
-                                      ? "rgba(255, 77, 79, 0.12)"
-                                      : "#FDECEB"
-                                    : isDark
-                                    ? "rgba(53, 214, 160, 0.12)"
-                                    : "#DDF4EA",
-                                },
-                              ]}
-                            >
-                              <Ionicons
-                                name={isTicket ? "alert-circle" : "calendar"}
-                                size={11}
-                                color={
-                                  isTicket
-                                    ? isDark
-                                      ? "#FF7875"
-                                      : "#D9363E"
-                                    : isDark
-                                    ? "#35D6A0"
-                                    : "#00A879"
-                                }
-                              />
-                              <Text
-                                style={[
-                                  styles.cleanPillText,
-                                  {
-                                    color: isTicket
-                                      ? isDark
-                                        ? "#FF7875"
-                                        : "#D9363E"
-                                      : isDark
-                                      ? "#35D6A0"
-                                      : "#00A879",
-                                  },
-                                ]}
-                              >
-                                {isTicket ? "Payment Ticket" : "Follow-up"}
-                              </Text>
-                            </View>
-                          </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
 
-                          <View style={styles.topRightActions}>
-                            <Text
-                              style={[
-                                styles.itemDate,
-                                {
-                                  color: isTicket
-                                    ? isDark
-                                      ? "#FF9C9C"
-                                      : "#CF1322"
-                                    : isDark
-                                    ? "#8FA09A"
-                                    : "#5E6964",
-                                },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {isTicket
-                                ? `Overdue • ${item.expectedDate || "Passed"}`
-                                : `${item.followUpDate || "Scheduled"} • ${item.followUpTime || ""}`}
-                            </Text>
-
-                            <TouchableOpacity
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                deleteNotification(item.id);
-                              }}
-                              style={styles.trashIconBtn}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                              <Ionicons
-                                name="trash-outline"
-                                size={14}
-                                color={isDark ? "#6E8079" : "#9AA6A0"}
-                              />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-
-                        {/* Customer Name */}
-                        <Text
-                          style={[
-                            styles.customerTitle,
-                            { color: isDark ? "#F1F7F4" : "#101513" },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.customerName}
-                        </Text>
-
-                        {/* Context Line: Invoice or Purpose */}
-                        <View style={styles.contextLine}>
-                          <Ionicons
-                            name={isTicket ? "receipt-outline" : "bookmark-outline"}
-                            size={13}
-                            color={isDark ? "#8FA09A" : "#5E6964"}
-                          />
-                          <Text
-                            style={[
-                              styles.contextText,
-                              { color: isDark ? "#8FA09A" : "#5E6964" },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {isTicket
-                              ? `Invoice #${item.invoiceNumber || "INV"} • Amount: ${item.amount || ""}`
-                              : item.purpose || "Customer Follow-up"}
-                          </Text>
-                        </View>
-
-                        {/* Note/Snippet (Clean text without heavy nested boxes) */}
-                        {isTicket ? (
-                          <Text
-                            style={[
-                              styles.messageSnippet,
-                              { color: isDark ? "#B8C9C2" : "#4A5852" },
-                            ]}
-                            numberOfLines={2}
-                          >
-                            Expected payment date ({item.expectedDate}) passed. Automated alert dispatched to accounts.
-                          </Text>
-                        ) : item.notes ? (
-                          <Text
-                            style={[
-                              styles.messageSnippet,
-                              { color: isDark ? "#B8C9C2" : "#4A5852" },
-                            ]}
-                            numberOfLines={2}
-                          >
-                            "{item.notes}"
-                          </Text>
-                        ) : null}
-
-                        {/* Footer action link */}
-                        <View style={styles.notifFooter}>
-                          <Text
-                            style={[
-                              styles.actionHint,
-                              {
-                                color: isDark ? "#35D6A0" : "#00A879",
-                              },
-                            ]}
-                          >
-                            {isTicket ? "View invoice details" : "View customer profile"}
-                          </Text>
-                          <Ionicons
-                            name="arrow-forward"
-                            size={12}
-                            color={isDark ? "#35D6A0" : "#00A879"}
-                          />
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </ScrollView>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+          {/* Notification Cards List with Cascade Animation */}
+          <ScrollView
+            style={styles.list}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+          >
+            {filteredNotifications.length === 0 ? (
+              <View style={styles.emptyState}>
+                <View
+                  style={[
+                    styles.emptyIconBg,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(16, 185, 129, 0.10)"
+                        : "#EEF8F4",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="checkmark-done-circle-outline"
+                    size={36}
+                    color={isDark ? "#10B981" : "#00A879"}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.emptyTitle,
+                    { color: isDark ? "#F8FAFC" : "#101513" },
+                  ]}
+                >
+                  All caught up
+                </Text>
+                <Text
+                  style={[
+                    styles.emptyBody,
+                    { color: isDark ? "#94A3B8" : "#5E6964" },
+                  ]}
+                >
+                  {activeFilter === "unread"
+                    ? "You have no unread notifications."
+                    : activeFilter === "tickets"
+                    ? "No raised payment tickets."
+                    : "Follow-up reminders and payment alerts will appear here."}
+                </Text>
+              </View>
+            ) : (
+              filteredNotifications.map((item, idx) => (
+                <NotificationCardItem
+                  key={item.id}
+                  item={item}
+                  index={idx}
+                  isDark={isDark}
+                  onPress={() => handleItemPress(item.customerId)}
+                  onDelete={() => deleteNotification(item.id)}
+                />
+              ))
+            )}
+          </ScrollView>
+        </Animated.View>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  backdrop: {
+  modalRoot: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 16,
+    justifyContent: "flex-end",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
   },
   modalCard: {
     width: "100%",
-    maxWidth: 440,
+    maxWidth: 480,
     alignSelf: "center",
-    maxHeight: "80%",
-    borderRadius: 22,
-    borderWidth: 1,
-    overflow: "hidden",
+    maxHeight: "86%",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1.2,
+    borderBottomWidth: 0,
+    paddingTop: 12,
+    paddingBottom: 28,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    elevation: 24,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 12,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
     borderBottomWidth: 1,
   },
   headerLeft: {
@@ -538,14 +657,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: Typography.bold,
     letterSpacing: -0.3,
   },
   unreadBadge: {
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   unreadBadgeText: {
     fontSize: 11,
@@ -554,54 +673,69 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   markAllReadBtn: {
     paddingVertical: 4,
     paddingHorizontal: 6,
   },
   markAllReadText: {
-    fontSize: 13,
+    fontSize: FontSizes.caption,
     fontFamily: Typography.semiBold,
   },
   closeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   filterRow: {
     borderBottomWidth: 1,
+    paddingVertical: 10,
   },
   filterScrollContent: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
     gap: 8,
   },
   filterChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
   },
   filterChipText: {
-    fontFamily: Typography.medium,
-    fontSize: 12,
+    fontSize: FontSizes.caption,
   },
   list: {
-    maxHeight: 460,
+    flexGrow: 0,
+    paddingHorizontal: 20,
   },
   listContent: {
-    padding: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
     gap: 10,
   },
   notifCard: {
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.2,
     padding: 14,
+    position: "relative",
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  leftAccentBar: {
+    position: "absolute",
+    left: 0,
+    top: 10,
+    bottom: 10,
+    width: 3.5,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
   },
   notifTopRow: {
     flexDirection: "row",
@@ -625,10 +759,10 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   cleanPillText: {
-    fontSize: 11,
+    fontSize: FontSizes.micro,
     fontFamily: Typography.semiBold,
   },
   topRightActions: {
@@ -637,65 +771,61 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   itemDate: {
-    fontSize: 11,
+    fontSize: FontSizes.micro,
     fontFamily: Typography.medium,
   },
   trashIconBtn: {
     padding: 2,
   },
   customerTitle: {
-    fontSize: 15,
-    fontFamily: Typography.bold,
-    letterSpacing: -0.2,
+    fontSize: FontSizes.body,
+    fontFamily: Typography.semiBold,
     marginBottom: 4,
   },
   contextLine: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     marginBottom: 6,
   },
   contextText: {
-    fontSize: 12,
+    fontSize: FontSizes.caption,
     fontFamily: Typography.regular,
-    flex: 1,
   },
   messageSnippet: {
-    fontSize: 12,
+    fontSize: FontSizes.caption,
     fontFamily: Typography.regular,
-    lineHeight: 17,
+    lineHeight: 18,
     marginBottom: 8,
   },
   notifFooter: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(143, 160, 154, 0.2)",
+    marginTop: 2,
   },
   actionHint: {
-    fontSize: 12,
-    fontFamily: Typography.semiBold,
+    fontSize: FontSizes.micro,
+    fontFamily: Typography.bold,
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 40,
     paddingHorizontal: 20,
-    gap: 8,
   },
   emptyIconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    marginBottom: 12,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: FontSizes.body,
     fontFamily: Typography.bold,
+    marginBottom: 4,
   },
   emptyBody: {
     fontSize: FontSizes.caption,

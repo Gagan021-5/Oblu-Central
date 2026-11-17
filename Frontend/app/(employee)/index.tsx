@@ -17,6 +17,7 @@ import {
 import { router, useGlobalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Typography, FontSizes, Radius } from "@/constants/theme";
@@ -95,7 +96,8 @@ function getHRModalSubtitle(modal: string | null): string {
 
 export default function EmployeeHomeScreen() {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
   const { user } = useAuth();
   const globalParams = useGlobalSearchParams<{ tab?: string }>();
   const isStaffTab = globalParams.tab === "staff";
@@ -511,7 +513,7 @@ export default function EmployeeHomeScreen() {
   }, [hrmsEmployees, hrmsSearch, selectedDeptFilter]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: t.bg, paddingTop: insets.top }]}>
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
@@ -590,7 +592,7 @@ export default function EmployeeHomeScreen() {
         {(!searchQuery.trim() || filteredApps.length > 0) && (
           <View style={styles.categoriesContainer}>
             {filteredApps.length > 1 && (
-              <Text style={[styles.exploreAppsHeading, { color: isDark ? "#F8FAFC" : "#101513" }]}>
+              <Text style={[styles.exploreAppsHeading, { color: t.text }]}>
                 Explore Apps
               </Text>
             )}
@@ -660,7 +662,7 @@ export default function EmployeeHomeScreen() {
                   <Text
                     style={[
                       styles.heroHeading,
-                      { color: isDark ? "#F1F7F4" : "#101513" },
+                      { color: t.text },
                     ]}
                   >
                     {isHR && isStaffTab ? "Workforce Directory" : roleContext.headline}
@@ -714,8 +716,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                     },
                   ]}
                   onPress={() => openSubApp("hrms")}
@@ -729,10 +731,10 @@ export default function EmployeeHomeScreen() {
                       <Text style={[styles.hrBentoTagText, { color: isDark ? "#10B981" : "#00A879" }]}>ACTIVE STAFF</Text>
                     </View>
                   </View>
-                  <Text style={[styles.hrBentoStatNum, { color: isDark ? "#F8FAFC" : "#101513" }]}>
+                  <Text style={[styles.hrBentoStatNum, { color: t.text }]}>
                     {hrmsData?.stats?.total_employees ?? 12}
                   </Text>
-                  <Text style={[styles.hrBentoStatSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
+                  <Text style={[styles.hrBentoStatSub, { color: t.textSecondary }]}>
                     Employees enrolled across 5 departments
                   </Text>
                 </TouchableOpacity>
@@ -742,8 +744,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                     },
                   ]}
                   onPress={() => openSubApp("hrms")}
@@ -757,10 +759,10 @@ export default function EmployeeHomeScreen() {
                       <Text style={[styles.hrBentoTagText, { color: "#10B981" }]}>TODAY PRESENT</Text>
                     </View>
                   </View>
-                  <Text style={[styles.hrBentoStatNum, { color: isDark ? "#F8FAFC" : "#101513" }]}>
+                  <Text style={[styles.hrBentoStatNum, { color: t.text }]}>
                     {hrmsData?.stats?.present_today ?? 4}
                   </Text>
-                  <Text style={[styles.hrBentoStatSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
+                  <Text style={[styles.hrBentoStatSub, { color: t.textSecondary }]}>
                     {hrmsData?.stats?.absent_today ?? 8} staff on leave / absent today
                   </Text>
                 </TouchableOpacity>
@@ -770,8 +772,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                     },
                   ]}
                   onPress={() => openSubApp("hrms")}
@@ -785,10 +787,10 @@ export default function EmployeeHomeScreen() {
                       <Text style={[styles.hrBentoTagText, { color: isDark ? "#10B981" : "#00A879" }]}>ACTION REQUIRED</Text>
                     </View>
                   </View>
-                  <Text style={[styles.hrBentoStatNum, { color: isDark ? "#F8FAFC" : "#101513" }]}>
+                  <Text style={[styles.hrBentoStatNum, { color: t.text }]}>
                     {hrmsData?.stats?.pending_leaves ?? 2}
                   </Text>
-                  <Text style={[styles.hrBentoStatSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
+                  <Text style={[styles.hrBentoStatSub, { color: t.textSecondary }]}>
                     Pending leave requests awaiting review
                   </Text>
                 </TouchableOpacity>
@@ -806,8 +808,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.bentoModuleCard,
                     {
-                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                     },
                   ]}
                   onPress={() => openSubApp("incentives")}
@@ -838,7 +840,7 @@ export default function EmployeeHomeScreen() {
                           styles.bentoArrowCircle,
                           {
                             backgroundColor: isDark ? "#1A1E2B" : "#F7F9F8",
-                            borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
+                            borderColor: t.border,
                           },
                         ]}
                       >
@@ -846,10 +848,10 @@ export default function EmployeeHomeScreen() {
                       </View>
                     </View>
                   </View>
-                  <Text style={[styles.bentoModuleTitle, { color: isDark ? "#F8FAFC" : "#101513" }]}>
+                  <Text style={[styles.bentoModuleTitle, { color: t.text }]}>
                     Commission Matrix
                   </Text>
-                  <Text style={[styles.bentoModuleSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
+                  <Text style={[styles.bentoModuleSub, { color: t.textSecondary }]}>
                     Tiered sales commission & performance payouts
                   </Text>
                 </TouchableOpacity>
@@ -858,8 +860,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.bentoModuleCard,
                     {
-                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                     },
                   ]}
                   onPress={() => openSubApp("inventory")}
@@ -890,7 +892,7 @@ export default function EmployeeHomeScreen() {
                           styles.bentoArrowCircle,
                           {
                             backgroundColor: isDark ? "#1A1E2B" : "#F7F9F8",
-                            borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
+                            borderColor: t.border,
                           },
                         ]}
                       >
@@ -898,10 +900,10 @@ export default function EmployeeHomeScreen() {
                       </View>
                     </View>
                   </View>
-                  <Text style={[styles.bentoModuleTitle, { color: isDark ? "#F8FAFC" : "#101513" }]}>
+                  <Text style={[styles.bentoModuleTitle, { color: t.text }]}>
                     540+ SKUs
                   </Text>
-                  <Text style={[styles.bentoModuleSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
+                  <Text style={[styles.bentoModuleSub, { color: t.textSecondary }]}>
                     Live inventory & warehouse stock visibility
                   </Text>
                 </TouchableOpacity>
@@ -910,8 +912,8 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.bentoModuleCard,
                     {
-                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                     },
                   ]}
                   onPress={() => openSubApp("proforma")}
@@ -942,7 +944,7 @@ export default function EmployeeHomeScreen() {
                           styles.bentoArrowCircle,
                           {
                             backgroundColor: isDark ? "#1A1E2B" : "#F7F9F8",
-                            borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
+                            borderColor: t.border,
                           },
                         ]}
                       >
@@ -950,10 +952,10 @@ export default function EmployeeHomeScreen() {
                       </View>
                     </View>
                   </View>
-                  <Text style={[styles.bentoModuleTitle, { color: isDark ? "#F8FAFC" : "#101513" }]}>
+                  <Text style={[styles.bentoModuleTitle, { color: t.text }]}>
                     Proforma Invoices
                   </Text>
-                  <Text style={[styles.bentoModuleSub, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
+                  <Text style={[styles.bentoModuleSub, { color: t.textSecondary }]}>
                     Issue quotations, commercial pricing & approvals
                   </Text>
                 </TouchableOpacity>
@@ -978,7 +980,7 @@ export default function EmployeeHomeScreen() {
 
             {/* Dynamic Role-Specific Metrics Section */}
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              <Text style={[styles.sectionTitle, { color: t.text }]}>
                 {roleContext.metricsTitle}
               </Text>
               <Text style={[styles.sectionTag, { color: isDark ? "#35D6A0" : "#00A879" }]}>
@@ -1146,10 +1148,10 @@ export default function EmployeeHomeScreen() {
             {/* Header */}
             <View style={styles.moduleHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.moduleTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.moduleTitle, { color: t.text }]}>
                   HRMS Operations
                 </Text>
-                <Text style={[styles.moduleSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.moduleSubtitle, { color: t.textSecondary }]}>
                   Workforce Management, Attendance & Leave Approvals
                 </Text>
               </View>
@@ -1161,27 +1163,27 @@ export default function EmployeeHomeScreen() {
                 style={[
                   styles.hrmsMetricTile,
                   {
-                    backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                    borderColor: isDark ? "rgba(53, 214, 160, 0.18)" : "rgba(13, 43, 32, 0.08)",
-                    borderTopColor: isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
+                    backgroundColor: t.surface,
+                    borderColor: t.border,
+                    borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                     borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
                     shadowColor: isDark ? "#000000" : "#0D2B20",
                     shadowOpacity: isDark ? 0.46 : 0.09,
                   },
                 ]}
               >
-                <Text style={[styles.hrmsMetricLabel, { color: isDark ? "#8FA09A" : "#5E6964" }]}>WORKFORCE</Text>
-                <Text style={[styles.hrmsMetricValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.hrmsMetricLabel, { color: t.textSecondary }]}>WORKFORCE</Text>
+                <Text style={[styles.hrmsMetricValue, { color: t.text }]}>
                   {hrmsData?.stats?.total_employees ?? 12}
                 </Text>
-                <Text style={[styles.hrmsMetricSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Active employees</Text>
+                <Text style={[styles.hrmsMetricSub, { color: t.textSecondary }]}>Active employees</Text>
               </View>
 
               <View
                 style={[
                   styles.hrmsMetricTile,
                   {
-                    backgroundColor: isDark ? "#12201B" : "#FFFFFF",
+                    backgroundColor: t.surface,
                     borderColor: isDark ? "rgba(16, 185, 129, 0.28)" : "rgba(16, 185, 129, 0.20)",
                     borderTopColor: isDark ? "rgba(16, 185, 129, 0.50)" : "rgba(255, 255, 255, 0.98)",
                     borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
@@ -1194,20 +1196,20 @@ export default function EmployeeHomeScreen() {
                 <Text style={[styles.hrmsMetricValue, { color: "#10B981" }]}>
                   {hrmsData?.stats?.present_today ?? 4}
                 </Text>
-                <Text style={[styles.hrmsMetricSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>{hrmsData?.stats?.absent_today ?? 8} on leave / absent</Text>
+                <Text style={[styles.hrmsMetricSub, { color: t.textSecondary }]}>{hrmsData?.stats?.absent_today ?? 8} on leave / absent</Text>
               </View>
 
               <View
                 style={[
                   styles.hrmsMetricTile,
                   {
-                    backgroundColor: isDark ? "#12201B" : "#FFFFFF",
+                    backgroundColor: t.surface,
                     borderColor: (hrmsData?.stats?.pending_leaves ?? 2) > 0
                       ? isDark ? "rgba(245, 158, 11, 0.35)" : "rgba(217, 119, 6, 0.25)"
-                      : isDark ? "rgba(53, 214, 160, 0.18)" : "rgba(13, 43, 32, 0.08)",
+                      : t.border,
                     borderTopColor: (hrmsData?.stats?.pending_leaves ?? 2) > 0
                       ? isDark ? "rgba(245, 158, 11, 0.55)" : "rgba(255, 255, 255, 0.98)"
-                      : isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
+                      : isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                     borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
                     shadowColor: isDark ? "#000000" : "#0D2B20",
                     shadowOpacity: isDark ? 0.46 : 0.09,
@@ -1218,33 +1220,33 @@ export default function EmployeeHomeScreen() {
                 <Text style={[styles.hrmsMetricValue, { color: isDark ? "#35D6A0" : "#00A879" }]}>
                   {hrmsData?.stats?.pending_leaves ?? 2}
                 </Text>
-                <Text style={[styles.hrmsMetricSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Approvals required</Text>
+                <Text style={[styles.hrmsMetricSub, { color: t.textSecondary }]}>Approvals required</Text>
               </View>
 
               <View
                 style={[
                   styles.hrmsMetricTile,
                   {
-                    backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                    borderColor: isDark ? "rgba(53, 214, 160, 0.18)" : "rgba(13, 43, 32, 0.08)",
-                    borderTopColor: isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
+                    backgroundColor: t.surface,
+                    borderColor: t.border,
+                    borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                     borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
                     shadowColor: isDark ? "#000000" : "#0D2B20",
                     shadowOpacity: isDark ? 0.46 : 0.09,
                   },
                 ]}
               >
-                <Text style={[styles.hrmsMetricLabel, { color: isDark ? "#8FA09A" : "#5E6964" }]}>DEPARTMENTS</Text>
-                <Text style={[styles.hrmsMetricValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.hrmsMetricLabel, { color: t.textSecondary }]}>DEPARTMENTS</Text>
+                <Text style={[styles.hrmsMetricValue, { color: t.text }]}>
                   {hrmsData?.stats?.total_departments ?? 5}
                 </Text>
-                <Text style={[styles.hrmsMetricSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Corporate units</Text>
+                <Text style={[styles.hrmsMetricSub, { color: t.textSecondary }]}>Corporate units</Text>
               </View>
             </View>
 
             {/* HR Operations Quick Modules (From HRMS Dashboard Template) */}
             <View style={styles.hrToolkitSection}>
-              <Text style={[styles.hrToolkitHeaderTitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+              <Text style={[styles.hrToolkitHeaderTitle, { color: t.textSecondary }]}>
                 HR OPERATIONS TOOLKIT & POLICIES
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
@@ -1252,9 +1254,9 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrToolChip,
                     {
-                      backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(53, 214, 160, 0.22)" : "rgba(13, 43, 32, 0.10)",
-                      borderTopColor: isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
+                      borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                       shadowColor: isDark ? "#000000" : "#0D2B20",
                       shadowOpacity: isDark ? 0.35 : 0.08,
                     },
@@ -1263,16 +1265,16 @@ export default function EmployeeHomeScreen() {
                   activeOpacity={0.75}
                 >
                   <Ionicons name="calendar-outline" size={15} color="#35D6A0" />
-                  <Text style={[styles.hrToolChipText, { color: isDark ? "#F1F7F4" : "#101513" }]}>Company Holidays</Text>
+                  <Text style={[styles.hrToolChipText, { color: t.text }]}>Company Holidays</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[
                     styles.hrToolChip,
                     {
-                      backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(53, 214, 160, 0.22)" : "rgba(13, 43, 32, 0.10)",
-                      borderTopColor: isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
+                      borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                       shadowColor: isDark ? "#000000" : "#0D2B20",
                       shadowOpacity: isDark ? 0.35 : 0.08,
                     },
@@ -1281,16 +1283,16 @@ export default function EmployeeHomeScreen() {
                   activeOpacity={0.75}
                 >
                   <Ionicons name="time-outline" size={15} color="#F59E0B" />
-                  <Text style={[styles.hrToolChipText, { color: isDark ? "#F1F7F4" : "#101513" }]}>Shift Policies</Text>
+                  <Text style={[styles.hrToolChipText, { color: t.text }]}>Shift Policies</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[
                     styles.hrToolChip,
                     {
-                      backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(53, 214, 160, 0.22)" : "rgba(13, 43, 32, 0.10)",
-                      borderTopColor: isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
+                      borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                       shadowColor: isDark ? "#000000" : "#0D2B20",
                       shadowOpacity: isDark ? 0.35 : 0.08,
                     },
@@ -1299,16 +1301,16 @@ export default function EmployeeHomeScreen() {
                   activeOpacity={0.75}
                 >
                   <Ionicons name="briefcase-outline" size={15} color="#6366F1" />
-                  <Text style={[styles.hrToolChipText, { color: isDark ? "#F1F7F4" : "#101513" }]}>Leave Balances</Text>
+                  <Text style={[styles.hrToolChipText, { color: t.text }]}>Leave Balances</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[
                     styles.hrToolChip,
                     {
-                      backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(53, 214, 160, 0.22)" : "rgba(13, 43, 32, 0.10)",
-                      borderTopColor: isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
+                      borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                       shadowColor: isDark ? "#000000" : "#0D2B20",
                       shadowOpacity: isDark ? 0.35 : 0.08,
                     },
@@ -1317,16 +1319,16 @@ export default function EmployeeHomeScreen() {
                   activeOpacity={0.75}
                 >
                   <Ionicons name="person-add-outline" size={15} color="#EC4899" />
-                  <Text style={[styles.hrToolChipText, { color: isDark ? "#F1F7F4" : "#101513" }]}>Hiring Pipeline</Text>
+                  <Text style={[styles.hrToolChipText, { color: t.text }]}>Hiring Pipeline</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[
                     styles.hrToolChip,
                     {
-                      backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(53, 214, 160, 0.22)" : "rgba(13, 43, 32, 0.10)",
-                      borderTopColor: isDark ? "rgba(53, 214, 160, 0.40)" : "rgba(255, 255, 255, 0.98)",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
+                      borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                       shadowColor: isDark ? "#000000" : "#0D2B20",
                       shadowOpacity: isDark ? 0.35 : 0.08,
                     },
@@ -1335,7 +1337,7 @@ export default function EmployeeHomeScreen() {
                   activeOpacity={0.75}
                 >
                   <Ionicons name="finger-print-outline" size={15} color="#10B981" />
-                  <Text style={[styles.hrToolChipText, { color: isDark ? "#F1F7F4" : "#101513" }]}>Biometric Kiosk</Text>
+                  <Text style={[styles.hrToolChipText, { color: t.text }]}>Biometric Kiosk</Text>
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -1347,9 +1349,9 @@ export default function EmployeeHomeScreen() {
               style={[
                 styles.punchTerminalCard,
                 {
-                  backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                  borderColor: isDark ? "rgba(53, 214, 160, 0.20)" : "rgba(13, 43, 32, 0.08)",
-                  borderTopColor: isDark ? "rgba(53, 214, 160, 0.42)" : "rgba(255, 255, 255, 0.98)",
+                  backgroundColor: t.surface,
+                  borderColor: t.border,
+                  borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                   borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
                   shadowColor: isDark ? "#000000" : "#0D2B20",
                   shadowOpacity: isDark ? 0.48 : 0.09,
@@ -1361,10 +1363,10 @@ export default function EmployeeHomeScreen() {
                   <Ionicons name="time" size={24} color={isDark ? "#35D6A0" : "#00A879"} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.punchTerminalTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                  <Text style={[styles.punchTerminalTitle, { color: t.text }]}>
                     Attendance Terminal
                   </Text>
-                  <Text style={[styles.punchTerminalSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                  <Text style={[styles.punchTerminalSub, { color: t.textSecondary }]}>
                     {hrmsData?.user_punch?.has_punched_in
                       ? `Checked in at ${hrmsData.user_punch.punch_in_time}`
                       : "Not punched in yet today"}
@@ -1411,9 +1413,9 @@ export default function EmployeeHomeScreen() {
               </View>
 
               {/* Biometric Verification Info */}
-              <View style={[styles.kioskInfoBox, { backgroundColor: isDark ? "#121F1B" : "#F8FAFC" }]}>
+              <View style={[styles.kioskInfoBox, { backgroundColor: t.surfaceAlt }]}>
                 <Ionicons name="shield-checkmark-outline" size={16} color="#10B981" />
-                <Text style={[styles.kioskInfoText, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.kioskInfoText, { color: t.textSecondary }]}>
                   Biometric attendance terminal synchronized. Secure verification active.
                 </Text>
               </View>
@@ -1421,7 +1423,7 @@ export default function EmployeeHomeScreen() {
 
             {/* Pending Leave Approvals Queue (Actionable) */}
             <View style={styles.subSectionHeader}>
-              <Text style={[styles.subSectionTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              <Text style={[styles.subSectionTitle, { color: t.text }]}>
                 Pending Leave Applications ({hrmsData?.pending_leaves?.length ?? 0})
               </Text>
               <Text style={styles.subSectionBadge}>Action Required</Text>
@@ -1435,9 +1437,9 @@ export default function EmployeeHomeScreen() {
                     style={[
                       styles.leaveCard,
                       {
-                        backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                        borderColor: isDark ? "rgba(53, 214, 160, 0.18)" : "rgba(13, 43, 32, 0.08)",
-                        borderTopColor: isDark ? "rgba(53, 214, 160, 0.38)" : "rgba(255, 255, 255, 0.98)",
+                        backgroundColor: t.surface,
+                        borderColor: t.border,
+                        borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                         borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
                         shadowColor: isDark ? "#000000" : "#0D2B20",
                         shadowOpacity: isDark ? 0.45 : 0.09,
@@ -1446,10 +1448,10 @@ export default function EmployeeHomeScreen() {
                   >
                     <View style={styles.leaveCardHeader}>
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.leaveEmployeeName, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                        <Text style={[styles.leaveEmployeeName, { color: t.text }]}>
                           {leave.employee_name} ({leave.employee_code})
                         </Text>
-                        <Text style={[styles.leaveDepartment, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                        <Text style={[styles.leaveDepartment, { color: t.textSecondary }]}>
                           {leave.department} • {leave.leave_type} ({leave.total_days} day{leave.total_days === 1 ? "" : "s"})
                         </Text>
                       </View>
@@ -1488,9 +1490,9 @@ export default function EmployeeHomeScreen() {
                 ))}
               </View>
             ) : (
-              <View style={[styles.emptyBox, { backgroundColor: isDark ? "#0E1714" : "#FFFFFF", borderColor: isDark ? "#294039" : "#D8E0DC" }]}>
+              <View style={[styles.emptyBox, { backgroundColor: t.surface, borderColor: t.border }]}>
                 <Ionicons name="checkmark-done-circle" size={36} color="#10B981" />
-                <Text style={[styles.emptyBoxTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.emptyBoxTitle, { color: t.text }]}>
                   All Leave Requests Resolved
                 </Text>
                 <Text style={styles.emptyBoxSub}>
@@ -1503,7 +1505,7 @@ export default function EmployeeHomeScreen() {
             )}
             {/* Workforce Staff Directory Section Header */}
             <View style={[styles.subSectionHeader, { marginTop: 16, marginBottom: 12 }]}>
-              <Text style={[styles.subSectionTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              <Text style={[styles.subSectionTitle, { color: t.text }]}>
                 Workforce Directory ({filteredEmployees.length})
               </Text>
               <Text style={[styles.subSectionBadge, { color: isDark ? "#35D6A0" : "#00A879" }]}>
@@ -1540,9 +1542,9 @@ export default function EmployeeHomeScreen() {
                     style={[
                       styles.employeeCard,
                       {
-                        backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-                        borderColor: isDark ? "rgba(53, 214, 160, 0.18)" : "rgba(13, 43, 32, 0.08)",
-                        borderTopColor: isDark ? "rgba(53, 214, 160, 0.38)" : "rgba(255, 255, 255, 0.98)",
+                        backgroundColor: t.surface,
+                        borderColor: t.border,
+                        borderTopColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.98)",
                         borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
                         shadowColor: isDark ? "#000000" : "#0D2B20",
                         shadowOpacity: isDark ? 0.45 : 0.09,
@@ -1556,10 +1558,10 @@ export default function EmployeeHomeScreen() {
                         </Text>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.employeeName, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                        <Text style={[styles.employeeName, { color: t.text }]}>
                           {emp.name}
                         </Text>
-                        <Text style={[styles.employeeDesig, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                        <Text style={[styles.employeeDesig, { color: t.textSecondary }]}>
                           {emp.designation} • {emp.employee_code}
                         </Text>
                       </View>
@@ -1604,10 +1606,10 @@ export default function EmployeeHomeScreen() {
           <View style={styles.moduleSection}>
             <View style={styles.moduleHeader}>
               <View>
-                <Text style={[styles.moduleTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.moduleTitle, { color: t.text }]}>
                   Customers Directory
                 </Text>
-                <Text style={[styles.moduleSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.moduleSubtitle, { color: t.textSecondary }]}>
                   {customers.length} account{customers.length === 1 ? "" : "s"} accessible
                 </Text>
               </View>
@@ -1622,12 +1624,12 @@ export default function EmployeeHomeScreen() {
             </View>
 
             {customers.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: isDark ? "#0E1714" : "#FFFFFF", borderColor: isDark ? "#294039" : "#D8E0DC" }]}>
+              <View style={[styles.emptyCard, { backgroundColor: t.surface, borderColor: t.border }]}>
                 <Ionicons name="people-outline" size={36} color={isDark ? "#5A6D66" : "#A0ACA6"} />
-                <Text style={[styles.emptyCardTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.emptyCardTitle, { color: t.text }]}>
                   No Customers Found
                 </Text>
-                <Text style={[styles.emptyCardSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.emptyCardSub, { color: t.textSecondary }]}>
                   {searchQuery ? `No matches for "${searchQuery}".` : "Your portfolio has no customer accounts assigned yet."}
                 </Text>
               </View>
@@ -1650,10 +1652,10 @@ export default function EmployeeHomeScreen() {
           <View style={styles.moduleSection}>
             <View style={styles.moduleHeader}>
               <View>
-                <Text style={[styles.moduleTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.moduleTitle, { color: t.text }]}>
                   Leads Pipeline
                 </Text>
-                <Text style={[styles.moduleSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.moduleSubtitle, { color: t.textSecondary }]}>
                   {leads.length} active prospect{leads.length === 1 ? "" : "s"}
                 </Text>
               </View>
@@ -1668,12 +1670,12 @@ export default function EmployeeHomeScreen() {
             </View>
 
             {leads.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: isDark ? "#0E1714" : "#FFFFFF", borderColor: isDark ? "#294039" : "#D8E0DC" }]}>
+              <View style={[styles.emptyCard, { backgroundColor: t.surface, borderColor: t.border }]}>
                 <Ionicons name="filter-outline" size={36} color={isDark ? "#5A6D66" : "#A0ACA6"} />
-                <Text style={[styles.emptyCardTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.emptyCardTitle, { color: t.text }]}>
                   No Leads Found
                 </Text>
-                <Text style={[styles.emptyCardSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.emptyCardSub, { color: t.textSecondary }]}>
                   {searchQuery ? `No leads match "${searchQuery}".` : "Your pipeline has no leads registered yet."}
                 </Text>
               </View>
@@ -1696,10 +1698,10 @@ export default function EmployeeHomeScreen() {
           <View style={styles.moduleSection}>
             <View style={styles.moduleHeader}>
               <View>
-                <Text style={[styles.moduleTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.moduleTitle, { color: t.text }]}>
                   Inventory & Warehouse Stock
                 </Text>
-                <Text style={[styles.moduleSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.moduleSubtitle, { color: t.textSecondary }]}>
                   Live inventory stock, reorder levels & warehouse telemetry
                 </Text>
               </View>
@@ -1735,18 +1737,18 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                       padding: 14,
                     },
                   ]}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: Typography.bold, fontSize: 14, color: isDark ? "#F8FAFC" : "#101513" }}>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 14, color: t.text }}>
                         {item.name}
                       </Text>
-                      <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: isDark ? "#94A3B8" : "#5E6964", marginTop: 2 }}>
+                      <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: t.textSecondary, marginTop: 2 }}>
                         {item.sku} • Stock: {item.stock} units
                       </Text>
                     </View>
@@ -1783,10 +1785,10 @@ export default function EmployeeHomeScreen() {
           <View style={styles.moduleSection}>
             <View style={styles.moduleHeader}>
               <View>
-                <Text style={[styles.moduleTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.moduleTitle, { color: t.text }]}>
                   Proforma Invoices & Quotations
                 </Text>
-                <Text style={[styles.moduleSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.moduleSubtitle, { color: t.textSecondary }]}>
                   Commercial quotation issuance, price approvals & order dispatch
                 </Text>
               </View>
@@ -1821,18 +1823,18 @@ export default function EmployeeHomeScreen() {
                   style={[
                     styles.hrBentoTile,
                     {
-                      backgroundColor: isDark ? "#12151E" : "#FFFFFF",
-                      borderColor: isDark ? "rgba(255, 255, 255, 0.07)" : "#D8E0DC",
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
                       padding: 14,
                     },
                   ]}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: Typography.bold, fontSize: 14, color: isDark ? "#F8FAFC" : "#101513" }}>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 14, color: t.text }}>
                         {pi.customer}
                       </Text>
-                      <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: isDark ? "#94A3B8" : "#5E6964", marginTop: 2 }}>
+                      <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: t.textSecondary, marginTop: 2 }}>
                         {pi.piNum} • Value: {pi.amount}
                       </Text>
                     </View>
@@ -1876,10 +1878,10 @@ export default function EmployeeHomeScreen() {
           <View style={styles.moduleSection}>
             <View style={styles.moduleHeader}>
               <View>
-                <Text style={[styles.moduleTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.moduleTitle, { color: t.text }]}>
                   Incentives & Commissions
                 </Text>
-                <Text style={[styles.moduleSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.moduleSubtitle, { color: t.textSecondary }]}>
                   Sales commission earnings, paid bonuses and pending payouts
                 </Text>
               </View>
@@ -1921,17 +1923,17 @@ export default function EmployeeHomeScreen() {
               style={[
                 styles.modalContent,
                 {
-                  backgroundColor: isDark ? "#12151E" : "#FFFFFF",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC",
+                  backgroundColor: t.surface,
+                  borderColor: t.border,
                 },
               ]}
             >
               <View style={styles.modalHeader}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.modalTitle, { color: isDark ? "#F8FAFC" : "#101513" }]}>
+                  <Text style={[styles.modalTitle, { color: t.text }]}>
                     {getHRModalTitle(activeHRModal)}
                   </Text>
-                  <Text style={[styles.modalSubtitle, { color: isDark ? "#94A3B8" : "#5E6964" }]}>
+                  <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>
                     {getHRModalSubtitle(activeHRModal)}
                   </Text>
                 </View>
@@ -1939,7 +1941,7 @@ export default function EmployeeHomeScreen() {
                 onPress={() => setActiveHRModal(null)}
                 style={styles.modalCloseBtn}
               >
-                <Ionicons name="close-circle" size={24} color={isDark ? "#8FA09A" : "#5E6964"} />
+                <Ionicons name="close-circle" size={24} color={t.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -1962,14 +1964,14 @@ export default function EmployeeHomeScreen() {
                       key={idx}
                       style={[
                         styles.modalItemRow,
-                        { borderBottomColor: isDark ? "rgba(41, 64, 57, 0.4)" : "#F1F5F9" },
+                        { borderBottomColor: t.border },
                       ]}
                     >
                       <View style={styles.modalItemLeft}>
-                        <Text style={[styles.modalItemTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                        <Text style={[styles.modalItemTitle, { color: t.text }]}>
                           {h.name}
                         </Text>
-                        <Text style={[styles.modalItemSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                        <Text style={[styles.modalItemSub, { color: t.textSecondary }]}>
                           {h.date}
                         </Text>
                       </View>
@@ -1994,14 +1996,14 @@ export default function EmployeeHomeScreen() {
                       key={idx}
                       style={[
                         styles.modalItemRow,
-                        { borderBottomColor: isDark ? "rgba(41, 64, 57, 0.4)" : "#F1F5F9" },
+                        { borderBottomColor: t.border },
                       ]}
                     >
                       <View style={styles.modalItemLeft}>
-                        <Text style={[styles.modalItemTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                        <Text style={[styles.modalItemTitle, { color: t.text }]}>
                           {p.title}
                         </Text>
-                        <Text style={[styles.modalItemSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                        <Text style={[styles.modalItemSub, { color: t.textSecondary }]}>
                           {p.desc}
                         </Text>
                       </View>
@@ -2025,14 +2027,14 @@ export default function EmployeeHomeScreen() {
                       key={idx}
                       style={[
                         styles.modalItemRow,
-                        { borderBottomColor: isDark ? "rgba(41, 64, 57, 0.4)" : "#F1F5F9" },
+                        { borderBottomColor: t.border },
                       ]}
                     >
                       <View style={styles.modalItemLeft}>
-                        <Text style={[styles.modalItemTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                        <Text style={[styles.modalItemTitle, { color: t.text }]}>
                           {l.title}
                         </Text>
-                        <Text style={[styles.modalItemSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                        <Text style={[styles.modalItemSub, { color: t.textSecondary }]}>
                           {l.desc}
                         </Text>
                       </View>
@@ -2056,14 +2058,14 @@ export default function EmployeeHomeScreen() {
                       key={idx}
                       style={[
                         styles.modalItemRow,
-                        { borderBottomColor: isDark ? "rgba(41, 64, 57, 0.4)" : "#F1F5F9" },
+                        { borderBottomColor: t.border },
                       ]}
                     >
                       <View style={styles.modalItemLeft}>
-                        <Text style={[styles.modalItemTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                        <Text style={[styles.modalItemTitle, { color: t.text }]}>
                           {job.title}
                         </Text>
-                        <Text style={[styles.modalItemSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                        <Text style={[styles.modalItemSub, { color: t.textSecondary }]}>
                           {job.desc}
                         </Text>
                       </View>
@@ -2087,14 +2089,14 @@ export default function EmployeeHomeScreen() {
                       key={idx}
                       style={[
                         styles.modalItemRow,
-                        { borderBottomColor: isDark ? "rgba(41, 64, 57, 0.4)" : "#F1F5F9" },
+                        { borderBottomColor: t.border },
                       ]}
                     >
                       <View style={styles.modalItemLeft}>
-                        <Text style={[styles.modalItemTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                        <Text style={[styles.modalItemTitle, { color: t.text }]}>
                           {bio.title}
                         </Text>
-                        <Text style={[styles.modalItemSub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                        <Text style={[styles.modalItemSub, { color: t.textSecondary }]}>
                           {bio.desc}
                         </Text>
                       </View>

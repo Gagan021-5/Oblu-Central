@@ -27,3 +27,19 @@ export function triggerSelectionHaptic(): void {
     // Silently ignore on unsupported hardware/simulators
   }
 }
+
+/**
+ * Triggers a medium tactile impact pulse on modal launches / primary buttons.
+ */
+export function triggerMediumHaptic(): void {
+  if (Platform.OS === "web") return;
+  try {
+    Vibration.vibrate(18);
+  } catch {
+    // Silently ignore
+  }
+}
+
+export const hapticLight = triggerLightHaptic;
+export const hapticSelection = triggerSelectionHaptic;
+export const hapticMedium = triggerMediumHaptic;

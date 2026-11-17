@@ -31,6 +31,9 @@ yarn-error.*
 /android
 
 assets/
+!assets/subapps/
+!assets/subapps/**
+assets/subapps/*.old.webp
 *.otf
 *.ttf
 

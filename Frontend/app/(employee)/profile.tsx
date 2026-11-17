@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { Typography, FontSizes, Shadows } from "@/constants/theme";
 import { PersonAvatar3D } from "@/components/employee/SubAppLogo";
 import { fetchHRMSSelfProfileApi, HRMSSelfProfile } from "@/services/hrmsService";
@@ -24,7 +25,8 @@ import {
 export default function EmployeeProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const { colors, isDark, mode, setMode } = useTheme();
+  const { t, isDark, mode, setMode } = useEmployeeTheme();
+  const { colors } = useTheme();
 
   const [profile, setProfile] = useState<UserPermissionProfile | null>(null);
   const [dbEmployee, setDbEmployee] = useState<HRMSSelfProfile["employee"]>(null);
@@ -146,8 +148,8 @@ export default function EmployeeProfileScreen() {
           style={[
             styles.backBtn,
             {
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
           onPress={() => {
@@ -163,14 +165,14 @@ export default function EmployeeProfileScreen() {
           <Ionicons
             name="arrow-back"
             size={18}
-            color={isDark ? "#F1F7F4" : "#101513"}
+            color={t.text}
           />
         </TouchableOpacity>
 
         <Text
           style={[
             styles.navTitle,
-            { color: isDark ? "#F1F7F4" : "#101513" },
+            { color: t.text },
           ]}
         >
           My Profile
@@ -180,8 +182,8 @@ export default function EmployeeProfileScreen() {
           style={[
             styles.themeToggleBtn,
             {
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
           onPress={() => setMode(mode === "dark" ? "light" : "dark")}
@@ -207,8 +209,8 @@ export default function EmployeeProfileScreen() {
           style={[
             styles.heroCard,
             {
-              backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
             Shadows.cardElevated,
           ]}
@@ -249,7 +251,7 @@ export default function EmployeeProfileScreen() {
               <Text
                 style={[
                   styles.profileName,
-                  { color: isDark ? "#F1F7F4" : "#101513" },
+                  { color: t.text },
                 ]}
               >
                 {displayName}
@@ -258,7 +260,7 @@ export default function EmployeeProfileScreen() {
               <Text
                 style={[
                   styles.profileRole,
-                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                  { color: t.textSecondary },
                 ]}
               >
                 {empDetails.desig}
@@ -288,7 +290,7 @@ export default function EmployeeProfileScreen() {
           <Text
             style={[
               styles.sectionTitle,
-              { color: isDark ? "#F1F7F4" : "#101513" },
+              { color: t.text },
             ]}
           >
             Employment Details
@@ -297,17 +299,17 @@ export default function EmployeeProfileScreen() {
         </View>
 
         {employeeProfileStatus === "loaded" && !dbEmployee ? (
-          <Text style={[styles.profileNotice, { color: isDark ? "#8FA09A" : "#5E6964" }]}>No HR employee record is linked to this login.</Text>
+          <Text style={[styles.profileNotice, { color: t.textSecondary }]}>No HR employee record is linked to this login.</Text>
         ) : employeeProfileStatus === "error" ? (
-          <Text style={[styles.profileNotice, { color: isDark ? "#8FA09A" : "#5E6964" }]}>Employee details could not be loaded. Check your connection and try again.</Text>
+          <Text style={[styles.profileNotice, { color: t.textSecondary }]}>Employee details could not be loaded. Check your connection and try again.</Text>
         ) : null}
 
         <View
           style={[
             styles.cardContainer,
             {
-              backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
         >
@@ -321,10 +323,10 @@ export default function EmployeeProfileScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.detailLabel, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+              <Text style={[styles.detailLabel, { color: t.textSecondary }]}>
                 Employee Code
               </Text>
-              <Text style={[styles.detailValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              <Text style={[styles.detailValue, { color: t.text }]}>
                 {empDetails.code}
               </Text>
             </View>
@@ -342,10 +344,10 @@ export default function EmployeeProfileScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.detailLabel, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+              <Text style={[styles.detailLabel, { color: t.textSecondary }]}>
                 Department
               </Text>
-              <Text style={[styles.detailValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              <Text style={[styles.detailValue, { color: t.text }]}>
                 {empDetails.dept}
               </Text>
             </View>
@@ -363,10 +365,10 @@ export default function EmployeeProfileScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.detailLabel, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+              <Text style={[styles.detailLabel, { color: t.textSecondary }]}>
                 Work Email
               </Text>
-              <Text style={[styles.detailValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              <Text style={[styles.detailValue, { color: t.text }]}>
                 {empDetails.email}
               </Text>
             </View>
@@ -384,10 +386,10 @@ export default function EmployeeProfileScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.detailLabel, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+              <Text style={[styles.detailLabel, { color: t.textSecondary }]}>
                 Operating Entity
               </Text>
-              <Text style={[styles.detailValue, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+              <Text style={[styles.detailValue, { color: t.text }]}>
                 {empDetails.entity}
               </Text>
             </View>
@@ -399,7 +401,7 @@ export default function EmployeeProfileScreen() {
           <Text
             style={[
               styles.sectionTitle,
-              { color: isDark ? "#F1F7F4" : "#101513" },
+              { color: t.text },
             ]}
           >
             Telephony & Calling
@@ -410,8 +412,8 @@ export default function EmployeeProfileScreen() {
           style={[
             styles.cardContainer,
             {
-              backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
         >
@@ -419,10 +421,10 @@ export default function EmployeeProfileScreen() {
             <View style={styles.telemetryLeft}>
               <View style={styles.greenPulseDot} />
               <View>
-                <Text style={[styles.telemetryLabel, { color: isDark ? "#F1F7F4" : "#101513" }]}>
+                <Text style={[styles.telemetryLabel, { color: t.text }]}>
                   Call Recording Sync
                 </Text>
-                <Text style={[styles.telemetrySub, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+                <Text style={[styles.telemetrySub, { color: t.textSecondary }]}>
                   Automatic cloud synchronization for office calls
                 </Text>
               </View>

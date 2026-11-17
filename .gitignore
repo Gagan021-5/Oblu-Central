@@ -95,6 +95,9 @@ media/
 !Frontend/app/(employee)/**
 
 Frontend/assets/
+!Frontend/assets/subapps/
+!Frontend/assets/subapps/**
+Frontend/assets/subapps/*.old.webp
 assets/images/
 assets/fonts/
 **/assets/images/

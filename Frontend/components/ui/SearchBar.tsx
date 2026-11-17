@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Animated,
   Easing,
-  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -24,15 +23,7 @@ interface SearchBarProps {
   onSubmitEditing?: () => void;
   onFilterPress?: () => void;
   filterActive?: boolean;
-  showQuickChips?: boolean;
 }
-
-const QUICK_CHIPS = [
-  { label: "🔥 Hot Leads", query: "Hot Leads" },
-  { label: "📞 Missed Calls", query: "Missed Calls" },
-  { label: "💳 Overdue", query: "Overdue" },
-  { label: "📄 Proforma", query: "Proforma" },
-];
 
 export const SearchBar: React.FC<SearchBarProps> = ({
   value,
@@ -44,7 +35,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onSubmitEditing,
   onFilterPress,
   filterActive = false,
-  showQuickChips = true,
 }) => {
   const { colors, isDark } = useTheme();
   const hasRotatingPlaceholders =
@@ -223,42 +213,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           </View>
         )}
       </View>
-
-      {/* Quick Search Chips below input when focused and query is empty */}
-      {showQuickChips && isFocused && value.length === 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.quickChipsScroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          {QUICK_CHIPS.map((chip) => (
-            <TouchableOpacity
-              key={chip.label}
-              style={[
-                styles.chipPill,
-                {
-                  backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(0, 168, 121, 0.08)",
-                  borderColor: isDark ? "rgba(16, 185, 129, 0.35)" : "rgba(0, 168, 121, 0.22)",
-                },
-              ]}
-              onPress={() => {
-                triggerSelectionHaptic();
-                onChangeText(chip.query);
-              }}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: isDark ? "#10B981" : "#00A879" },
-                ]}
-              >
-                {chip.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
     </View>
   );
 };
@@ -325,23 +279,5 @@ const styles = StyleSheet.create({
     fontFamily: Typography.regular,
     paddingVertical: 0,
     paddingHorizontal: 0,
-  },
-  quickChipsScroll: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingTop: 8,
-    paddingBottom: 2,
-  },
-  chipPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4.5,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  chipText: {
-    fontSize: 11.5,
-    fontFamily: Typography.bold,
-    letterSpacing: 0.2,
   },
 });

@@ -8,7 +8,7 @@ import { Platform } from "react-native";
 // ── Light Theme Palette ────────────────────────────────────────────────
 export const LightTheme = {
   isDark: false,
-  background: "#F1F4F2",
+  background: "#F4F6FA",
   primarySurface: "#FFFFFF",
   secondarySurface: "#F7F9F8",
   mintTintedSurface: "#DDF4EA",
@@ -84,19 +84,19 @@ export const LightTheme = {
   // Expo Theme Compatibility
   light: {
     text: "#101513",
-    background: "#F1F4F2",
+    background: "#F4F6FA",
     tint: "#00A879",
     icon: "#5E6964",
     tabIconDefault: "#87928D",
     tabIconSelected: "#00A879",
   },
   dark: {
-    text: "#F2F8F5",
-    background: "#0E1A16",
-    tint: "#35D6A0",
-    icon: "#9CB3AA",
-    tabIconDefault: "#738A81",
-    tabIconSelected: "#35D6A0",
+    text: "#F8FAFC",
+    background: "#090B10",
+    tint: "#10B981",
+    icon: "#94A3B8",
+    tabIconDefault: "#64748B",
+    tabIconSelected: "#10B981",
   },
 };
 
@@ -179,7 +179,7 @@ export const DarkTheme = {
   // Expo Theme Compatibility
   light: {
     text: "#101513",
-    background: "#F1F4F2",
+    background: "#F4F6FA",
     tint: "#00A879",
     icon: "#5E6964",
     tabIconDefault: "#87928D",

@@ -1,7 +1,16 @@
-import React from "react";
-import { TouchableOpacity, Text, View, StyleSheet } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Text, View, StyleSheet, Pressable } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+} from "react-native-reanimated";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes } from "@/constants/theme";
+import { hapticSelection } from "@/utils/haptics";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface FilterChipProps {
   label: string;
@@ -17,11 +26,41 @@ export const FilterChip: React.FC<FilterChipProps> = ({
   onPress,
 }) => {
   const { colors, isDark } = useTheme();
+  const scale = useSharedValue(1);
+  const prevActiveRef = useRef(isActive);
+
+  useEffect(() => {
+    if (!prevActiveRef.current && isActive) {
+      scale.value = withSequence(
+        withSpring(1.05, { damping: 14, stiffness: 300 }),
+        withSpring(1.0, { damping: 16, stiffness: 280 })
+      );
+    }
+    prevActiveRef.current = isActive;
+  }, [isActive]);
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.93, { damping: 14, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1.0, { damping: 16, stiffness: 280 });
+  };
+
+  const handlePress = () => {
+    hapticSelection();
+    onPress();
+  };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={onPress}
+    <AnimatedPressable
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
       style={[
         styles.chip,
         {
@@ -38,6 +77,14 @@ export const FilterChip: React.FC<FilterChipProps> = ({
             ? "#294039"
             : "#D8E0DC",
         },
+        isActive && {
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: isDark ? 0.35 : 0.22,
+          shadowRadius: 6,
+          elevation: 3,
+        },
+        animatedStyle,
       ]}
     >
       <Text
@@ -86,7 +133,7 @@ export const FilterChip: React.FC<FilterChipProps> = ({
           </Text>
         </View>
       )}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 };
 

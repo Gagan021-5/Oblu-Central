@@ -1,18 +1,18 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { Stack } from "expo-router";
-import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { FloatingTabBar } from "@/components/employee/FloatingTabBar";
 
 export default function EmployeeLayout() {
-  const { colors } = useTheme();
+  const { t } = useEmployeeTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: t.bg },
           animation: "none",
         }}
       >

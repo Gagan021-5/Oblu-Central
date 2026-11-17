@@ -16,6 +16,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
 import { Typography } from "@/constants/theme";
@@ -46,7 +47,8 @@ type DistrictCluster = {
 
 export default function CustomerMapScreen() {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
   const { user, permissionProfile } = useAuth();
   const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
   const isSuperuser = Boolean((user as any)?.is_superuser || roleText.includes("superuser"));
@@ -102,7 +104,7 @@ export default function CustomerMapScreen() {
 
   const foreground = isDark ? "#F1F7F4" : "#101827";
   const muted = isDark ? "#9AA9A3" : "#637083";
-  const card = { backgroundColor: isDark ? "#111B18" : "#FFFFFF", borderColor: isDark ? "#263A32" : "#E4EAF0" };
+  const card = { backgroundColor: t.surface, borderColor: t.border };
 
   const locatedCustomers = useMemo(() => {
     return customers.filter((c) => Number.isFinite(c.latitude) && Number.isFinite(c.longitude));

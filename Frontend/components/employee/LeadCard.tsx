@@ -1,36 +1,167 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native";
+import { View, Text, StyleSheet, Linking, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  FadeInDown,
+} from "react-native-reanimated";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes } from "@/constants/theme";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { Lead } from "@/data/mockLeads";
+import { hapticLight, hapticSelection } from "@/utils/haptics";
 
-interface LeadCardProps {
-  lead: Lead;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+interface QuickActionButtonProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
   onPress: () => void;
+  isDark: boolean;
+  variant?: "primary" | "whatsapp" | "neutral";
 }
 
-const LeadCardComponent: React.FC<LeadCardProps> = ({ lead, onPress }) => {
-  const { colors, isDark } = useTheme();
+const QuickActionButton: React.FC<QuickActionButtonProps> = ({
+  icon,
+  label,
+  onPress,
+  isDark,
+  variant = "neutral",
+}) => {
+  const scale = useSharedValue(1);
 
-  const handleCall = (e: any) => {
+  const handlePressIn = () => {
+    scale.value = withSpring(0.92, { damping: 16, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1.0, { damping: 18, stiffness: 280 });
+  };
+
+  const handlePress = (e: any) => {
     e.stopPropagation?.();
+    hapticSelection();
+    onPress();
+  };
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const bg =
+    variant === "primary"
+      ? isDark
+        ? "rgba(53, 214, 160, 0.16)"
+        : "#DDF4EA"
+      : variant === "whatsapp"
+      ? isDark
+        ? "rgba(37, 211, 102, 0.16)"
+        : "rgba(37, 211, 102, 0.12)"
+      : isDark
+      ? "rgba(255, 255, 255, 0.06)"
+      : "rgba(16, 21, 19, 0.05)";
+
+  const color =
+    variant === "primary"
+      ? isDark
+        ? "#35D6A0"
+        : "#00A879"
+      : variant === "whatsapp"
+      ? isDark
+        ? "#25D366"
+        : "#128C7E"
+      : isDark
+      ? "#BAC7C1"
+      : "#4E5A55";
+
+  const border =
+    variant === "primary"
+      ? isDark
+        ? "rgba(53, 214, 160, 0.28)"
+        : "rgba(0, 168, 121, 0.25)"
+      : variant === "whatsapp"
+      ? isDark
+        ? "rgba(37, 211, 102, 0.30)"
+        : "rgba(37, 211, 102, 0.22)"
+      : isDark
+      ? "rgba(255, 255, 255, 0.09)"
+      : "rgba(16, 21, 19, 0.08)";
+
+  return (
+    <AnimatedPressable
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+      style={[
+        styles.quickActionPill,
+        { backgroundColor: bg, borderColor: border },
+        animStyle,
+      ]}
+    >
+      <Ionicons name={icon} size={12} color={color} />
+      <Text style={[styles.quickActionText, { color }]}>{label}</Text>
+    </AnimatedPressable>
+  );
+};
+
+export interface LeadCardProps {
+  lead: Lead;
+  index?: number;
+  onPress: () => void;
+  onQuickAction?: (action: "call" | "whatsapp" | "followup", lead: Lead) => void;
+}
+
+const LeadCardComponent: React.FC<LeadCardProps> = ({
+  lead,
+  index = 0,
+  onPress,
+  onQuickAction,
+}) => {
+  const { colors, isDark } = useTheme();
+  const cardScale = useSharedValue(1);
+
+  const handleCardPressIn = () => {
+    cardScale.value = withSpring(0.975, { damping: 16, stiffness: 280 });
+    hapticLight();
+  };
+
+  const handleCardPressOut = () => {
+    cardScale.value = withSpring(1.0, { damping: 16, stiffness: 280 });
+  };
+
+  const handleCall = () => {
     const phone = lead.phone || "";
     if (phone && phone !== "nan") {
       const cleaned = phone.replace(/[^0-9+]/g, "");
       Linking.openURL(`tel:${cleaned}`).catch(() => {});
     }
+    onQuickAction?.("call", lead);
+  };
+
+  const handleWhatsApp = () => {
+    const phone = lead.phone || "";
+    if (phone && phone !== "nan") {
+      const cleaned = phone.replace(/[^0-9]/g, "");
+      Linking.openURL(`https://wa.me/${cleaned}`).catch(() => {});
+    }
+    onQuickAction?.("whatsapp", lead);
+  };
+
+  const handleFollowup = () => {
+    onQuickAction?.("followup", lead);
   };
 
   const displayName = lead.companyName || lead.company || lead.name || "Lead";
-  const initials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .map((w: string) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() || "LD";
+  const initials =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .map((w: string) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "LD";
 
   const intentRaw = lead.intentLevel || lead.intent || "Medium";
   const intentVariant =
@@ -47,212 +178,242 @@ const LeadCardComponent: React.FC<LeadCardProps> = ({ lead, onPress }) => {
   const followUpText = (lead.nextFollowUp || (lead as any).followup_note || "None scheduled").split(",")[0];
   const closingText = lead.expectedClosingDate || "Open";
   const scoreText = lead.intentScore ?? 80;
+  const isHotLead = intentRaw === "High" || scoreText >= 80;
+
+  const cardAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+  }));
+
+  const entranceDelay = Math.min(index ?? 0, 8) * 35;
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.card,
-        {
-          backgroundColor: isDark ? "#12201B" : "#FFFFFF",
-          borderColor: isDark ? "rgba(32, 227, 173, 0.18)" : "rgba(13, 43, 32, 0.08)",
-          borderTopColor: isDark ? "rgba(32, 227, 173, 0.38)" : "rgba(255, 255, 255, 0.98)",
-          borderBottomColor: isDark ? "#080F0C" : "rgba(13, 43, 32, 0.14)",
-          shadowColor: isDark ? "#000000" : "#0D2B20",
-          shadowOpacity: isDark ? 0.46 : 0.09,
-        },
-      ]}
-      onPress={onPress}
-      activeOpacity={0.8}
+    <Animated.View
+      entering={FadeInDown.delay(entranceDelay).springify().damping(18).stiffness(240)}
+      style={cardAnimStyle}
     >
-      {/* Top Row: Company & Value + Intent Indicator */}
-      <View style={styles.topRow}>
-        <View style={styles.leadHeader}>
-          <View
-            style={[
-              styles.avatar,
-              {
-                backgroundColor: isDark ? "#15221D" : "#DDF4EA",
-                borderColor: isDark
-                  ? "rgba(53, 214, 160, 0.25)"
-                  : "rgba(0, 168, 121, 0.25)",
-              },
-            ]}
-          >
+      <AnimatedPressable
+        onPressIn={handleCardPressIn}
+        onPressOut={handleCardPressOut}
+        onPress={onPress}
+        style={[
+          styles.card,
+          {
+            backgroundColor: isDark ? "#12151E" : "#FFFFFF",
+            borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(13, 43, 32, 0.08)",
+            borderTopColor: isDark ? "rgba(255, 255, 255, 0.14)" : "rgba(255, 255, 255, 0.98)",
+            borderBottomColor: isDark ? "#0A0D14" : "rgba(13, 43, 32, 0.12)",
+            shadowColor: isDark ? "#000000" : "#0D2B20",
+            shadowOpacity: isDark ? 0.5 : 0.08,
+          },
+        ]}
+      >
+        {/* Top Row: Company & Value + Intent Indicator */}
+        <View style={styles.topRow}>
+          <View style={styles.leadHeader}>
+            <View
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor: isDark ? "#1A1E2B" : "#DDF4EA",
+                  borderColor: isDark
+                    ? "rgba(53, 214, 160, 0.25)"
+                    : "rgba(0, 168, 121, 0.25)",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.avatarText,
+                  { color: isDark ? "#35D6A0" : "#00A879" },
+                ]}
+              >
+                {initials}
+              </Text>
+            </View>
+            <View style={styles.titleInfo}>
+              <Text
+                style={[
+                  styles.companyName,
+                  { color: isDark ? "#F1F7F4" : "#101513" },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
+                {displayName}
+              </Text>
+              <Text
+                style={[
+                  styles.contactPerson,
+                  { color: isDark ? "#8FA09A" : "#5E6964" },
+                ]}
+                numberOfLines={1}
+              >
+                {contactText} • {sourceText}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.pillsCol}>
+            <StatusPill
+              label={`${intentRaw} (${scoreText})`}
+              variant={intentVariant}
+              size="small"
+            />
+          </View>
+        </View>
+
+        {/* Middle Row: Stage & Estimated Value Bar */}
+        <View
+          style={[
+            styles.middleBar,
+            {
+              backgroundColor: isDark ? "#181C27" : "#F7F9F8",
+              borderColor: isDark ? "rgba(255, 255, 255, 0.06)" : "#E8EFEB",
+            },
+          ]}
+        >
+          <View style={styles.metaCol}>
             <Text
               style={[
-                styles.avatarText,
+                styles.metaLabel,
+                { color: isDark ? "#6E7A8A" : "#87928D" },
+              ]}
+            >
+              Stage
+            </Text>
+            <Text
+              style={[
+                styles.stageText,
                 { color: isDark ? "#35D6A0" : "#00A879" },
               ]}
             >
-              {initials}
+              {stageText}
             </Text>
           </View>
-          <View style={styles.titleInfo}>
+
+          <View
+            style={[
+              styles.metaDivider,
+              { backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC" },
+            ]}
+          />
+
+          <View style={styles.metaCol}>
             <Text
               style={[
-                styles.companyName,
-                { color: isDark ? "#F1F7F4" : "#101513" },
+                styles.metaLabel,
+                { color: isDark ? "#6E7A8A" : "#87928D" },
               ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
             >
-              {displayName}
+              Estimated Value
             </Text>
             <Text
               style={[
-                styles.contactPerson,
+                styles.valueText,
+                { color: isDark ? "#F1F7F4" : "#101513" },
+              ]}
+            >
+              {estValueText}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.metaDivider,
+              { backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#D8E0DC" },
+            ]}
+          />
+
+          <View style={styles.metaCol}>
+            <Text
+              style={[
+                styles.metaLabel,
+                { color: isDark ? "#6E7A8A" : "#87928D" },
+              ]}
+            >
+              Follow-up
+            </Text>
+            <Text
+              style={[
+                styles.metaLabelValue,
                 { color: isDark ? "#8FA09A" : "#5E6964" },
               ]}
               numberOfLines={1}
             >
-              {contactText} • {sourceText}
+              {followUpText}
             </Text>
           </View>
         </View>
 
-        <View style={styles.pillsCol}>
-          <StatusPill
-            label={`${intentRaw} Intent (${scoreText})`}
-            variant={intentVariant}
-            size="small"
-          />
-        </View>
-      </View>
-
-      {/* Middle Row: Stage & Estimated Value Bar */}
-      <View
-        style={[
-          styles.middleBar,
-          {
-            backgroundColor: isDark ? "#121F1B" : "#F7F9F8",
-            borderColor: isDark ? "#1C2D26" : "#E8EFEB",
-          },
-        ]}
-      >
-        <View style={styles.metaCol}>
-          <Text
+        {/* Hot Lead Score Glow Highlight */}
+        {isHotLead && (
+          <View
             style={[
-              styles.metaLabel,
-              { color: isDark ? "#65756F" : "#87928D" },
-            ]}
-          >
-            Stage
-          </Text>
-          <Text
-            style={[
-              styles.stageText,
-              { color: isDark ? "#35D6A0" : "#00A879" },
-            ]}
-          >
-            {stageText}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.metaDivider,
-            { backgroundColor: isDark ? "#294039" : "#D8E0DC" },
-          ]}
-        />
-
-        <View style={styles.metaCol}>
-          <Text
-            style={[
-              styles.metaLabel,
-              { color: isDark ? "#65756F" : "#87928D" },
-            ]}
-          >
-            Estimated Value
-          </Text>
-          <Text
-            style={[
-              styles.valueText,
-              { color: isDark ? "#F1F7F4" : "#101513" },
-            ]}
-          >
-            {estValueText}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.metaDivider,
-            { backgroundColor: isDark ? "#294039" : "#D8E0DC" },
-          ]}
-        />
-
-        <View style={styles.metaCol}>
-          <Text
-            style={[
-              styles.metaLabel,
-              { color: isDark ? "#65756F" : "#87928D" },
-            ]}
-          >
-            Follow-up
-          </Text>
-          <Text
-            style={[
-              styles.metaLabelValue,
-              { color: isDark ? "#8FA09A" : "#5E6964" },
-            ]}
-            numberOfLines={1}
-          >
-            {followUpText}
-          </Text>
-        </View>
-      </View>
-
-      {/* Footer: Quick call + Chevron */}
-      <View style={styles.footerRow}>
-        <Text
-          style={[
-            styles.closingDateText,
-            { color: isDark ? "#65756F" : "#87928D" },
-          ]}
-        >
-          Target: {closingText}
-        </Text>
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[
-              styles.callBtn,
+              styles.hotLeadBadge,
               {
                 backgroundColor: isDark
                   ? "rgba(53, 214, 160, 0.12)"
-                  : "#DDF4EA",
+                  : "rgba(0, 168, 121, 0.08)",
                 borderColor: isDark
-                  ? "rgba(53, 214, 160, 0.25)"
-                  : "rgba(0, 168, 121, 0.25)",
+                  ? "rgba(53, 214, 160, 0.28)"
+                  : "rgba(0, 168, 121, 0.20)",
               },
             ]}
-            onPress={handleCall}
-            activeOpacity={0.7}
           >
             <Ionicons
-              name="call"
+              name="flame"
               size={13}
               color={isDark ? "#35D6A0" : "#00A879"}
             />
             <Text
               style={[
-                styles.callBtnText,
+                styles.hotLeadText,
                 { color: isDark ? "#35D6A0" : "#00A879" },
               ]}
             >
-              Call
+              High Intent Lead ({scoreText}/100) • Prioritize outreach
             </Text>
-          </TouchableOpacity>
+          </View>
+        )}
 
-          <Ionicons
-            name="chevron-forward"
-            size={16}
-            color={isDark ? "#65756F" : "#87928D"}
-          />
+        {/* Footer: Target Date + 1-Tap Quick Action Strip */}
+        <View style={styles.footerRow}>
+          <Text
+            style={[
+              styles.closingDateText,
+              { color: isDark ? "#6E7A8A" : "#87928D" },
+            ]}
+          >
+            Target: {closingText}
+          </Text>
+
+          {/* 1-Tap Quick Action Pills (Call / WhatsApp / Followup) */}
+          <View style={styles.quickActionStrip}>
+            <QuickActionButton
+              icon="call"
+              label="Call"
+              onPress={handleCall}
+              isDark={isDark}
+              variant="primary"
+            />
+            <QuickActionButton
+              icon="logo-whatsapp"
+              label="Chat"
+              onPress={handleWhatsApp}
+              isDark={isDark}
+              variant="whatsapp"
+            />
+            <QuickActionButton
+              icon="calendar-outline"
+              label="Follow"
+              onPress={handleFollowup}
+              isDark={isDark}
+            />
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </AnimatedPressable>
+    </Animated.View>
   );
 };
 
@@ -345,6 +506,20 @@ const styles = StyleSheet.create({
     width: 1,
     marginHorizontal: 8,
   },
+  hotLeadBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  hotLeadText: {
+    fontSize: FontSizes.micro,
+    fontFamily: Typography.semiBold,
+  },
   footerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -357,22 +532,22 @@ const styles = StyleSheet.create({
     minWidth: 0,
     marginRight: 6,
   },
-  actionRow: {
+  quickActionStrip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     flexShrink: 0,
   },
-  callBtn: {
+  quickActionPill: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 999,
     borderWidth: 1,
     gap: 4,
   },
-  callBtnText: {
+  quickActionText: {
     fontSize: FontSizes.micro,
     fontFamily: Typography.semiBold,
   },

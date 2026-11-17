@@ -13,6 +13,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
@@ -68,7 +69,8 @@ export default function CustomerDashboardScreen() {
   const reqIdRef = useRef(0);
   const routeParams = useLocalSearchParams<{ filter?: string }>();
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { t, isDark } = useEmployeeTheme();
+  const { colors } = useTheme();
   const { user } = useAuth();
 
   const isBusinessManager = useMemo(() => {
@@ -283,8 +285,8 @@ export default function CustomerDashboardScreen() {
             style={[
               styles.backButton,
               {
-                backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-                borderColor: isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: t.border,
               },
             ]}
             onPress={() => setDrawerVisible(true)}
@@ -292,19 +294,19 @@ export default function CustomerDashboardScreen() {
             accessibilityLabel="Open customer navigation"
             activeOpacity={0.7}
           >
-            <Ionicons name="menu" size={18} color={isDark ? "#F1F7F4" : "#101513"} />
+            <Ionicons name="menu" size={18} color={t.text} />
           </TouchableOpacity>
 
           <View style={styles.titleColumn}>
             <Text
-              style={[styles.screenTitle, { color: isDark ? "#F1F7F4" : "#101513" }]}
+              style={[styles.screenTitle, { color: t.text }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.8}
             >
               {isBusinessManager ? "Enterprise Accounts" : "Customers"}
             </Text>
-            <Text style={[styles.screenSubtitle, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>
+            <Text style={[styles.screenSubtitle, { color: t.textSecondary }]} numberOfLines={1}>
               {effectiveTotalCount}{" "}
               {isBusinessManager || user?.hierarchy_scope?.can_view_all_salespersons
                 ? "enterprise relationships"
@@ -318,25 +320,25 @@ export default function CustomerDashboardScreen() {
           style={[
             styles.summaryCard,
             {
-              backgroundColor: isDark ? "#0E1714" : "#FFFFFF",
-              borderColor: isDark ? "#294039" : "#D8E0DC",
+              backgroundColor: t.surface,
+              borderColor: t.border,
             },
           ]}
         >
-          <Text style={[styles.summaryTitle, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+          <Text style={[styles.summaryTitle, { color: t.textSecondary }]}>
             PORTFOLIO SUMMARY
           </Text>
           <View style={styles.summaryMetricsRow}>
             <View style={styles.summaryItem}>
               <Text
-                style={[styles.summaryVal, { color: isDark ? "#F1F7F4" : "#101513" }]}
+                style={[styles.summaryVal, { color: t.text }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.75}
               >
                 {dashboardStats?.totalCustomers ?? effectiveTotalCount}
               </Text>
-              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>Total</Text>
+              <Text style={[styles.summaryLbl, { color: t.textSecondary }]} numberOfLines={1}>Total</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: isDark ? "#1C2D26" : "#E8EFEB" }]} />
             <View style={styles.summaryItem}>
@@ -348,7 +350,7 @@ export default function CustomerDashboardScreen() {
               >
                 {dashboardStats?.activeCustomersCount ?? 0}
               </Text>
-              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>Active</Text>
+              <Text style={[styles.summaryLbl, { color: t.textSecondary }]} numberOfLines={1}>Active</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: isDark ? "#1C2D26" : "#E8EFEB" }]} />
             <View style={styles.summaryItem}>
@@ -360,7 +362,7 @@ export default function CustomerDashboardScreen() {
               >
                 {dashboardStats?.followUpsDueCount ?? 0}
               </Text>
-              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>Follow-ups</Text>
+              <Text style={[styles.summaryLbl, { color: t.textSecondary }]} numberOfLines={1}>Follow-ups</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: isDark ? "#1C2D26" : "#E8EFEB" }]} />
             <View style={styles.summaryItem}>
@@ -372,7 +374,7 @@ export default function CustomerDashboardScreen() {
               >
                 {dashboardStats?.pendingPaymentsCount ?? 0}
               </Text>
-              <Text style={[styles.summaryLbl, { color: isDark ? "#8FA09A" : "#5E6964" }]} numberOfLines={1}>Pending</Text>
+              <Text style={[styles.summaryLbl, { color: t.textSecondary }]} numberOfLines={1}>Pending</Text>
             </View>
           </View>
         </View>
@@ -401,22 +403,22 @@ export default function CustomerDashboardScreen() {
             style={[
               styles.filterButton,
               {
-                backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
-                borderColor: filtersActive ? (isDark ? "#35D6A0" : "#00A879") : isDark ? "#294039" : "#D8E0DC",
+                backgroundColor: t.surface,
+                borderColor: filtersActive ? (isDark ? "#35D6A0" : "#00A879") : t.border,
               },
             ]}
           >
             <Ionicons
               name="options-outline"
               size={20}
-              color={filtersActive ? (isDark ? "#35D6A0" : "#00A879") : isDark ? "#F1F7F4" : "#101513"}
+              color={filtersActive ? (isDark ? "#35D6A0" : "#00A879") : t.text}
             />
           </TouchableOpacity>
         </View>
 
         {/* List Header Count */}
         <View style={styles.listHeaderRow}>
-          <Text style={[styles.listCountText, { color: isDark ? "#8FA09A" : "#5E6964" }]}>
+          <Text style={[styles.listCountText, { color: t.textSecondary }]}>
             Showing {customers.length > 0 ? `${rangeStart}–${rangeEnd}` : "0"} of {effectiveTotalCount} customer
             {effectiveTotalCount === 1 ? "" : "s"}
           </Text>
@@ -497,7 +499,7 @@ export default function CustomerDashboardScreen() {
             styles.pageBtn,
             {
               borderColor: isDark ? "#294039" : "#DDE5E1",
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
+              backgroundColor: t.surface,
             },
             (currentPage <= 1 || pageLoading) && styles.pageBtnDisabled,
           ]}
@@ -517,7 +519,7 @@ export default function CustomerDashboardScreen() {
             styles.pageBtn,
             {
               borderColor: isDark ? "#294039" : "#DDE5E1",
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
+              backgroundColor: t.surface,
             },
             (currentPage <= 1 || pageLoading) && styles.pageBtnDisabled,
           ]}
@@ -555,7 +557,7 @@ export default function CustomerDashboardScreen() {
             styles.pageBtn,
             {
               borderColor: isDark ? "#294039" : "#DDE5E1",
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
+              backgroundColor: t.surface,
             },
             (currentPage >= totalPages || pageLoading) && styles.pageBtnDisabled,
           ]}
@@ -575,7 +577,7 @@ export default function CustomerDashboardScreen() {
             styles.pageBtn,
             {
               borderColor: isDark ? "#294039" : "#DDE5E1",
-              backgroundColor: isDark ? "#121F1B" : "#FFFFFF",
+              backgroundColor: t.surface,
             },
             (currentPage >= totalPages || pageLoading) && styles.pageBtnDisabled,
           ]}
@@ -594,7 +596,7 @@ export default function CustomerDashboardScreen() {
   }, [totalPages, currentPage, isDark, handlePageChange, loading, pageLoading]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: t.bg, paddingTop: insets.top }]}>
       {loading ? (
         <View style={styles.loadingContainer}>
           {listHeaderComponent}
