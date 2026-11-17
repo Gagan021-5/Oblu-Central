@@ -200,31 +200,6 @@ const WorkspaceHeaderComponent: React.FC<WorkspaceHeaderProps> = ({
               >
                 {formattedDate}
               </Text>
-              {/* Live status indicator pill */}
-              <View
-                style={[
-                  styles.liveStatusPill,
-                  {
-                    backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(0, 168, 121, 0.10)",
-                    borderColor: isDark ? "rgba(16, 185, 129, 0.30)" : "rgba(0, 168, 121, 0.18)",
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.liveStatusDot,
-                    { backgroundColor: isDark ? "#10B981" : "#00A879" },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.liveStatusText,
-                    { color: isDark ? "#10B981" : "#00A879" },
-                  ]}
-                >
-                  Online
-                </Text>
-              </View>
             </View>
           </View>
         </View>
@@ -432,26 +407,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.semiBold,
     flexShrink: 1,
     minWidth: 0,
-  },
-  liveStatusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4.5,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 999,
-    borderWidth: 1,
-    flexShrink: 0,
-  },
-  liveStatusDot: {
-    width: 5.5,
-    height: 5.5,
-    borderRadius: 2.75,
-  },
-  liveStatusText: {
-    fontSize: 9.5,
-    fontFamily: Typography.bold,
-    letterSpacing: 0.3,
   },
   rightActions: {
     flexDirection: "row",
