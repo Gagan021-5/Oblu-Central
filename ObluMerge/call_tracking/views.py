@@ -19,7 +19,7 @@ Admin Operations (IsAdminRole):
 from collections import Counter
 from datetime import datetime
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Sum, Max
+from django.db.models import Count, Sum, Max, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
@@ -270,6 +270,19 @@ class AdminCallLogView(generics.ListAPIView):
         user_id = self.request.query_params.get("user_id")
         if user_id:
             queryset = queryset.filter(user_id=user_id)
+
+        search = self.request.query_params.get("search") or self.request.query_params.get("q")
+        if search:
+            search = search.strip()
+            queryset = queryset.filter(
+                Q(phone_number__icontains=search)
+                | Q(normalized_phone__icontains=search)
+                | Q(user__username__icontains=search)
+                | Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+                | Q(customer__name__icontains=search)
+                | Q(customer__company_name__icontains=search)
+            )
 
         call_type = self.request.query_params.get("call_type")
         if call_type in ["incoming", "outgoing", "missed"]:

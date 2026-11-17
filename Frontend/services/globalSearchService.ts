@@ -365,7 +365,7 @@ export function buildUnifiedSearchResults(params: {
 
   const localCustMatches = params.hideLeadsAndCustomers
     ? []
-    : params.localCustomers.filter(
+    : (params.localCustomers || []).filter(
         (c) =>
           (c.name || "").toLowerCase().includes(q) ||
           (c.contactPerson || "").toLowerCase().includes(q) ||
@@ -375,11 +375,18 @@ export function buildUnifiedSearchResults(params: {
       );
   const customers = params.hideLeadsAndCustomers
     ? []
-    : dedupeById(params.remote.customers, localCustMatches);
+    : dedupeById(params.remote.customers || [], localCustMatches).filter(
+        (c) =>
+          (c.name || "").toLowerCase().includes(q) ||
+          (c.contactPerson || "").toLowerCase().includes(q) ||
+          (c.city || "").toLowerCase().includes(q) ||
+          (c.email || "").toLowerCase().includes(q) ||
+          (c.phone || "").includes(q)
+      );
 
   const localLeadMatches = params.hideLeadsAndCustomers
     ? []
-    : params.localLeads.filter(
+    : (params.localLeads || []).filter(
         (l) =>
           (l.name || "").toLowerCase().includes(q) ||
           (l.companyName || "").toLowerCase().includes(q) ||
@@ -390,10 +397,29 @@ export function buildUnifiedSearchResults(params: {
       );
   const leads = params.hideLeadsAndCustomers
     ? []
-    : dedupeById(params.remote.leads, localLeadMatches);
+    : dedupeById(params.remote.leads || [], localLeadMatches).filter(
+        (l) =>
+          (l.name || "").toLowerCase().includes(q) ||
+          (l.companyName || "").toLowerCase().includes(q) ||
+          (l.contactPerson || "").toLowerCase().includes(q) ||
+          (l.city || "").toLowerCase().includes(q) ||
+          (l.stage || "").toLowerCase().includes(q) ||
+          (l.phone || "").includes(q)
+      );
 
-  const proformas = params.remote.proformas;
-  const inventory = params.remote.inventory;
+  const proformas = (params.remote.proformas || []).filter(
+    (p) =>
+      (p.piNumber || "").toLowerCase().includes(q) ||
+      (p.clientName || "").toLowerCase().includes(q) ||
+      (p.rep || "").toLowerCase().includes(q) ||
+      (p.status || "").toLowerCase().includes(q)
+  );
+  const inventory = (params.remote.inventory || []).filter(
+    (item) =>
+      (item.name || "").toLowerCase().includes(q) ||
+      (item.sku || "").toLowerCase().includes(q) ||
+      (item.category || "").toLowerCase().includes(q)
+  );
 
   const telephonyUsers = (params.localTelephonyUsers || []).filter(
     (u) =>
@@ -422,13 +448,13 @@ export function buildUnifiedSearchResults(params: {
       (lv.reason || "").toLowerCase().includes(q)
   );
 
-  const localCallMatches = (params.localCalls || []).filter(
+  const allCalls = dedupeById(params.remote.calls || [], params.localCalls || []);
+  const calls = allCalls.filter(
     (c) =>
       (c.username || "").toLowerCase().includes(q) ||
       (c.phone_number || "").toLowerCase().includes(q) ||
       (c.call_type || "").toLowerCase().includes(q)
   );
-  const calls = dedupeById(params.remote.calls, localCallMatches);
 
   const totalCount =
     matchedApps.length +
