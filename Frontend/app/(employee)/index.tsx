@@ -134,7 +134,7 @@ export default function EmployeeHomeScreen() {
     }
 
     const routes: Record<string, string> = {
-      customers: "/(employee)/customers",
+      customers: "/(employee)/customers/dashboard",
       calls: "/(user)/status",
       leads: "/(employee)/leads",
       hrms: "/(employee)/hrms",
@@ -800,7 +800,7 @@ export default function EmployeeHomeScreen() {
               <View style={styles.bentoSection}>
                 <SubAppCard
                   type="customers"
-                  onPress={() => router.push("/(employee)/customers" as any)}
+                  onPress={() => router.push("/(employee)/customers/dashboard" as any)}
                   customersCount={stats?.totalCustomers ?? 180}
                   followUpsCount={stats?.followUpsDueCount ?? 0}
                 />
@@ -965,7 +965,7 @@ export default function EmployeeHomeScreen() {
               <View style={styles.bentoSection}>
                 <SubAppCard
                   type="customers"
-                  onPress={() => router.push("/(employee)/customers" as any)}
+                  onPress={() => router.push("/(employee)/customers/dashboard" as any)}
                   customersCount={stats?.totalCustomers ?? 0}
                   followUpsCount={stats?.followUpsDueCount ?? 0}
                 />
@@ -1615,7 +1615,7 @@ export default function EmployeeHomeScreen() {
               </View>
               <TouchableOpacity
                 style={[styles.moduleActionBtn, { backgroundColor: isDark ? "#121F1B" : "#DDF4EA" }]}
-                onPress={() => router.push("/(employee)/customers" as any)}
+                onPress={() => router.push("/(employee)/customers/dashboard" as any)}
               >
                 <Text style={[styles.moduleActionBtnText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
                   Open Full App →

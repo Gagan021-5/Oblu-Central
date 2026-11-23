@@ -48,6 +48,7 @@ import {
 } from "@/services/proformaService";
 
 import { ProformaNavDrawer, ProformaNavTab } from "./ProformaNavDrawer";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 import { CreateProformaModal } from "./CreateProformaModal";
 import { PriceRequestsTab } from "./PriceRequestsTab";
 import { StockRequestsTab } from "./StockRequestsTab";
@@ -413,21 +414,22 @@ export function ProformaMainScreen() {
           </Text>
         </View>
 
-        {hubData?.permissions.can_create_proforma ? (
-          <TouchableOpacity
-            onPress={() => {
-              triggerLightHaptic();
-              setCreateDocType(activeTab === "quotations" ? "quotation" : "proforma");
-              setCreateModalOpen(true);
-            }}
-            style={[styles.addBtn, { backgroundColor: activeColor }]}
-            accessibilityLabel="Create Document"
-          >
-            <Ionicons name="add" size={22} color="#06281E" />
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {hubData?.permissions.can_create_proforma ? (
+            <TouchableOpacity
+              onPress={() => {
+                triggerLightHaptic();
+                setCreateDocType(activeTab === "quotations" ? "quotation" : "proforma");
+                setCreateModalOpen(true);
+              }}
+              style={[styles.addBtn, { backgroundColor: activeColor }]}
+              accessibilityLabel="Create Document"
+            >
+              <Ionicons name="add" size={22} color="#06281E" />
+            </TouchableOpacity>
+          ) : null}
+          <SubAppHomeButton size={38} />
+        </View>
       </View>
 
       {/* ── Search Bar ── */}
@@ -645,10 +647,6 @@ export function ProformaMainScreen() {
                 <View style={styles.summaryLine}>
                   <Text style={[styles.summaryLineLabel, { color: muted }]}>Taxable Total</Text>
                   <Text style={[styles.summaryLineVal, { color: foreground }]}>{detailData.totals.taxable_total}</Text>
-                </View>
-                <View style={styles.summaryLine}>
-                  <Text style={[styles.summaryLineLabel, { color: muted }]}>Estimated GST (18%)</Text>
-                  <Text style={[styles.summaryLineVal, { color: foreground }]}>{detailData.totals.gst_total}</Text>
                 </View>
                 <View style={styles.summaryLine}>
                   <Text style={[styles.summaryLineLabel, { color: muted }]}>

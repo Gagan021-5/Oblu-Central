@@ -3,13 +3,18 @@ Customer Dashboard — REST API views for the employee mobile app.
 Provides real-time access to Customers, Remarks, Follow-ups, and Tally Voucher status.
 """
 
+import io
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from django.http import HttpResponse, HttpResponseForbidden
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import Count, DateField, DateTimeField, Exists, IntegerField, OuterRef, Prefetch, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, Lower, TruncDate
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
@@ -44,6 +49,30 @@ from .api_serializers import (
     CustomerPaymentSerializer,
 )
 from .forms import CustomerCreditForm, CustomerReassignForm
+
+
+EXCLUDED_SALESPERSON_NAMES = [
+    "Abhijay",
+    "Aditya",
+    "Aryan",
+    "Charan",
+    "Danish",
+    "Jackson",
+    "Mukesh",
+    "Myke",
+    "Nimit",
+    "Online",
+    "Online Order",
+    "Raman",
+    "test1",
+    "Vibhuti",
+    "Admin",
+    "None",
+    "Unknown",
+    "Unassigned",
+]
+EXCLUDED_SALESPERSON_NAMES_SET = {name.strip().lower() for name in EXCLUDED_SALESPERSON_NAMES}
+
 
 
 def get_visible_customer_queryset(user):
@@ -131,10 +160,14 @@ def _annotate_customer_list_activity(queryset):
     last_remark = CustomerRemark.objects.filter(
         customer_id=OuterRef("pk")
     ).order_by("-created_at").values("created_at")[:1]
+    remark_count_subquery = CustomerRemark.objects.filter(
+        customer_id=OuterRef("pk")
+    ).values("customer_id").annotate(total=Count("id")).values("total")[:1]
     return queryset.annotate(
         api_followups_due=Coalesce(Subquery(due_followups, output_field=IntegerField()), Value(0)),
         api_next_followup_date=Subquery(next_followup, output_field=DateField()),
         api_last_remark_at=Subquery(last_remark, output_field=DateTimeField()),
+        api_remarks_count=Coalesce(Subquery(remark_count_subquery, output_field=IntegerField()), Value(0)),
         api_has_overdue=Exists(CustomerVoucherStatus.objects.filter(
             customer_id=OuterRef("pk"), is_credit_period_crossed=True
         )),
@@ -202,6 +235,19 @@ class CustomerListView(generics.ListAPIView):
                 | Q(state__icontains=search)
                 | Q(district__icontains=search)
             )
+
+        # Salesperson filter
+        salesperson = self.request.query_params.get("salesperson", "").strip()
+        if salesperson and salesperson.lower() != "all":
+            if salesperson.isdigit():
+                qs = qs.filter(salesperson_id=int(salesperson))
+            else:
+                qs = qs.filter(salesperson__name__iexact=salesperson)
+
+        # State filter
+        state = self.request.query_params.get("state", "").strip()
+        if state and state.lower() != "all":
+            qs = qs.filter(state__iexact=state)
 
         # Filter tab
         active_filter = self.request.query_params.get("filter", "all").strip().lower()
@@ -625,35 +671,65 @@ class DashboardStatsView(APIView):
 class CustomerChartsView(APIView):
     """
     GET /api/customers/charts/
-    Returns distribution data for charts in the mobile app.
+    Returns distribution data for charts in the mobile app, matching web dashboard metrics.
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from django.db.models import Count, Q
-        if not _has_customer_permission(request.user, "customer.view_all"):
+        if not _has_customer_permission(request.user, "customer.view_all", "customer.view"):
             raise PermissionDenied("Customer analytics access is not enabled for this account.")
-        cust_qs = _customer_scope(request.user, "customer.view_all")
+        cust_qs = _customer_scope(request.user, "customer.view_all", "customer.view")
+        total_customers = cust_qs.count()
 
+        cutoff_date = timezone.now().date() - timezone.timedelta(days=90)
+        active_cust_ids = set(
+            CustomerVoucherStatus.objects.filter(
+                customer__in=cust_qs,
+                voucher_type__iexact="TAX INVOICE",
+                voucher_date__gte=cutoff_date,
+            ).values_list("customer_id", flat=True)
+        )
+        active_count = len(active_cust_ids)
+        inactive_count = max(0, total_customers - active_count)
+
+        # Salespersons count & distribution (include ALL, order by customer count descending)
         sp_counts = (
-            cust_qs.values("salesperson__name")
+            cust_qs.values("salesperson__id", "salesperson__name")
             .annotate(count=Count("id"))
-            .order_by("-count")[:10]
+            .order_by("-count")
         )
-        salesperson_dist = [
-            {"name": s["salesperson__name"] or "Unassigned", "customers": s["count"]}
-            for s in sp_counts
-        ]
+        salesperson_dist = []
+        for s in sp_counts:
+            sp_name = s["salesperson__name"] or "Unassigned"
+            sp_id = s["salesperson__id"]
+            sp_active = len([cid for cid in active_cust_ids if cust_qs.filter(id=cid, salesperson_id=sp_id).exists()]) if sp_id else 0
+            salesperson_dist.append({
+                "name": sp_name,
+                "customers": s["count"],
+                "active": sp_active,
+                "inactive": max(0, s["count"] - sp_active),
+            })
 
+        # States count & distribution (with active counts)
         state_counts = (
-            cust_qs.values("state")
+            cust_qs.exclude(state__isnull=True).exclude(state="")
+            .values("state")
             .annotate(count=Count("id"))
-            .order_by("-count")[:10]
+            .order_by("-count")
         )
-        state_dist = [
-            {"state": s["state"] or "Other", "count": s["count"]}
-            for s in state_counts
-        ]
+        state_dist = []
+        for s in state_counts[:20]:
+            st_name = s["state"]
+            st_active = len([cid for cid in active_cust_ids if cust_qs.filter(id=cid, state__iexact=st_name).exists()])
+            state_dist.append({
+                "state": st_name,
+                "count": s["count"],
+                "active": st_active,
+                "inactive": max(0, s["count"] - st_active),
+            })
+        total_states = state_counts.count()
+        total_salespersons = sp_counts.exclude(salesperson__isnull=True).count()
 
         voucher_qs = CustomerVoucherStatus.objects.filter(customer__in=cust_qs)
         vouchers_total = voucher_qs.count()
@@ -668,7 +744,11 @@ class CustomerChartsView(APIView):
         )["total"] or 0
 
         return Response({
-            "totalCustomers": cust_qs.count(),
+            "totalCustomers": total_customers,
+            "salespersonsCount": total_salespersons,
+            "statesCount": total_states,
+            "activeCustomers": active_count,
+            "inactiveCustomers": inactive_count,
             "salespersonDistribution": salesperson_dist,
             "stateDistribution": state_dist,
             "vouchers": {
@@ -680,6 +760,227 @@ class CustomerChartsView(APIView):
             "totalOutstanding": float(abs(total_balance)),
             "totalOutstandingFormatted": f"₹{int(abs(total_balance)):,}",
         })
+
+
+class CustomerStateDistrictsView(APIView):
+    """
+    GET /api/customers/state-districts/?state=<state_name>
+    Returns district-wise customer counts and activity for a given state.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Count, Q
+        if not _has_customer_permission(request.user, "customer.view_all", "customer.view"):
+            raise PermissionDenied("Customer analytics access is not enabled for this account.")
+
+        target_state = request.query_params.get("state", "").strip()
+        if not target_state:
+            return Response({"error": "state query parameter is required"}, status=400)
+
+        cust_qs = _customer_scope(request.user, "customer.view_all", "customer.view")
+        state_custs = cust_qs.filter(state__iexact=target_state)
+        total_customers = state_custs.count()
+
+        cutoff_date = timezone.now().date() - timezone.timedelta(days=90)
+        active_cust_ids = set(
+            CustomerVoucherStatus.objects.filter(
+                customer__in=state_custs,
+                voucher_type__iexact="TAX INVOICE",
+                voucher_date__gte=cutoff_date,
+            ).values_list("customer_id", flat=True)
+        )
+        active_count = len(active_cust_ids)
+        inactive_count = max(0, total_customers - active_count)
+
+        district_counts = (
+            state_custs.exclude(district__isnull=True).exclude(district="")
+            .values("district")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+
+        district_dist = []
+        for d in district_counts:
+            dist_name = d["district"].strip()
+            # Count active customers for this district
+            dist_active = len([
+                cid for cid in active_cust_ids
+                if state_custs.filter(id=cid, district__iexact=dist_name).exists()
+            ])
+            district_dist.append({
+                "district": dist_name,
+                "count": d["count"],
+                "active": dist_active,
+                "inactive": max(0, d["count"] - dist_active),
+            })
+
+        unassigned_count = state_custs.filter(Q(district__isnull=True) | Q(district="")).count()
+        if unassigned_count > 0:
+            unassigned_active = len([
+                cid for cid in active_cust_ids
+                if state_custs.filter(id=cid).filter(Q(district__isnull=True) | Q(district="")).exists()
+            ])
+            district_dist.append({
+                "district": "Unassigned / Other",
+                "count": unassigned_count,
+                "active": unassigned_active,
+                "inactive": max(0, unassigned_count - unassigned_active),
+            })
+
+        return Response({
+            "state": target_state,
+            "totalCustomers": total_customers,
+            "activeCustomers": active_count,
+            "inactiveCustomers": inactive_count,
+            "districtCount": len(district_counts),
+            "districtDistribution": district_dist,
+        })
+
+
+class CustomerFilterOptionsView(APIView):
+    """
+    GET /api/customers/filter-options/
+    Returns available salespersons and distinct states for filtering.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _has_customer_permission(request.user, "customer.view", "customer.view_all", "payment.view"):
+            raise PermissionDenied("Customer access not enabled.")
+        base_salespersons = SalesPerson.objects.exclude(name__in=EXCLUDED_SALESPERSON_NAMES).order_by(Lower("name"))
+        salespersons = scope_queryset(request.user, "customer.view", base_salespersons)
+        active_salespersons = [
+            {"id": sp.id, "name": sp.name}
+            for sp in salespersons
+            if sp.name and sp.name.strip().lower() not in EXCLUDED_SALESPERSON_NAMES_SET
+        ]
+        states = Customer.objects.exclude(state__isnull=True).exclude(state="").values_list("state", flat=True).distinct().order_by("state")
+        return Response({
+            "salespersons": active_salespersons,
+            "states": [s for s in states if s],
+        })
+
+
+class CustomerExportExcelView(APIView):
+    """
+    GET /api/customers/export/?state=&salesperson=&search=&token=
+    Exports customers to an Excel (.xlsx) file. Only accessible to Admins.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        user = request.user
+        if not user.is_authenticated:
+            token = request.query_params.get("token")
+            if token:
+                try:
+                    from rest_framework_simplejwt.tokens import AccessToken
+                    from django.contrib.auth import get_user_model
+                    data = AccessToken(token)
+                    user = get_user_model().objects.get(id=data["user_id"])
+                    request.user = user
+                except Exception:
+                    pass
+
+        if not user.is_authenticated or not (user.is_superuser or user.is_staff or is_admin(user) or can(user, "customer.view_all")):
+            return HttpResponseForbidden("Admin access required to export customer records.")
+
+        qs = Customer.objects.select_related("salesperson", "credit_profile").order_by("name")
+
+        # Filters
+        state = request.query_params.get("state", "").strip()
+        if state and state.lower() != "all":
+            qs = qs.filter(state__iexact=state)
+
+        salesperson = request.query_params.get("salesperson", "").strip()
+        if salesperson and salesperson.lower() != "all":
+            if salesperson.isdigit():
+                qs = qs.filter(salesperson_id=int(salesperson))
+            else:
+                qs = qs.filter(salesperson__name__iexact=salesperson)
+
+        search = request.query_params.get("search", "").strip()
+        if search:
+            qs = qs.filter(
+                Q(name__icontains=search)
+                | Q(phone__icontains=search)
+                | Q(state__icontains=search)
+                | Q(district__icontains=search)
+            )
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Customers"
+
+        headers = [
+            "Customer ID", "Customer Name", "Contact Person", "Phone", "Email",
+            "State", "District / City", "Assigned Salesperson",
+            "Outstanding Balance (INR)", "Credit Period (Days)", "Last Contact"
+        ]
+        ws.append(headers)
+
+        header_fill = PatternFill(start_color="00A879", end_color="00A879", fill_type="solid")
+        header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+        thin_border = Border(
+            left=Side(style="thin", color="E0E0E0"),
+            right=Side(style="thin", color="E0E0E0"),
+            top=Side(style="thin", color="E0E0E0"),
+            bottom=Side(style="thin", color="E0E0E0")
+        )
+
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        ws.row_dimensions[1].height = 28
+
+        for cust in qs:
+            credit_profile = getattr(cust, "credit_profile", None)
+            outstanding = float(credit_profile.outstanding_balance) if credit_profile and credit_profile.outstanding_balance else 0.0
+            credit_days = credit_profile.credit_period_days if credit_profile else 7
+            sp_name = cust.salesperson.name if cust.salesperson else "Unassigned"
+
+            row = [
+                cust.id,
+                cust.name or "",
+                cust.contact_person or "",
+                str(cust.phone or ""),
+                cust.email or "",
+                cust.state or "",
+                cust.district or cust.city or "",
+                sp_name,
+                outstanding,
+                credit_days,
+                cust.last_contact_time or "No recent contact",
+            ]
+            ws.append(row)
+
+        for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=len(headers)):
+            for cell in row:
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical="center")
+
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename_state = state if state and state.lower() != "all" else "all_states"
+        filename = f"customers_{filename_state}.xlsx".replace(" ", "_")
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
 
 class CustomerWorkspaceToolsView(APIView):
@@ -710,8 +1011,10 @@ class CustomerWorkspaceToolsView(APIView):
             if not _has_customer_permission(request.user, "customer.view", "customer.view_all"):
                 raise PermissionDenied("Team customer access is not enabled for this account.")
             base_scope = _customer_scope(request.user, "customer.view", "customer.view_all")
+            raw_sp_names = base_scope.exclude(salesperson__isnull=True).values_list("salesperson__name", flat=True).distinct()
             sp_names = sorted(list(set(
-                base_scope.exclude(salesperson__isnull=True).values_list("salesperson__name", flat=True)
+                name for name in raw_sp_names
+                if name and name.strip().lower() not in EXCLUDED_SALESPERSON_NAMES_SET
             )))
 
             target_scope = base_scope
@@ -824,8 +1127,15 @@ class CustomerWorkspaceToolsView(APIView):
             offset = (page_num - 1) * page_size
             paged_cards = all_cards[offset : offset + page_size]
 
+            all_units_qs = CustomerUnit.objects.all().order_by("name")
+            all_units_data = [
+                {"id": u.pk, "name": u.name, "salesperson": u.salesperson.name if u.salesperson else None}
+                for u in all_units_qs
+            ]
+
             return Response({
                 "rows": paged_cards,
+                "all_units": all_units_data,
                 "units_count": len(enriched_units),
                 "standalone_count": len(standalone_rows),
                 "total_display": total_display,
@@ -900,6 +1210,7 @@ class CustomerWorkspaceToolsView(APIView):
                     "voucher_status_id": row.id,
                     "customer": row.customer.name,
                     "customer_id": row.customer_id,
+                    "state": row.customer.state or "",
                     "salesperson": row.customer.salesperson.name if row.customer.salesperson else "Unassigned",
                     "sp": row.customer.salesperson.name if row.customer.salesperson else "Unassigned",
                     "invoice": row.voucher.voucher_number if row.voucher else "",
@@ -912,13 +1223,19 @@ class CustomerWorkspaceToolsView(APIView):
                     "overdue": bool(row.is_credit_period_crossed),
                     "is_credit_period_crossed": bool(row.is_credit_period_crossed),
                     "credit_days_elapsed": days_elapsed,
+                    "credit_period": credit_days,
                     "credit_status": credit_status,
                     "credit": credit_status,
                     "ticket_status": ticket_status,
                     "remarks": remarks_list,
                     "remarks_count": len(remarks_list),
+                    "latest_remark_text": remarks_list[0]["text"] if remarks_list else None,
+                    "latest_remark_user": remarks_list[0]["user"] if remarks_list else None,
+                    "latest_remark_time": remarks_list[0]["time"] if remarks_list else None,
                     "expected_dates": expected_list,
                     "latest_expected_date": expected_list[0]["date"] if expected_list else None,
+                    "latest_expected_user": expected_list[0]["user"] if expected_list else None,
+                    "latest_expected_time": expected_list[0]["time"] if expected_list else None,
                     "ticket_events": ticket_events,
                 })
             return Response(rows)
@@ -982,7 +1299,6 @@ class CustomerWorkspaceToolsView(APIView):
             permissions = get_cross_selling_user_permissions(request.user)
             dataset = get_cross_selling_mobile_dataset()
             base_accessible, visible_items = filter_cross_selling_customers(dataset["customers"], permissions)
-            stats = compute_cross_selling_stats(base_accessible)
 
             salesperson_filter = request.query_params.get("salesperson", "").strip().casefold()
             if salesperson_filter and salesperson_filter != "all salespeople":
@@ -990,7 +1306,11 @@ class CustomerWorkspaceToolsView(APIView):
                     item for item in visible_items
                     if (item["customer"].salesperson.name if item["customer"].salesperson else "Unassigned").casefold()
                     == salesperson_filter
+                    or str(getattr(item["customer"], "salesperson_id", "")) == salesperson_filter
                 ]
+                stats = compute_cross_selling_stats(visible_items)
+            else:
+                stats = compute_cross_selling_stats(base_accessible)
 
             search_query = request.query_params.get("q", "").strip().casefold()
             if search_query:
@@ -1094,7 +1414,8 @@ class CustomerWorkspaceToolsView(APIView):
                     })
 
             sp_names = sorted(list(set(
-                p.name for p in permissions.get("allowed_salespersons", []) if p and p.name
+                p.name for p in permissions.get("allowed_salespersons", [])
+                if p and p.name and p.name.strip().lower() not in EXCLUDED_SALESPERSON_NAMES_SET
             )))
 
             return Response({
@@ -1240,7 +1561,17 @@ class CustomerWorkspaceToolsView(APIView):
             return Response([])
 
         if tool == "unassigned":
-            if not _has_customer_permission(request.user, "customer.view_all"):
+            username = (request.user.username or "").lower().strip()
+            is_assigner = (
+                request.user.is_superuser
+                or request.user.is_staff
+                or is_admin(request.user)
+                or self._has_role(request.user, "admin", "superuser", "sales_head", "business", "business_manager", "buss_mgr")
+                or "vibhuti" in username
+                or "bhavya" in username
+                or _has_customer_permission(request.user, "customer.view_all")
+            )
+            if not is_assigner:
                 raise PermissionDenied("Unassigned customer access requires customer.view_all permission.")
             unassigned_qs = Customer.objects.filter(salesperson__isnull=True).order_by("name")
             q_search = request.query_params.get("search", "").strip()
@@ -1252,7 +1583,10 @@ class CustomerWorkspaceToolsView(APIView):
                     Q(phone__icontains=q_search)
                 )
 
-            salespersons = list(SalesPerson.objects.order_by("name").values("id", "name"))
+            salespersons = [
+                sp for sp in SalesPerson.objects.order_by("name").values("id", "name")
+                if sp["name"] and sp["name"].strip().lower() not in EXCLUDED_SALESPERSON_NAMES_SET
+            ]
             rows = [{
                 "id": c.id,
                 "name": c.name,
@@ -1352,20 +1686,45 @@ class CustomerWorkspaceToolsView(APIView):
             return Response({"error": "Unknown payment follow-up action."}, status=400)
 
         if tool == "unassigned":
-            if not _has_customer_permission(request.user, "customer.view_all"):
-                raise PermissionDenied("Reassigning customers requires customer.view_all permission.")
+            # STRICT RBAC: Only Business Manager (vibhuti_), Sales Head (bhavya), and Admins can assign customers
+            username = (request.user.username or "").lower().strip()
+            is_admin_user = (
+                request.user.is_superuser
+                or request.user.is_staff
+                or is_admin(request.user)
+                or self._has_role(request.user, "admin", "superuser")
+                or username in ("infected", "admin")
+            )
+            is_buss_mgr = (
+                "vibhuti" in username
+                or self._has_role(request.user, "business", "business_manager", "buss_mgr")
+            )
+            is_sales_head = (
+                "bhavya" in username
+                or self._has_role(request.user, "sales_head")
+            )
+            if not (is_admin_user or is_buss_mgr or is_sales_head):
+                raise PermissionDenied("Only Business Manager (Vibhuti), Sales Head (Bhavya), and Admins can assign customers.")
+
             customer_id = request.data.get("customer_id")
+            customer_ids = request.data.get("customer_ids")
             salesperson_id = request.data.get("salesperson_id")
-            if not customer_id or not salesperson_id:
-                return Response({"error": "customer_id and salesperson_id are required"}, status=400)
-            customer = get_object_or_404(Customer, id=customer_id)
+            if not salesperson_id:
+                return Response({"error": "salesperson_id is required"}, status=400)
+            if not customer_id and not customer_ids:
+                return Response({"error": "customer_id or customer_ids is required"}, status=400)
+
             salesperson = get_object_or_404(SalesPerson, id=salesperson_id)
-            customer.salesperson = salesperson
-            customer.save(update_fields=["salesperson"])
+            target_ids = list(customer_ids) if customer_ids else [customer_id]
+            updated_count = Customer.objects.filter(id__in=target_ids).update(salesperson=salesperson)
+
             return Response({
                 "status": "ok",
-                "customer_id": customer.id,
+                "customer_id": customer_id or (target_ids[0] if target_ids else None),
+                "customer_ids": target_ids,
+                "updated_count": updated_count,
                 "salesperson": salesperson.name,
+                "salesperson_id": salesperson.id,
             })
 
         if tool == "voucher-approvals":
@@ -1389,7 +1748,70 @@ class CustomerWorkspaceToolsView(APIView):
             raise PermissionDenied("Customer edit access is not enabled for this account.")
 
         action = str(request.data.get("action", "")).strip().lower()
+
+        # ── CREATE UNIT ──
+        if action == "create_unit":
+            unit_name = str(request.data.get("unit_name", "")).strip()
+            if not unit_name:
+                return Response({"error": "Unit name is required."}, status=400)
+            cid = request.data.get("customer_id")
+            sp_id = request.data.get("salesperson_id")
+            customer = None
+            salesperson = None
+            if cid:
+                customer = get_object_or_404(Customer, id=cid)
+                salesperson = customer.salesperson
+            if sp_id and not salesperson:
+                salesperson = SalesPerson.objects.filter(id=sp_id).first()
+            if not salesperson:
+                salesperson = SalesPerson.objects.filter(user=user).first()
+
+            unit, _ = CustomerUnit.objects.get_or_create(
+                name=unit_name,
+                salesperson=salesperson,
+            )
+            if customer:
+                CustomerUnitMembership.objects.filter(customer=customer).delete()
+                CustomerUnitMembership.objects.create(customer=customer, unit=unit)
+
+            cids = request.data.get("customer_ids")
+            if isinstance(cids, list):
+                for add_cid in cids:
+                    add_cust = Customer.objects.filter(id=add_cid).first()
+                    if add_cust:
+                        CustomerUnitMembership.objects.filter(customer=add_cust).delete()
+                        CustomerUnitMembership.objects.create(customer=add_cust, unit=unit)
+
+            return Response({
+                "success": True,
+                "unit_id": unit.pk,
+                "unit_name": unit.name,
+                "salesperson": unit.salesperson.name if unit.salesperson else None,
+            })
+
+        # ── ADD TO UNIT ──
+        if action == "add_to_unit":
+            unit_id = request.data.get("unit_id")
+            cid = request.data.get("customer_id")
+            if not unit_id or not cid:
+                return Response({"error": "unit_id and customer_id are required."}, status=400)
+            customer = get_object_or_404(Customer, id=cid)
+            unit = get_object_or_404(CustomerUnit, id=unit_id)
+            CustomerUnitMembership.objects.filter(customer=customer).delete()
+            CustomerUnitMembership.objects.create(customer=customer, unit=unit)
+            return Response({"success": True, "unit_id": unit.pk, "unit_name": unit.name, "customer_id": customer.pk})
+
+        # ── LEAVE UNIT ──
+        if action == "leave_unit":
+            cid = request.data.get("customer_id")
+            if not cid:
+                return Response({"error": "customer_id is required."}, status=400)
+            CustomerUnitMembership.objects.filter(customer_id=cid).delete()
+            return Response({"success": True, "customer_id": cid})
+
         unit_id = request.data.get("unit_id")
+        if not unit_id:
+            return Response({"error": "unit_id is required."}, status=400)
         visible_customers = _customer_scope(user, "customer.view", "customer.view_all")
         editable_customers = _customer_scope(user, "customer.edit")
         unit = get_object_or_404(
@@ -1397,9 +1819,10 @@ class CustomerWorkspaceToolsView(APIView):
             pk=unit_id,
         )
         member_ids = list(unit.memberships.values_list("customer_id", flat=True))
-        if not member_ids or editable_customers.filter(pk__in=member_ids).count() != len(member_ids):
+        if member_ids and editable_customers.filter(pk__in=member_ids).count() != len(member_ids):
             raise PermissionDenied("You can edit only units whose ledgers are inside your edit scope.")
 
+        # ── RENAME UNIT ──
         if action == "rename_unit":
             name = str(request.data.get("unit_name", "")).strip()
             if not name:
@@ -1412,6 +1835,7 @@ class CustomerWorkspaceToolsView(APIView):
             unit.save(update_fields=["name", "updated_at"])
             return Response({"success": True, "unit_id": unit.pk, "unit_name": unit.name})
 
+        # ── DELETE UNIT ──
         if action == "delete_unit":
             unit.delete()
             return Response({"success": True, "deleted": True})

@@ -369,7 +369,11 @@ const CustomerCardComponent: React.FC<CustomerCardProps> = ({
             />
             <QuickActionButton
               icon="chatbubble-ellipses-outline"
-              label="Remark"
+              label={
+                ((customer as any).remarks_count ?? (customer as any).remarksCount ?? (customer.remarks?.length || 0)) > 0
+                  ? `Remark (${(customer as any).remarks_count ?? (customer as any).remarksCount ?? customer.remarks?.length})`
+                  : "Remark"
+              }
               onPress={handleRemark}
               isDark={isDark}
             />

@@ -165,7 +165,7 @@ export default function UsersScreen() {
 
     const routes: Record<string, string> = {
       hrms: "/(admin)/hrms",
-      customers: "/(admin)/customers",
+      customers: "/(admin)/customer-dashboard",
       calls: "/(admin)/call-logs",
       leads: "/(admin)/leads",
       inventory: "/(admin)/inventory",
@@ -607,7 +607,7 @@ export default function UsersScreen() {
                       isHighlight={lastActiveMetric === "customers"}
                       isLive={lastActiveMetric === "customers"}
                       loading={loading && !dashboardStats}
-                      onPress={() => handleMetricCardPress("customers", "/(admin)/customers")}
+                      onPress={() => handleMetricCardPress("customers", "/(admin)/customer-dashboard")}
                     />
                     <MetricCard
                       index={3}
@@ -826,10 +826,10 @@ export default function UsersScreen() {
                   </View>
                   <TouchableOpacity
                     style={[styles.moduleActionBtn, { backgroundColor: isDark ? "#192D25" : "#DDF4EA" }]}
-                    onPress={() => router.push("/(admin)/customers")}
+                    onPress={() => router.push("/(admin)/customer-dashboard")}
                   >
                     <Text style={[styles.moduleActionBtnText, { color: colors.primary }]}>
-                      Open CRM Tab
+                      Open Workspace →
                     </Text>
                     <Ionicons name="arrow-forward" size={14} color={colors.primary} />
                   </TouchableOpacity>

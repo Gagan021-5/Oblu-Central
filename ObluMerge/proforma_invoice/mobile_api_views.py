@@ -413,11 +413,12 @@ class ProformaCatalogAPIView(APIView):
             qs = qs.filter(category_id=int(category_id))
 
         if search:
-            qs = qs.filter(
-                Q(name__icontains=search)
-                | Q(sku__icontains=search)
-                | Q(category__name__icontains=search)
-            )
+            for token in search.split():
+                qs = qs.filter(
+                    Q(name__icontains=token)
+                    | Q(category__name__icontains=token)
+                    | Q(proforma_price__hsn__icontains=token)
+                )
 
         products = []
         for p in qs.order_by("name")[:100]:

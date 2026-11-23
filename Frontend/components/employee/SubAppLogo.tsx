@@ -11,6 +11,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 
 const SUBAPP_LOGOS: Record<string, ImageSourcePropType> = {
   all: require("@/assets/subapps/all.webp"),
+  home: require("@/assets/subapps/home.webp"),
   hrms: require("@/assets/subapps/hrms.webp"),
   hr: require("@/assets/subapps/hrms.webp"),
   customers: require("@/assets/subapps/customers.webp"),

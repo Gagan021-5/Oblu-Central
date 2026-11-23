@@ -31,6 +31,7 @@ import { InventoryDeadStockTab } from "./InventoryDeadStockTab";
 import { InventoryProcurementTab } from "./InventoryProcurementTab";
 import { InventoryAnalyticsTab } from "./InventoryAnalyticsTab";
 import { InventoryNavDrawer } from "./InventoryNavDrawer";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
 export type InventoryNavTab =
   | "overview"
@@ -392,14 +393,17 @@ export function InventoryMainScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={() => void onRefresh()}
-          style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
-          activeOpacity={0.7}
-          accessibilityLabel="Refresh inventory"
-        >
-          <Ionicons name="refresh" size={18} color="#00A879" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => void onRefresh()}
+            style={[styles.backBtn, { backgroundColor: cardBg, borderColor: cardBorder }]}
+            activeOpacity={0.7}
+            accessibilityLabel="Refresh inventory"
+          >
+            <Ionicons name="refresh" size={18} color="#00A879" />
+          </TouchableOpacity>
+          <SubAppHomeButton size={38} />
+        </View>
       </View>
 
       {/* ── Tab Content Views ── */}

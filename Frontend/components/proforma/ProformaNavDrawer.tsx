@@ -210,20 +210,6 @@ export function ProformaNavDrawer({
             {/* ── 1. SALES & DOCUMENTS ── */}
             <Text style={[styles.sectionTitle, { color: muted }]}>SALES & DOCUMENTS</Text>
 
-            {/* Main App Home */}
-            <TouchableOpacity
-              onPress={() => {
-                handleClose();
-                router.replace(isAdmin ? "/(admin)/users" : "/(employee)");
-              }}
-              style={styles.navEntry}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="apps-outline" size={19} color={muted} />
-              <Text style={[styles.navText, { color: foreground }]}>Main Home</Text>
-              <Ionicons name="chevron-forward" size={16} color={muted} />
-            </TouchableOpacity>
-
             {/* Proforma Invoices */}
             {permissions.can_view_proformas && (
               <TouchableOpacity

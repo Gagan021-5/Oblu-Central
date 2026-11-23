@@ -34,6 +34,7 @@ import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { SkeletonCardList, SkeletonBlock } from "@/components/ui/SkeletonCard";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
 interface CallLogItem {
   id: number;
@@ -288,6 +289,7 @@ export default function CallLogsScreen() {
               color={t.primary}
             />
           </TouchableOpacity>
+          <SubAppHomeButton size={38} isAdmin={true} />
         </View>
       </View>
 

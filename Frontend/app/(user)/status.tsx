@@ -35,6 +35,7 @@ import { addCustomerRemarkApi, scheduleCustomerFollowUpApi } from "@/services/cu
 import { createLeadApi } from "@/services/leadService";
 import { scheduleFollowUpNotifications } from "@/services/followUpNotificationService";
 import { mockEmployee } from "@/data/mockEmployee";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
 const themeModes: Array<{ key: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { key: "light", label: "Light", icon: "sunny-outline" },
@@ -295,6 +296,7 @@ export default function StatusScreen() {
         </View>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <SubAppHomeButton size={38} />
           {/* Top Right Appearance / Theme Mode Toggle */}
           <TouchableOpacity
             style={[

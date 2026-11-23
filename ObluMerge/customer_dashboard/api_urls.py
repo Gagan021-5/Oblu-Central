@@ -14,13 +14,19 @@ from .api_views import (
     CustomerPaymentTicketActionView,
     DashboardStatsView,
     CustomerChartsView,
+    CustomerStateDistrictsView,
     CustomerWorkspaceToolsView,
+    CustomerFilterOptionsView,
+    CustomerExportExcelView,
 )
 
 urlpatterns = [
     path("", CustomerListView.as_view(), name="employee-customer-list"),
+    path("filter-options/", CustomerFilterOptionsView.as_view(), name="employee-customer-filter-options"),
+    path("export/", CustomerExportExcelView.as_view(), name="employee-customer-export-excel"),
     path("map/", CustomerMapPointsView.as_view(), name="employee-customer-map-points"),
     path("charts/", CustomerChartsView.as_view(), name="employee-customer-charts"),
+    path("state-districts/", CustomerStateDistrictsView.as_view(), name="employee-customer-state-districts"),
     path("workspace/<str:tool>/", CustomerWorkspaceToolsView.as_view(), name="employee-customer-workspace-tool"),
     path("<int:pk>/", CustomerDetailView.as_view(), name="employee-customer-detail"),
     path("<int:pk>/edit/", CustomerMobileEditView.as_view(), name="employee-customer-edit"),

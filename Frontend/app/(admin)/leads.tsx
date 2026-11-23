@@ -25,6 +25,7 @@ import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/the
 import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { fetchLeadsFromApi, updateLeadStageApi } from "@/services/leadService";
 import { Lead, LeadStage } from "@/data/mockLeads";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
 export default function LeadsScreen() {
   const insets = useSafeAreaInsets();
@@ -152,13 +153,16 @@ export default function LeadsScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setLeadPickerVisible(true)}
-          style={styles.navBtn}
-        >
-          <Ionicons name="ellipsis-vertical" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setLeadPickerVisible(true)}
+            style={styles.navBtn}
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <SubAppHomeButton size={38} isAdmin={true} />
+        </View>
       </View>
 
       {loading && !refreshing ? (

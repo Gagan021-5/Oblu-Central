@@ -80,6 +80,7 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
+            "useLegacyPackaging": true,
             "extraProguardRules": "-dontwarn com.calltracer.app.**\n-dontwarn com.facebook.react.**"
           }
         }

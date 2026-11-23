@@ -88,6 +88,15 @@ export function CreateProformaModal({
     }
   }, [productPickerOpen, catalogSearch]);
 
+  const visibleCatalogProducts = useMemo(() => {
+    if (!catalogSearch.trim()) return catalogProducts;
+    const tokens = catalogSearch.toLowerCase().trim().split(/\s+/);
+    return catalogProducts.filter((p) => {
+      const target = `${p.name} ${p.category} ${p.sku || ""}`.toLowerCase();
+      return tokens.every((t) => target.includes(t));
+    });
+  }, [catalogProducts, catalogSearch]);
+
   // Calculations
   const calculations = useMemo(() => {
     let subtotal = 0;
@@ -103,7 +112,7 @@ export function CreateProformaModal({
 
     const courierCost = courierMode === "air" ? 450 : 200;
     const courierGst = courierCost * 0.18;
-    const grandTotal = subtotal + gst + courierCost + courierGst;
+    const grandTotal = subtotal + courierCost;
 
     return {
       subtotal,
@@ -385,7 +394,7 @@ export function CreateProformaModal({
 
           {/* Pricing Breakdown Summary */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.label, { color: muted }]}>TOTALS & ESTIMATE</Text>
+            <Text style={[styles.label, { color: muted }]}>ORDER TOTALS</Text>
 
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: muted }]}>Taxable Subtotal</Text>
@@ -393,16 +402,11 @@ export function CreateProformaModal({
             </View>
 
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: muted }]}>Estimated GST (18%)</Text>
-              <Text style={[styles.summaryVal, { color: foreground }]}>₹{intFormat(calculations.gst)}</Text>
-            </View>
-
-            <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: muted }]}>
-                Estimated Courier ({courierMode.toUpperCase()})
+                Courier ({courierMode.toUpperCase()})
               </Text>
               <Text style={[styles.summaryVal, { color: foreground }]}>
-                ₹{intFormat(calculations.courier + calculations.courierGst)}
+                ₹{intFormat(calculations.courier)}
               </Text>
             </View>
 
@@ -506,7 +510,7 @@ export function CreateProformaModal({
               <ActivityIndicator style={{ marginTop: 40 }} color={activeColor} />
             ) : (
               <ScrollView contentContainerStyle={{ paddingHorizontal: 16 }}>
-                {catalogProducts.map((p) => (
+                {visibleCatalogProducts.map((p) => (
                   <TouchableOpacity
                     key={p.id}
                     style={[styles.catalogPickItem, { borderBottomColor: border }]}
@@ -520,7 +524,6 @@ export function CreateProformaModal({
                     </View>
                     <View style={{ alignItems: "flex-end", marginRight: 8 }}>
                       <Text style={[styles.catalogPrice, { color: activeColor }]}>₹{intFormat(p.base_price)}</Text>
-                      <Text style={[styles.catalogGst, { color: muted }]}>+{p.gst_percentage}% GST</Text>
                     </View>
                     <Ionicons name="add-circle" size={24} color={activeColor} />
                   </TouchableOpacity>

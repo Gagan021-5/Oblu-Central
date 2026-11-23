@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -58,6 +58,15 @@ export function ProformaCatalogTab({ searchQuery = "" }: ProformaCatalogTabProps
     loadData();
   }, [loadData]);
 
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    const tokens = searchQuery.toLowerCase().trim().split(/\s+/);
+    return products.filter((p) => {
+      const target = `${p.name} ${p.category} ${p.sku || ""}`.toLowerCase();
+      return tokens.every((t) => target.includes(t));
+    });
+  }, [products, searchQuery]);
+
   const toggleTier = (productId: number) => {
     triggerLightHaptic();
     setExpandedTiers((prev) => ({
@@ -81,7 +90,6 @@ export function ProformaCatalogTab({ searchQuery = "" }: ProformaCatalogTabProps
           </View>
           <View style={{ alignItems: "flex-end" }}>
             <Text style={[styles.priceText, { color: activeColor }]}>₹{Math.round(item.base_price).toLocaleString("en-IN")}</Text>
-            <Text style={[styles.gstText, { color: muted }]}>+{item.gst_percentage}% GST</Text>
           </View>
         </View>
 
@@ -184,7 +192,7 @@ export function ProformaCatalogTab({ searchQuery = "" }: ProformaCatalogTabProps
         <ActivityIndicator style={{ marginTop: 40 }} color={activeColor} />
       ) : (
         <FlatList
-          data={products}
+          data={filteredProducts}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderProduct}
           contentContainerStyle={styles.listContent}

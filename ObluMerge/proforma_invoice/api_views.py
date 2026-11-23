@@ -741,7 +741,12 @@ class ProformaProductsLookupAPIView(APIView):
         qs = InventoryItem.objects.select_related("category", "proforma_price").order_by("name")
 
         if search:
-            qs = qs.filter(Q(name__icontains=search) | Q(sku__icontains=search) | Q(part_number__icontains=search))
+            for token in search.split():
+                qs = qs.filter(
+                    Q(name__icontains=token)
+                    | Q(category__name__icontains=token)
+                    | Q(proforma_price__hsn__icontains=token)
+                )
         if cat_id and cat_id.isdigit():
             qs = qs.filter(category_id=int(cat_id))
 

@@ -32,6 +32,7 @@ import { employeeTheme } from "@/constants/employeeTheme";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { FilterChip } from "@/components/ui/FilterChip";
 import { FloatingTabBar } from "@/components/employee/FloatingTabBar";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 import { hapticMedium, triggerLightHaptic, triggerSelectionHaptic } from "@/utils/haptics";
 import {
   fetchHRMSDashboardApi,
@@ -502,7 +503,7 @@ export default function HRMSScreen() {
           </Text>
         </View>
 
-        <View style={styles.topBarRightPlaceholder} />
+        <SubAppHomeButton size={38} />
       </View>
 
       <FlatList

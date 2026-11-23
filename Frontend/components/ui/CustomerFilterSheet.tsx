@@ -18,6 +18,12 @@ interface CustomerFilterSheetProps {
   paymentFilter: CustomerPaymentFilter;
   balanceFilter: CustomerBalanceFilter;
   sortOption: CustomerSortOption;
+  salespersonFilter?: string | number;
+  onSalespersonFilterChange?: (value: string | number) => void;
+  stateFilter?: string;
+  onStateFilterChange?: (value: string) => void;
+  salespersonOptions?: Array<{ id: number; name: string }>;
+  stateOptions?: string[];
   onPaymentFilterChange: (value: CustomerPaymentFilter) => void;
   onBalanceFilterChange: (value: CustomerBalanceFilter) => void;
   onSortOptionChange: (value: CustomerSortOption) => void;
@@ -48,6 +54,12 @@ export function CustomerFilterSheet({
   paymentFilter,
   balanceFilter,
   sortOption,
+  salespersonFilter = "all",
+  onSalespersonFilterChange,
+  stateFilter = "all",
+  onStateFilterChange,
+  salespersonOptions = [],
+  stateOptions = [],
   onPaymentFilterChange,
   onBalanceFilterChange,
   onSortOptionChange,
@@ -57,6 +69,28 @@ export function CustomerFilterSheet({
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const accent = isDark ? "#35D6A0" : "#00A879";
+
+  const renderChip = (selected: boolean, label: string, onPress: () => void) => (
+    <TouchableOpacity
+      key={label}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      activeOpacity={0.75}
+      style={[
+        styles.chip,
+        {
+          backgroundColor: selected ? (isDark ? "rgba(53, 214, 160, 0.18)" : "#E6F8F2") : colors.card,
+          borderColor: selected ? accent : colors.cardBorder,
+        },
+      ]}
+    >
+      <Text style={[styles.chipText, { color: selected ? accent : colors.textPrimary, fontFamily: selected ? Typography.semiBold : Typography.regular }]}>
+        {label}
+      </Text>
+      {selected ? <Ionicons name="checkmark" size={13} color={accent} style={{ marginLeft: 3 }} /> : null}
+    </TouchableOpacity>
+  );
 
   const renderChoice = (selected: boolean, label: string, onPress: () => void, icon?: keyof typeof Ionicons.glyphMap) => (
     <TouchableOpacity
@@ -126,6 +160,34 @@ export function CustomerFilterSheet({
               {renderChoice(balanceFilter === "all", "Any balance", () => onBalanceFilterChange("all"))}
               {renderChoice(balanceFilter === "outstanding", "Has outstanding balance", () => onBalanceFilterChange("outstanding"))}
             </View>
+
+            {onSalespersonFilterChange ? (
+              <>
+                <Text style={[styles.sectionLabel, styles.sortLabel, { color: colors.textSecondary }]}>SALESPERSON</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
+                  {renderChip(!salespersonFilter || salespersonFilter === "all", "All Salespersons", () => onSalespersonFilterChange("all"))}
+                  {salespersonOptions.map((sp) =>
+                    renderChip(
+                      String(salespersonFilter) === String(sp.id) || String(salespersonFilter) === sp.name,
+                      sp.name,
+                      () => onSalespersonFilterChange(sp.id)
+                    )
+                  )}
+                </ScrollView>
+              </>
+            ) : null}
+
+            {onStateFilterChange ? (
+              <>
+                <Text style={[styles.sectionLabel, styles.sortLabel, { color: colors.textSecondary }]}>STATE / REGION</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
+                  {renderChip(!stateFilter || stateFilter === "all", "All States", () => onStateFilterChange("all"))}
+                  {stateOptions.map((st) =>
+                    renderChip(stateFilter === st, st, () => onStateFilterChange(st))
+                  )}
+                </ScrollView>
+              </>
+            ) : null}
 
             <Text style={[styles.sectionLabel, styles.sortLabel, { color: colors.textSecondary }]}>SORT BY</Text>
             <View style={styles.optionsGroup}>
@@ -199,6 +261,23 @@ const styles = StyleSheet.create({
   },
   optionsGroup: {
     gap: 8,
+  },
+  chipsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 2,
+  },
+  chip: {
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chipText: {
+    fontSize: FontSizes.bodySmall,
   },
   choice: {
     minHeight: 44,

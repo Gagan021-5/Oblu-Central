@@ -23,12 +23,15 @@ import { Typography } from "@/constants/theme";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
+import { assignUnassignedCustomerApi, fetchCustomerFilterOptionsApi } from "@/services/customerService";
+import { isSalespersonActive } from "@/constants/salespeople";
 
 type ToolRow = Record<string, any>;
 type RsmOption = { id: number | string; name: string };
 type CustomerFilterMenu = "salesperson" | "status" | "balance" | "missing_cat" | "score" | null;
 type PortfolioEntry =
-  | { kind: "unit"; id: string; name: string; members: ToolRow[] }
+  | { kind: "unit"; id: string; unit_id?: string | number; name: string; members: ToolRow[]; rawRow?: ToolRow }
   | { kind: "customer"; row: ToolRow };
 
 const TITLES: Record<string, string> = {
@@ -88,6 +91,25 @@ export default function CustomerToolScreen() {
   const isAdminUser = isSuperuser || isFinance || userHasRole("admin") || roleText.includes("admin");
   const isAccountant = isFinance || userHasRole("accountant") || roleText.includes("accountant");
 
+  // Strict RBAC: Only Business Manager (vibhuti_), Sales Head (bhavya), and Admins can assign customers
+  const canAssignCustomers = useMemo(() => {
+    const u = (user?.username || "").toLowerCase().trim();
+    const r = `${user?.role || ""} ${user?.roleKey || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
+    const allRoles = (user?.roles || []).map((item) => (item.key || item.name || "").toLowerCase());
+
+    const isVibhuti = u.includes("vibhuti") || r.includes("business") || allRoles.some((rk) => rk.includes("business"));
+    const isBhavya = u.includes("bhavya") || r.includes("sales_head") || allRoles.some((rk) => rk.includes("sales_head"));
+    const isAdmin =
+      isAdminUser ||
+      isSuperuser ||
+      r.includes("admin") ||
+      u === "infected" ||
+      u === "admin" ||
+      (user?.permissions || []).includes("*");
+
+    return isVibhuti || isBhavya || isAdmin;
+  }, [user, permissionProfile, isAdminUser, isSuperuser]);
+
   const accessByTool: Record<string, boolean> = {
     "team-customers": true,
     "payment-followups": isAdminUser || hasPermission(permissionProfile, "payment.view"),
@@ -101,7 +123,11 @@ export default function CustomerToolScreen() {
       hasRole(permissionProfile, "accounts_operations") ||
       userHasRole("sales_head") ||
       hasPermission(permissionProfile, "customer.view_all"),
-    "unassigned": isAdminUser || userHasRole("sales_head") || hasPermission(permissionProfile, "customer.view_all"),
+    "unassigned":
+      canAssignCustomers ||
+      isAdminUser ||
+      userHasRole("sales_head") ||
+      hasPermission(permissionProfile, "customer.view_all"),
   };
   const canOpen = Boolean(accessByTool[tool] ?? true);
 
@@ -141,15 +167,34 @@ export default function CustomerToolScreen() {
 
   // Payment follow-up specific state
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("All Payments");
+  const [paymentViewMode, setPaymentViewMode] = useState<"table" | "cards">("table");
   const [newRemarkModal, setNewRemarkModal] = useState<{ id: string | number; voucher_status_id?: string | number; customer: string; remarks?: any[]; expected_dates?: any[]; ticket_status?: string } | null>(null);
   const [newRemarkText, setNewRemarkText] = useState("");
   const [newExpectedDate, setNewExpectedDate] = useState("");
   const [actionInProgress, setActionInProgress] = useState(false);
+  const [expectedDateModal, setExpectedDateModal] = useState<{ voucherStatusId: string | number; customer: string; currentDate?: string } | null>(null);
+  const [expectedDateInput, setExpectedDateInput] = useState("");
 
-  // Customer Unit state
-  const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
-  const [renameUnit, setRenameUnit] = useState<{ id: string; name: string } | null>(null);
+  // Unassigned customer assignment state (strictly for vibhuti_, bhavya, and admins)
+  const [selectedUnassignedIds, setSelectedUnassignedIds] = useState<number[]>([]);
+  const [unassignedViewMode, setUnassignedViewMode] = useState<"table" | "cards">("table");
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [assignTargetCustomers, setAssignTargetCustomers] = useState<Array<{ id: number; name: string }>>([]);
+  const [availableSalespersons, setAvailableSalespersons] = useState<Array<{ id: number; name: string }>>([]);
+  const [selectedSalespersonId, setSelectedSalespersonId] = useState<number | null>(null);
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
+  const [salespersonSearch, setSalespersonSearch] = useState("");
+
+  // Customer Unit state & modals
+  const [allUnits, setAllUnits] = useState<Array<{ id: number; name: string; salesperson?: string }>>([]);
+  const [createUnitModal, setCreateUnitModal] = useState<{ visible: boolean; preselectedCustomerId?: number | string; preselectedCustomerName?: string } | null>(null);
+  const [createUnitName, setCreateUnitName] = useState("");
+  const [createUnitSalespersonId, setCreateUnitSalespersonId] = useState<number | null>(null);
+  const [renameUnitModal, setRenameUnitModal] = useState<{ id: string | number; currentName: string } | null>(null);
   const [renameUnitName, setRenameUnitName] = useState("");
+  const [addToUnitModal, setAddToUnitModal] = useState<{ customerId: number | string; customerName: string } | null>(null);
+  const [selectedUnitIdForAdd, setSelectedUnitIdForAdd] = useState<number | null>(null);
+  const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
   const [unitActionLoading, setUnitActionLoading] = useState(false);
 
   // Pagination state for team-customers
@@ -180,6 +225,7 @@ export default function CustomerToolScreen() {
     const requestSequence = tool === "cross-selling" ? ++crossSellingRequestSequence.current : 0;
     setError("");
     if (pageToLoad === 1 && !append) {
+      if (tool === "cross-selling") setCrossSellingStats(null);
       if (hasLoadedTool.current) setRefreshing(true);
       else setLoading(true);
     } else {
@@ -219,6 +265,7 @@ export default function CustomerToolScreen() {
       if (tool === "cross-selling" && requestSequence !== crossSellingRequestSequence.current) return;
 
       let data = result?.data;
+      console.log(`[INCENTIVES_DEBUG] tool=${tool} month=${monthKey}`, JSON.stringify(data));
       if (typeof data === "string") {
         try {
           data = JSON.parse(data);
@@ -241,6 +288,9 @@ export default function CustomerToolScreen() {
         if (data.stats) {
           setServerStats(data.stats);
         }
+        if (Array.isArray(data.all_units)) {
+          setAllUnits(data.all_units);
+        }
       }
 
       if (tool === "cross-selling" && data) {
@@ -257,9 +307,16 @@ export default function CustomerToolScreen() {
 
       if (Array.isArray(data?.salespersons) && data.salespersons.length > 0) {
         if (typeof data.salespersons[0] === "object") {
-          setServerSalespeople(data.salespersons.map((s: any) => s.name));
+          const activeList = data.salespersons.filter((s: any) => isSalespersonActive(s?.name));
+          setServerSalespeople(activeList.map((s: any) => s.name));
+          setAvailableSalespersons(
+            activeList.map((s: any) => ({
+              id: Number(s.id),
+              name: String(s.name),
+            }))
+          );
         } else {
-          setServerSalespeople(data.salespersons);
+          setServerSalespeople(data.salespersons.filter((n: any) => isSalespersonActive(String(n))).map(String));
         }
       }
 
@@ -316,12 +373,33 @@ export default function CustomerToolScreen() {
     hasLoadedTool.current = false;
     setRows([]);
     setError("");
+    setSelectedUnassignedIds([]);
+    setAssignModalVisible(false);
+    setAssignTargetCustomers([]);
     setCrossSellingPage(1);
     setCrossSellingHasNext(false);
     setCrossSellingTotalPages(1);
     setCrossSellingHasPrev(false);
     setCrossSellingTotal(0);
   }, [tool]);
+
+  useEffect(() => {
+    if (tool === "unassigned" && availableSalespersons.length === 0) {
+      fetchCustomerFilterOptionsApi()
+        .then((opts) => {
+          if (Array.isArray(opts?.salespersons) && opts.salespersons.length > 0) {
+            const activeList = opts.salespersons.filter((s: any) => isSalespersonActive(s?.name || s));
+            setAvailableSalespersons(
+              activeList.map((s: any) => ({
+                id: Number(s.id),
+                name: String(s.name || s),
+              }))
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [tool, availableSalespersons.length]);
 
   useEffect(() => {
     if (tool !== "cross-selling") return;
@@ -346,12 +424,17 @@ export default function CustomerToolScreen() {
   const muted = isDark ? "#9AA9A3" : "#637083";
   const card = { backgroundColor: t.surface, borderColor: t.border };
 
-  // Salesperson Options from server and rows
+  // Salesperson Options from server and rows (only active salespeople)
   const salespersonOptions = useMemo(() => {
-    const set = new Set<string>(serverSalespeople);
+    const set = new Set<string>();
+    serverSalespeople.forEach((sp) => {
+      if (sp && isSalespersonActive(sp)) set.add(sp);
+    });
     rows.forEach((r) => {
       const sp = r.assignedSalesperson || r.salesperson;
-      if (sp && sp !== "None" && sp !== "null") set.add(String(sp));
+      if (sp && sp !== "None" && sp !== "null" && isSalespersonActive(String(sp))) {
+        set.add(String(sp));
+      }
     });
     return ["All Salespeople", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [rows, serverSalespeople]);
@@ -451,6 +534,14 @@ export default function CustomerToolScreen() {
       });
     }
 
+    if (tool === "unassigned") {
+      return rows.filter((row) => {
+        if (!search) return true;
+        return [row.name, row.state, row.district, row.phone, row.address]
+          .some((val) => String(val || "").toLowerCase().includes(search));
+      });
+    }
+
     return rows;
   }, [
     tool,
@@ -526,8 +617,10 @@ export default function CustomerToolScreen() {
         entries.push({
           kind: "unit",
           id: String(row.unit_id || row.id),
+          unit_id: row.unit_id || (String(row.id).startsWith("unit-") ? String(row.id).replace("unit-", "") : row.id),
           name: String(row.name || "Customer unit"),
           members: Array.isArray(row.members) ? row.members : [],
+          rawRow: row,
         });
       } else {
         entries.push({ kind: "customer", row });
@@ -591,10 +684,221 @@ export default function CustomerToolScreen() {
     }
   };
 
+  // Expected Date Submission Handler
+  const handleSaveExpectedDate = async () => {
+    if (!expectedDateModal || !expectedDateInput.trim()) {
+      Alert.alert("Date Required", "Please choose or enter an expected payment date (YYYY-MM-DD).");
+      return;
+    }
+    setActionInProgress(true);
+    try {
+      await api.post("/customers/workspace/payment-followups/", {
+        action: "expected",
+        voucher_status_id: expectedDateModal.voucherStatusId,
+        expected_date: expectedDateInput.trim(),
+      });
+      Alert.alert("Expected Date Set", `Expected payment date recorded as ${expectedDateInput.trim()}.`);
+      setExpectedDateModal(null);
+      setExpectedDateInput("");
+      await load();
+    } catch (err: any) {
+      Alert.alert("Error", err?.response?.data?.error || "Could not set expected payment date.");
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  // Customer Unit Management Handlers
+  const handleCreateUnit = async () => {
+    if (!createUnitName.trim()) {
+      Alert.alert("Unit Name Required", "Please enter a name for the new unit.");
+      return;
+    }
+    setUnitActionLoading(true);
+    try {
+      await api.post("/customers/workspace/team-customers/", {
+        action: "create_unit",
+        unit_name: createUnitName.trim(),
+        ...(createUnitModal?.preselectedCustomerId ? { customer_id: createUnitModal.preselectedCustomerId } : {}),
+        ...(createUnitSalespersonId ? { salesperson_id: createUnitSalespersonId } : {}),
+      });
+      Alert.alert("Unit Created", `Unit "${createUnitName.trim()}" created successfully.`);
+      setCreateUnitModal(null);
+      setCreateUnitName("");
+      setCreateUnitSalespersonId(null);
+      await load();
+    } catch (err: any) {
+      Alert.alert("Error", err?.response?.data?.error || "Could not create unit.");
+    } finally {
+      setUnitActionLoading(false);
+    }
+  };
+
+  const handleRenameUnit = async () => {
+    if (!renameUnitModal || !renameUnitName.trim()) {
+      Alert.alert("Name Required", "Please enter a new name for the unit.");
+      return;
+    }
+    setUnitActionLoading(true);
+    try {
+      await api.post("/customers/workspace/team-customers/", {
+        action: "rename_unit",
+        unit_id: renameUnitModal.id,
+        unit_name: renameUnitName.trim(),
+      });
+      Alert.alert("Renamed", `Unit renamed to "${renameUnitName.trim()}".`);
+      setRenameUnitModal(null);
+      setRenameUnitName("");
+      await load();
+    } catch (err: any) {
+      Alert.alert("Error", err?.response?.data?.error || "Could not rename unit.");
+    } finally {
+      setUnitActionLoading(false);
+    }
+  };
+
+  const handleDeleteUnit = (unitId: number | string, unitName: string) => {
+    Alert.alert(
+      "Delete Unit",
+      `Are you sure you want to delete unit "${unitName}"? The accounts inside will become standalone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setUnitActionLoading(true);
+            try {
+              await api.post("/customers/workspace/team-customers/", {
+                action: "delete_unit",
+                unit_id: unitId,
+              });
+              Alert.alert("Deleted", "Unit deleted successfully.");
+              await load();
+            } catch (err: any) {
+              Alert.alert("Error", err?.response?.data?.error || "Could not delete unit.");
+            } finally {
+              setUnitActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAddToUnit = async () => {
+    if (!addToUnitModal || !selectedUnitIdForAdd) {
+      Alert.alert("Select Unit", "Please select a target unit.");
+      return;
+    }
+    setUnitActionLoading(true);
+    try {
+      await api.post("/customers/workspace/team-customers/", {
+        action: "add_to_unit",
+        unit_id: selectedUnitIdForAdd,
+        customer_id: addToUnitModal.customerId,
+      });
+      Alert.alert("Added to Unit", "Customer has been added to the unit.");
+      setAddToUnitModal(null);
+      setSelectedUnitIdForAdd(null);
+      await load();
+    } catch (err: any) {
+      Alert.alert("Error", err?.response?.data?.error || "Could not add customer to unit.");
+    } finally {
+      setUnitActionLoading(false);
+    }
+  };
+
+  const handleLeaveUnit = (customerId: number | string, customerName: string) => {
+    Alert.alert(
+      "Leave Unit",
+      `Remove "${customerName}" from this unit? It will become a standalone customer.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave Unit",
+          style: "destructive",
+          onPress: async () => {
+            setUnitActionLoading(true);
+            try {
+              await api.post("/customers/workspace/team-customers/", {
+                action: "leave_unit",
+                customer_id: customerId,
+              });
+              Alert.alert("Removed", "Customer removed from unit.");
+              await load();
+            } catch (err: any) {
+              Alert.alert("Error", err?.response?.data?.error || "Could not remove customer from unit.");
+            } finally {
+              setUnitActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Reassign Unassigned Customer(s) to a Salesperson (strictly vibhuti_, bhavya, admins)
+  const handleAssignCustomers = async () => {
+    if (!canAssignCustomers) {
+      Alert.alert("Access Denied", "Only Business Manager (Vibhuti), Sales Head (Bhavya), and Admins can assign customers.");
+      return;
+    }
+
+    if (!selectedSalespersonId) {
+      Alert.alert("Select Salesperson", "Please select a salesperson to assign the customer(s) to.");
+      return;
+    }
+
+    const targetIds =
+      assignTargetCustomers.length > 0
+        ? assignTargetCustomers.map((c) => Number(c.id))
+        : selectedUnassignedIds.map(Number);
+
+    if (targetIds.length === 0) {
+      Alert.alert("Select Customers", "Please select at least one unassigned customer to assign.");
+      return;
+    }
+
+    const sp = availableSalespersons.find((s) => s.id === selectedSalespersonId);
+    const spName = sp ? sp.name : "the selected salesperson";
+
+    setAssignSubmitting(true);
+    try {
+      await assignUnassignedCustomerApi(targetIds, selectedSalespersonId);
+
+      // Remove assigned customers from local list
+      setRows((prev) => prev.filter((r) => !targetIds.includes(Number(r.id))));
+      setSelectedUnassignedIds((prev) => prev.filter((id) => !targetIds.includes(id)));
+      setAssignModalVisible(false);
+      setAssignTargetCustomers([]);
+      setSelectedSalespersonId(null);
+
+      Alert.alert(
+        "Assignment Complete",
+        `Successfully assigned ${targetIds.length} customer${targetIds.length > 1 ? "s" : ""} to ${spName}.`
+      );
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Could not assign customer. Verify your account role and try again.";
+      Alert.alert("Assignment Failed", String(msg));
+    } finally {
+      setAssignSubmitting(false);
+    }
+  };
+
   // -------------------------------------------------------------
   // RENDER: Team Customer Portfolio Card
   // -------------------------------------------------------------
-  const renderPortfolioCustomer = (row: ToolRow, index: number) => {
+  const renderPortfolioCustomer = (
+    row: ToolRow,
+    index: number,
+    isMemberOfUnit = false,
+    parentUnitId?: string | number
+  ) => {
     const customerName = String(row.name || "Customer");
     const initials = customerName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
     const displayStatus = String(row.portfolioStatus || row.status || "");
@@ -603,9 +907,10 @@ export default function CustomerToolScreen() {
     const location = [row.city || row.district, row.state].filter(Boolean).map(String).filter((val, i, all) => all.indexOf(val) === i).join(", ");
     const customerId = row.id;
     const balanceNum = Number(row.outstandingPaymentNum || 0);
+    const remarksCount = Number(row.remarks_count ?? row.remarksCount ?? row.remark_count ?? (Array.isArray(row.remarks) ? row.remarks.length : 0));
 
     return (
-      <View key={String(customerId ?? index)} style={[styles.customerPortfolioCard, card]}>
+      <View key={String(customerId ?? index)} style={[styles.customerPortfolioCard, card, isMemberOfUnit && { marginLeft: 10, borderLeftWidth: 3.5, borderLeftColor: "#159A7C" }]}>
         <TouchableOpacity accessibilityRole="button" onPress={() => openCustomerDetail(customerId)} activeOpacity={0.78}>
           <View style={styles.customerPortfolioHeader}>
             <View style={[styles.customerAvatar, { backgroundColor: isDark ? "#183B32" : "#E2F7F1" }]}>
@@ -681,6 +986,7 @@ export default function CustomerToolScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* Action Pills */}
         <View style={[styles.portfolioActions, { borderTopColor: card.borderColor }]}>
           <TouchableOpacity onPress={() => openCustomerDetail(customerId, "purchases")} style={[styles.portfolioAction, { borderColor: card.borderColor }]}>
             <Ionicons name="cart-outline" size={14} color="#159A7C" />
@@ -692,8 +998,47 @@ export default function CustomerToolScreen() {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setNewRemarkModal({ id: customerId, customer: customerName })} style={[styles.portfolioAction, { borderColor: card.borderColor }]}>
             <Ionicons name="chatbubble-outline" size={14} color="#159A7C" />
-            <Text style={[styles.portfolioActionText, { color: foreground }]}>Remarks</Text>
+            <Text style={[styles.portfolioActionText, { color: foreground }]}>
+              Remarks{remarksCount > 0 ? ` (${remarksCount})` : ""}
+            </Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Unit Actions (Start Unit / Add to Unit / Leave Unit) */}
+        <View style={[styles.portfolioActions, { borderTopColor: card.borderColor, paddingTop: 4 }]}>
+          {isMemberOfUnit ? (
+            <TouchableOpacity
+              onPress={() => handleLeaveUnit(customerId, customerName)}
+              style={[styles.portfolioAction, { borderColor: "#EF4444", backgroundColor: isDark ? "#281214" : "#FEF2F2" }]}
+            >
+              <Ionicons name="exit-outline" size={13} color="#EF4444" />
+              <Text style={[styles.portfolioActionText, { color: "#EF4444" }]}>Leave Unit</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                onPress={() => {
+                  setCreateUnitModal({
+                    visible: true,
+                    preselectedCustomerId: customerId,
+                    preselectedCustomerName: customerName,
+                  });
+                  setCreateUnitName(`${customerName} Unit`);
+                }}
+                style={[styles.portfolioAction, { borderColor: card.borderColor, backgroundColor: isDark ? "#12201B" : "#ECFDF5" }]}
+              >
+                <Ionicons name="add-circle-outline" size={13} color="#159A7C" />
+                <Text style={[styles.portfolioActionText, { color: "#159A7C" }]}>Start Unit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setAddToUnitModal({ customerId, customerName })}
+                style={[styles.portfolioAction, { borderColor: card.borderColor }]}
+              >
+                <Ionicons name="arrow-forward-circle-outline" size={13} color="#2563EB" />
+                <Text style={[styles.portfolioActionText, { color: "#2563EB" }]}>Add to Unit</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     );
@@ -849,9 +1194,11 @@ export default function CustomerToolScreen() {
   const renderPaymentFollowupCard = (row: ToolRow, index: number) => {
     const custName = String(row.customer || "Customer");
     const isOverdue = Boolean(row.overdue || row.is_credit_period_crossed);
-    const unpaidAmt = Number(row.unpaid || row.unpaid_amount || row.amount || 0);
+    const unpaidAmt = Number(row.unpaid || row.unpaid_amount || row.pending || 0);
+    const totalAmt = Number(row.amount || row.total || unpaidAmt);
     const invoiceNum = String(row.invoice || row.voucher || `INV-${row.id || index}`);
     const ticketStatus = String(row.ticket_status || row.ticketStatus || "NONE");
+    const creditStatus = String(row.credit_status || row.credit || "");
 
     return (
       <View key={`pf-${row.id || index}`} style={[styles.pfCard, card]}>
@@ -861,7 +1208,7 @@ export default function CustomerToolScreen() {
               <Text style={[styles.pfCustomer, { color: foreground }]} numberOfLines={1}>{custName}</Text>
             </TouchableOpacity>
             <Text style={[styles.pfMeta, { color: muted }]}>
-              Inv #{invoiceNum} · {row.date || "Recent"} · SP: <Text style={{ color: foreground }}>{row.salesperson || "Assigned"}</Text>
+              {row.state ? `${row.state} · ` : ""}Inv #{invoiceNum} · {row.date || "Recent"} · SP: <Text style={{ color: foreground }}>{row.salesperson || row.sp || "Assigned"}</Text>
             </Text>
           </View>
           <View style={[styles.pfDueBadge, { backgroundColor: isOverdue ? "rgba(227, 75, 89, 0.12)" : "rgba(245, 158, 11, 0.12)" }]}>
@@ -871,6 +1218,52 @@ export default function CustomerToolScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Credit Status Reference Banner */}
+        {!!creditStatus && (
+          <View style={[styles.pfCreditBanner, { backgroundColor: isDark ? "#121A16" : "#F1F5F9" }]}>
+            <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: "#2563EB" }}>
+              credit period : {row.credit_period || 30}
+            </Text>
+            <Text style={{ fontFamily: Typography.semiBold, fontSize: 11, color: isOverdue ? "#DC2626" : "#059669" }}>
+              {creditStatus}
+            </Text>
+          </View>
+        )}
+
+        {/* Expected Date Reference Badge (Blue) */}
+        {!!row.latest_expected_date && (
+          <View style={[styles.pfExpBadge, { backgroundColor: isDark ? "#0F2038" : "#EFF6FF", borderColor: isDark ? "#1E3A5F" : "#BFDBFE" }]}>
+            <Ionicons name="calendar" size={14} color="#2563EB" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: Typography.semiBold, fontSize: 11.5, color: "#1D4ED8" }}>
+                Exp: {row.latest_expected_date}
+              </Text>
+              {!!row.latest_expected_user && (
+                <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: isDark ? "#93C5FD" : "#3B82F6" }}>
+                  Set by {row.latest_expected_user}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Latest Remark Reference Badge (Green) */}
+        {!!row.latest_remark_text && (
+          <View style={[styles.pfRemarkBadge, { backgroundColor: isDark ? "#0A261D" : "#ECFDF5", borderColor: isDark ? "#134E39" : "#A7F3D0" }]}>
+            <Ionicons name="chatbubble-ellipses" size={14} color="#059669" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: Typography.medium, fontSize: 11.5, color: isDark ? "#6EE7B7" : "#065F46" }}>
+                {row.latest_remark_text}
+              </Text>
+              {!!row.latest_remark_user && (
+                <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: isDark ? "#A7F3D0" : "#047857" }}>
+                  {row.latest_remark_user} · {row.latest_remark_time || ""}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Financial Highlights */}
         <View style={[styles.pfAmountsRow, { backgroundColor: isDark ? "#0A100E" : "#F8FAF9" }]}>
@@ -883,7 +1276,7 @@ export default function CustomerToolScreen() {
           <View style={{ alignItems: "flex-end" }}>
             <Text style={[styles.pfAmountLabel, { color: muted }]}>TOTAL INVOICE</Text>
             <Text style={[styles.pfAmountValue, { color: foreground }]}>
-              ₹{Number(row.amount || unpaidAmt).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ₹{totalAmt.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
           </View>
         </View>
@@ -893,11 +1286,28 @@ export default function CustomerToolScreen() {
           <TouchableOpacity
             disabled={actionInProgress}
             onPress={() => toggleTicket(row.id, ticketStatus)}
-            style={[styles.ticketBtn, { backgroundColor: ticketStatus === "RAISED" ? "#DC2626" : "#0D9488" }]}
+            style={[styles.ticketBtn, { backgroundColor: ticketStatus === "RAISED" ? "#D97706" : "#0D9488" }]}
           >
             <Ionicons name={ticketStatus === "RAISED" ? "checkmark-circle" : "flag"} size={13} color="white" />
             <Text style={styles.ticketBtnText}>
-              {ticketStatus === "RAISED" ? "Mark Solved" : "Raise Ticket"}
+              {ticketStatus === "RAISED" ? "SOLVE" : "RAISE"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              setExpectedDateModal({
+                voucherStatusId: row.voucher_status_id || row.id,
+                customer: custName,
+                currentDate: row.latest_expected_date,
+              });
+              setExpectedDateInput(row.latest_expected_date || "");
+            }}
+            style={[styles.pfActionBtn, { borderColor: card.borderColor }]}
+          >
+            <Ionicons name="calendar-outline" size={13} color="#2563EB" />
+            <Text style={[styles.pfActionText, { color: foreground }]}>
+              {row.latest_expected_date ? "Update Date" : "Set Date"}
             </Text>
           </TouchableOpacity>
 
@@ -914,10 +1324,253 @@ export default function CustomerToolScreen() {
           >
             <Ionicons name="chatbubble-outline" size={13} color="#159A7C" />
             <Text style={[styles.pfActionText, { color: foreground }]}>
-              Discussion ({Array.isArray(row.remarks) ? row.remarks.length : 0})
+              History ({Array.isArray(row.remarks) ? row.remarks.length : 0})
             </Text>
           </TouchableOpacity>
         </View>
+      </View>
+    );
+  };
+
+  // -------------------------------------------------------------
+  // RENDER: Payment Follow-ups Table View (Exact Web Alignment Image 3)
+  // Columns: S.NO. | CUSTOMER / VOUCHER | DATE | CREDIT STATUS | TOTAL AMOUNT | PENDING | REMARK | EXPECTED DATE | TICKET | HISTORY
+  // -------------------------------------------------------------
+  const renderPaymentFollowupsTable = () => {
+    return (
+      <View style={[styles.tableContainer, card]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={true} nestedScrollEnabled>
+          <View style={styles.tableWrapper}>
+            {/* Table Header Row matching web Image 3 */}
+            <View
+              style={[
+                styles.tableHeaderRow,
+                {
+                  backgroundColor: isDark ? "#15201C" : "#F1F5F9",
+                  borderBottomColor: isDark ? "#23332D" : "#E2E8F0",
+                },
+              ]}
+            >
+              <View style={[styles.pfColSno, { justifyContent: "center" }]}>
+                <Text style={[styles.tableHeaderCell, { color: foreground, textAlign: "center" }]}>S.NO.</Text>
+              </View>
+              <View style={styles.pfColCustVoucher}>
+                <Text style={[styles.tableHeaderCell, { color: foreground }]}>CUSTOMER / VOUCHER</Text>
+              </View>
+              <View style={styles.pfColDate}>
+                <Text style={[styles.tableHeaderCell, { color: foreground }]}>DATE</Text>
+              </View>
+              <View style={styles.pfColCredit}>
+                <Text style={[styles.tableHeaderCell, { color: foreground }]}>CREDIT STATUS</Text>
+              </View>
+              <View style={styles.pfColAmount}>
+                <Text style={[styles.tableHeaderCell, { color: foreground, textAlign: "right" }]}>TOTAL AMOUNT</Text>
+              </View>
+              <View style={styles.pfColPending}>
+                <Text style={[styles.tableHeaderCell, { color: foreground, textAlign: "right" }]}>PENDING</Text>
+              </View>
+              <View style={styles.pfColRemark}>
+                <Text style={[styles.tableHeaderCell, { color: foreground }]}>REMARK</Text>
+              </View>
+              <View style={styles.pfColExpected}>
+                <Text style={[styles.tableHeaderCell, { color: foreground }]}>EXPECTED DATE</Text>
+              </View>
+              <View style={[styles.pfColTicket, { justifyContent: "center" }]}>
+                <Text style={[styles.tableHeaderCell, { color: foreground, textAlign: "center" }]}>TICKET</Text>
+              </View>
+              <View style={[styles.pfColHistory, { justifyContent: "center" }]}>
+                <Text style={[styles.tableHeaderCell, { color: foreground, textAlign: "center" }]}>HISTORY</Text>
+              </View>
+            </View>
+
+            {/* Table Data Rows */}
+            {visibleRows.map((row, idx) => {
+              const custName = String(row.customer || "Customer");
+              const isOverdue = Boolean(row.overdue || row.is_credit_period_crossed);
+              const unpaidAmt = Number(row.unpaid || row.unpaid_amount || row.pending || 0);
+              const totalAmt = Number(row.amount || row.total || unpaidAmt);
+              const invoiceNum = String(row.invoice || row.voucher || `INV-${row.id || idx}`);
+              const ticketStatus = String(row.ticket_status || row.ticketStatus || "NONE");
+              const isTicketRaised = ticketStatus === "RAISED";
+              const rowBg = idx % 2 === 0
+                ? isDark ? t.surface : "#FFFFFF"
+                : isDark ? "#141F1B" : "#F8FAFC";
+
+              return (
+                <View
+                  key={`pf-row-${row.id || idx}`}
+                  style={[
+                    styles.tableDataRow,
+                    {
+                      backgroundColor: rowBg,
+                      borderBottomColor: isDark ? "#23332D" : "#EDF2F0",
+                    },
+                  ]}
+                >
+                  {/* 1. S.NO. */}
+                  <View style={[styles.pfColSno, { justifyContent: "center" }]}>
+                    <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: muted, textAlign: "center" }}>
+                      {idx + 1}
+                    </Text>
+                  </View>
+
+                  {/* 2. CUSTOMER / VOUCHER */}
+                  <View style={styles.pfColCustVoucher}>
+                    <TouchableOpacity onPress={() => openCustomerDetail(row.customer_id)}>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 13, color: "#1D4ED8" }} numberOfLines={1}>
+                        {custName}
+                      </Text>
+                    </TouchableOpacity>
+                    {!!row.state && (
+                      <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: muted }} numberOfLines={1}>
+                        {row.state}
+                      </Text>
+                    )}
+                    <Text style={{ fontFamily: Typography.semiBold, fontSize: 11.5, color: isDark ? "#60A5FA" : "#2563EB" }} numberOfLines={1}>
+                      {invoiceNum}
+                    </Text>
+                    <Text style={{ fontFamily: Typography.bold, fontSize: 10, color: isDark ? "#93C5FD" : "#1E40AF" }}>
+                      SP: {String(row.salesperson || row.sp || "Unassigned").toUpperCase()}
+                    </Text>
+                  </View>
+
+                  {/* 3. DATE */}
+                  <View style={styles.pfColDate}>
+                    <Text style={{ fontFamily: Typography.regular, fontSize: 12, color: foreground }}>
+                      {row.date || "—"}
+                    </Text>
+                  </View>
+
+                  {/* 4. CREDIT STATUS */}
+                  <View style={styles.pfColCredit}>
+                    <Text style={{ fontFamily: Typography.semiBold, fontSize: 11, color: "#2563EB" }}>
+                      credit period : {row.credit_period || 30}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: Typography.semiBold,
+                        fontSize: 11.5,
+                        color: isOverdue ? "#DC2626" : "#059669",
+                        marginTop: 2,
+                      }}
+                    >
+                      {row.credit_status || (isOverdue ? "Overdue" : "On schedule")}
+                    </Text>
+                  </View>
+
+                  {/* 5. TOTAL AMOUNT */}
+                  <View style={styles.pfColAmount}>
+                    <Text style={{ fontFamily: Typography.semiBold, fontSize: 12.5, color: foreground, textAlign: "right" }}>
+                      {totalAmt.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+
+                  {/* 6. PENDING */}
+                  <View style={styles.pfColPending}>
+                    <Text style={{ fontFamily: Typography.bold, fontSize: 12.5, color: "#DC2626", textAlign: "right" }}>
+                      {unpaidAmt.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+
+                  {/* 7. REMARK */}
+                  <View style={styles.pfColRemark}>
+                    {row.latest_remark_text ? (
+                      <View style={[styles.tableBadgeGreen, { backgroundColor: isDark ? "#0A261D" : "#ECFDF5", borderColor: isDark ? "#134E39" : "#A7F3D0" }]}>
+                        <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: isDark ? "#6EE7B7" : "#065F46" }} numberOfLines={2}>
+                          {row.latest_remark_text}
+                        </Text>
+                        <Text style={{ fontFamily: Typography.regular, fontSize: 9.5, color: isDark ? "#A7F3D0" : "#047857", marginTop: 2 }}>
+                          {row.latest_remark_user || "staff"} · {row.latest_remark_time || ""}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <TouchableOpacity
+                      onPress={() => setNewRemarkModal({
+                        id: row.id,
+                        voucher_status_id: row.voucher_status_id || row.id,
+                        customer: custName,
+                        remarks: row.remarks || [],
+                        expected_dates: row.expected_dates || [],
+                        ticket_status: ticketStatus,
+                      })}
+                      style={[styles.tableInlineBtn, { borderColor: card.borderColor, backgroundColor: isDark ? "#121A16" : "#F8FAFC", marginTop: row.latest_remark_text ? 4 : 0 }]}
+                    >
+                      <Ionicons name="add" size={12} color="#159A7C" />
+                      <Text style={{ fontFamily: Typography.semiBold, fontSize: 10.5, color: foreground }}>
+                        {row.latest_remark_text ? "Add note…" : "+ Note"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 8. EXPECTED DATE */}
+                  <View style={styles.pfColExpected}>
+                    {row.latest_expected_date ? (
+                      <View style={[styles.tableBadgeBlue, { backgroundColor: isDark ? "#0F2038" : "#EFF6FF", borderColor: isDark ? "#1E3A5F" : "#BFDBFE" }]}>
+                        <Text style={{ fontFamily: Typography.semiBold, fontSize: 11, color: "#1D4ED8" }}>
+                          Exp: {row.latest_expected_date}
+                        </Text>
+                        <Text style={{ fontFamily: Typography.regular, fontSize: 9.5, color: isDark ? "#93C5FD" : "#3B82F6", marginTop: 1 }}>
+                          Set by {row.latest_expected_user || "system"}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <TouchableOpacity
+                      onPress={() => {
+                        setExpectedDateModal({
+                          voucherStatusId: row.voucher_status_id || row.id,
+                          customer: custName,
+                          currentDate: row.latest_expected_date,
+                        });
+                        setExpectedDateInput(row.latest_expected_date || "");
+                      }}
+                      style={[styles.tableInlineBtn, { borderColor: "#3B82F6", backgroundColor: isDark ? "#0C1B2E" : "#EFF6FF", marginTop: row.latest_expected_date ? 4 : 0 }]}
+                    >
+                      <Ionicons name="calendar-outline" size={12} color="#2563EB" />
+                      <Text style={{ fontFamily: Typography.semiBold, fontSize: 10.5, color: "#2563EB" }}>
+                        {row.latest_expected_date ? "Update Date" : "Set Date"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 9. TICKET */}
+                  <View style={[styles.pfColTicket, { justifyContent: "center", alignItems: "center" }]}>
+                    <TouchableOpacity
+                      disabled={actionInProgress}
+                      onPress={() => toggleTicket(row.id, ticketStatus)}
+                      style={[
+                        styles.tableTicketBtn,
+                        { backgroundColor: isTicketRaised ? "#F59E0B" : "#0D9488" },
+                      ]}
+                    >
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 11, color: "white" }}>
+                        {isTicketRaised ? "SOLVE" : "RAISE"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 10. HISTORY */}
+                  <View style={[styles.pfColHistory, { justifyContent: "center", alignItems: "center" }]}>
+                    <TouchableOpacity
+                      onPress={() => setNewRemarkModal({
+                        id: row.id,
+                        voucher_status_id: row.voucher_status_id || row.id,
+                        customer: custName,
+                        remarks: row.remarks || [],
+                        expected_dates: row.expected_dates || [],
+                        ticket_status: ticketStatus,
+                      })}
+                      style={[styles.tableHistoryBtn, { borderColor: "#3B82F6" }]}
+                    >
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 11, color: "#2563EB" }}>
+                        VIEW
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
       </View>
     );
   };
@@ -929,10 +1582,40 @@ export default function CustomerToolScreen() {
     const customerName = String(row.name || "Customer");
     const initials = customerName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
     const location = [row.district, row.state].filter(Boolean).join(", ");
+    const isSelected = selectedUnassignedIds.includes(Number(row.id));
 
     return (
-      <View key={`unassigned-${row.id || index}`} style={[styles.customerPortfolioCard, card]}>
+      <View
+        key={`unassigned-${row.id || index}`}
+        style={[
+          styles.customerPortfolioCard,
+          card,
+          isSelected && {
+            borderColor: "#059669",
+            borderWidth: 1.5,
+            backgroundColor: isDark ? "#0A1F18" : "#F0FDF4",
+          },
+        ]}
+      >
         <View style={styles.customerPortfolioHeader}>
+          {canAssignCustomers && (
+            <TouchableOpacity
+              onPress={() => {
+                const idNum = Number(row.id);
+                setSelectedUnassignedIds((prev) =>
+                  prev.includes(idNum) ? prev.filter((id) => id !== idNum) : [...prev, idNum]
+                );
+              }}
+              style={{ marginRight: 6, padding: 4 }}
+              hitSlop={8}
+            >
+              <Ionicons
+                name={isSelected ? "checkbox" : "square-outline"}
+                size={22}
+                color={isSelected ? "#059669" : muted}
+              />
+            </TouchableOpacity>
+          )}
           <View style={[styles.customerAvatar, { backgroundColor: isDark ? "#2A1818" : "#FEE2E2" }]}>
             <Text style={[styles.customerAvatarText, { color: "#EF4444" }]}>{initials || "U"}</Text>
           </View>
@@ -951,15 +1634,212 @@ export default function CustomerToolScreen() {
               </Text>
             )}
             {!!row.address && (
-              <Text style={[styles.detail, { color: muted }]}>
+              <Text style={[styles.detail, { color: muted }]} numberOfLines={1}>
                 <Ionicons name="home-outline" size={12} color={muted} /> {String(row.address)}
               </Text>
             )}
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#FEE2E2" }]}>
-            <Text style={[styles.statusText, { color: "#EF4444" }]}>Unassigned</Text>
+          <View style={{ alignItems: "flex-end", gap: 6 }}>
+            <View style={[styles.statusBadge, { backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "#FEE2E2" }]}>
+              <Text style={[styles.statusText, { color: "#EF4444" }]}>Unassigned</Text>
+            </View>
+            {canAssignCustomers && (
+              <TouchableOpacity
+                onPress={() => {
+                  setAssignTargetCustomers([{ id: Number(row.id), name: customerName }]);
+                  setSelectedSalespersonId(null);
+                  setSalespersonSearch("");
+                  setAssignModalVisible(true);
+                }}
+                style={[styles.quickAssignBtn, { borderColor: "#059669" }]}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="person-add-outline" size={12} color="#059669" />
+                <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: "#059669" }}>Assign</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
+      </View>
+    );
+  };
+
+  // -------------------------------------------------------------
+  // RENDER: Unassigned Customers Table View (Exact Web Alignment)
+  // Matching columns: Selection | Name | State | District | Address | Action
+  // -------------------------------------------------------------
+  const renderUnassignedTable = () => {
+    return (
+      <View style={[styles.tableContainer, card]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={true} nestedScrollEnabled>
+          <View style={styles.tableWrapper}>
+            {/* Table Header matching web screenshot with warm cream styling */}
+            <View
+              style={[
+                styles.tableHeaderRow,
+                {
+                  backgroundColor: isDark ? "#282315" : "#FEF3C7",
+                  borderBottomColor: isDark ? "#3F3722" : "#FDE68A",
+                },
+              ]}
+            >
+              {canAssignCustomers && (
+                <View style={styles.tableColCheck}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (selectedUnassignedIds.length === visibleRows.length) {
+                        setSelectedUnassignedIds([]);
+                      } else {
+                        setSelectedUnassignedIds(visibleRows.map((r) => Number(r.id)));
+                      }
+                    }}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={
+                        selectedUnassignedIds.length > 0 && selectedUnassignedIds.length === visibleRows.length
+                          ? "checkbox"
+                          : selectedUnassignedIds.length > 0
+                          ? "remove-circle"
+                          : "square-outline"
+                      }
+                      size={18}
+                      color="#B45309"
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+              <View style={styles.tableColName}>
+                <Text style={[styles.tableHeaderCell, { color: isDark ? "#FDE68A" : "#78350F" }]}>Name</Text>
+              </View>
+              <View style={styles.tableColState}>
+                <Text style={[styles.tableHeaderCell, { color: isDark ? "#FDE68A" : "#78350F" }]}>State</Text>
+              </View>
+              <View style={styles.tableColDistrict}>
+                <Text style={[styles.tableHeaderCell, { color: isDark ? "#FDE68A" : "#78350F" }]}>District</Text>
+              </View>
+              <View style={styles.tableColAddress}>
+                <Text style={[styles.tableHeaderCell, { color: isDark ? "#FDE68A" : "#78350F" }]}>Address</Text>
+              </View>
+              {canAssignCustomers && (
+                <View style={styles.tableColAction}>
+                  <Text style={[styles.tableHeaderCell, { color: isDark ? "#FDE68A" : "#78350F", textAlign: "center" }]}>
+                    Action
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Table Rows */}
+            {visibleRows.map((row, idx) => {
+              const isSelected = selectedUnassignedIds.includes(Number(row.id));
+              const rowBg = isSelected
+                ? isDark
+                  ? "#0A281E"
+                  : "#ECFDF5"
+                : idx % 2 === 0
+                ? isDark
+                  ? t.surface
+                  : "#FFFFFF"
+                : isDark
+                ? "#141F1B"
+                : "#F9FAFB";
+
+              return (
+                <View
+                  key={`table-unassigned-${row.id || idx}`}
+                  style={[
+                    styles.tableDataRow,
+                    {
+                      backgroundColor: rowBg,
+                      borderBottomColor: isDark ? "#23332D" : "#EDF2F0",
+                    },
+                    isSelected && {
+                      borderLeftWidth: 3,
+                      borderLeftColor: "#059669",
+                    },
+                  ]}
+                >
+                  {canAssignCustomers && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        const idNum = Number(row.id);
+                        setSelectedUnassignedIds((prev) =>
+                          prev.includes(idNum) ? prev.filter((id) => id !== idNum) : [...prev, idNum]
+                        );
+                      }}
+                      style={styles.tableColCheck}
+                      hitSlop={8}
+                    >
+                      <Ionicons
+                        name={isSelected ? "checkbox" : "square-outline"}
+                        size={18}
+                        color={isSelected ? "#059669" : muted}
+                      />
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    onPress={() => openCustomerDetail(row.id)}
+                    style={styles.tableColName}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[styles.tableDataCellBold, { color: foreground }]}
+                      numberOfLines={2}
+                    >
+                      {String(row.name || "Customer")}
+                    </Text>
+                    {!!row.phone && (
+                      <Text style={[styles.tableDataCellMuted, { color: muted }]}>
+                        {String(row.phone)}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={styles.tableColState}>
+                    <Text style={[styles.tableDataCell, { color: foreground }]}>
+                      {String(row.state || "—")}
+                    </Text>
+                  </View>
+
+                  <View style={styles.tableColDistrict}>
+                    <Text style={[styles.tableDataCell, { color: foreground }]}>
+                      {String(row.district || "—")}
+                    </Text>
+                  </View>
+
+                  <View style={styles.tableColAddress}>
+                    <Text
+                      style={[styles.tableDataCell, { color: muted }]}
+                      numberOfLines={3}
+                    >
+                      {String(row.address || "—")}
+                    </Text>
+                  </View>
+
+                  {canAssignCustomers && (
+                    <View style={styles.tableColAction}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setAssignTargetCustomers([{ id: Number(row.id), name: String(row.name) }]);
+                          setSelectedSalespersonId(null);
+                          setSalespersonSearch("");
+                          setAssignModalVisible(true);
+                        }}
+                        style={[styles.tableQuickAssignBtn, { borderColor: "#059669" }]}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="person-add-outline" size={11} color="#059669" />
+                        <Text style={{ fontSize: 10, fontFamily: Typography.bold, color: "#059669" }}>Assign</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
       </View>
     );
   };
@@ -1006,7 +1886,7 @@ export default function CustomerToolScreen() {
   };
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1, backgroundColor: colors.background }}
@@ -1027,6 +1907,7 @@ export default function CustomerToolScreen() {
             <Text style={styles.eyebrow}>CUSTOMER WORKSPACE</Text>
             <Text style={[styles.title, { color: foreground }]}>{title}</Text>
           </View>
+          <SubAppHomeButton style={{ marginLeft: "auto" }} />
         </View>
 
         {error ? (
@@ -1055,6 +1936,30 @@ export default function CustomerToolScreen() {
         {tool === "team-customers" && !loading && (
           <View style={styles.portfolioOverview}>
             <View style={[styles.customerFilters, card]}>
+              {/* Unit Controls Header matching web Image 1 */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="folder-outline" size={17} color="#159A7C" />
+                  <Text style={{ fontFamily: Typography.bold, fontSize: 15, color: foreground }}>
+                    Client & Unit Portfolios
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setCreateUnitModal({ visible: true });
+                    setCreateUnitName("");
+                    setCreateUnitSalespersonId(null);
+                  }}
+                  style={[styles.newUnitBtn, { backgroundColor: "#159A7C" }]}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="add" size={15} color="white" />
+                  <Text style={{ fontFamily: Typography.bold, fontSize: 11.5, color: "white" }}>
+                    + New Unit
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               <Text style={[styles.filterLabel, { color: muted }]}>SALESPERSON</Text>
               <TouchableOpacity
                 onPress={() => setFilterMenu((m) => (m === "salesperson" ? null : "salesperson"))}
@@ -1065,16 +1970,18 @@ export default function CustomerToolScreen() {
               </TouchableOpacity>
               {filterMenu === "salesperson" && (
                 <View style={[styles.filterOptions, { borderColor: card.borderColor }]}>
-                  {salespersonOptions.map((opt) => (
-                    <TouchableOpacity
-                      key={opt}
-                      onPress={() => { setCustomerSalesperson(opt); setFilterMenu(null); }}
-                      style={styles.filterOption}
-                    >
-                      <Text style={[styles.filterOptionText, { color: foreground }]}>{opt}</Text>
-                      {customerSalesperson === opt && <Ionicons name="checkmark" size={17} color="#159A7C" />}
-                    </TouchableOpacity>
-                  ))}
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 260 }} showsVerticalScrollIndicator={true}>
+                    {salespersonOptions.map((opt) => (
+                      <TouchableOpacity
+                        key={opt}
+                        onPress={() => { setCustomerSalesperson(opt); setFilterMenu(null); }}
+                        style={styles.filterOption}
+                      >
+                        <Text style={[styles.filterOptionText, { color: foreground }]}>{opt}</Text>
+                        {customerSalesperson === opt && <Ionicons name="checkmark" size={17} color="#159A7C" />}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
               )}
 
@@ -1217,16 +2124,18 @@ export default function CustomerToolScreen() {
               </TouchableOpacity>
               {filterMenu === "salesperson" && (
                 <View style={[styles.filterOptions, { borderColor: card.borderColor }]}>
-                  {salespersonOptions.map((opt) => (
-                    <TouchableOpacity
-                      key={opt}
-                      onPress={() => { setCustomerSalesperson(opt); setFilterMenu(null); }}
-                      style={styles.filterOption}
-                    >
-                      <Text style={[styles.filterOptionText, { color: foreground }]}>{opt}</Text>
-                      {customerSalesperson === opt && <Ionicons name="checkmark" size={17} color="#159A7C" />}
-                    </TouchableOpacity>
-                  ))}
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 260 }} showsVerticalScrollIndicator={true}>
+                    {salespersonOptions.map((opt) => (
+                      <TouchableOpacity
+                        key={opt}
+                        onPress={() => { setCustomerSalesperson(opt); setFilterMenu(null); }}
+                        style={styles.filterOption}
+                      >
+                        <Text style={[styles.filterOptionText, { color: foreground }]}>{opt}</Text>
+                        {customerSalesperson === opt && <Ionicons name="checkmark" size={17} color="#159A7C" />}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
               )}
 
@@ -1309,6 +2218,73 @@ export default function CustomerToolScreen() {
         {/* ── TOOL: PAYMENT FOLLOW-UPS FILTERS ── */}
         {tool === "payment-followups" && !loading && (
           <View style={[styles.customerFilters, card, { marginBottom: 4 }]}>
+            {/* Payment Follow-ups Header with Table / Cards View Switcher */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                <Text style={{ fontFamily: Typography.bold, fontSize: 16, color: foreground }}>
+                  Payment Follow-ups
+                </Text>
+                <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: muted }}>
+                  ({visibleRows.length})
+                </Text>
+              </View>
+
+              {/* View Switcher: Table vs Cards */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <TouchableOpacity
+                  onPress={() => setPaymentViewMode("table")}
+                  style={[
+                    styles.viewSwitchBtn,
+                    {
+                      backgroundColor: paymentViewMode === "table" ? (isDark ? "#064E3B" : "#D1FAE5") : "transparent",
+                      borderColor: paymentViewMode === "table" ? "#059669" : card.borderColor,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="grid-outline"
+                    size={13}
+                    color={paymentViewMode === "table" ? "#059669" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.viewSwitchText,
+                      { color: paymentViewMode === "table" ? "#059669" : muted, fontFamily: Typography.semiBold },
+                    ]}
+                  >
+                    Table
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setPaymentViewMode("cards")}
+                  style={[
+                    styles.viewSwitchBtn,
+                    {
+                      backgroundColor: paymentViewMode === "cards" ? (isDark ? "#064E3B" : "#D1FAE5") : "transparent",
+                      borderColor: paymentViewMode === "cards" ? "#059669" : card.borderColor,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="albums-outline"
+                    size={13}
+                    color={paymentViewMode === "cards" ? "#059669" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.viewSwitchText,
+                      { color: paymentViewMode === "cards" ? "#059669" : muted, fontFamily: Typography.semiBold },
+                    ]}
+                  >
+                    Cards
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <Text style={[styles.filterLabel, { color: muted }]}>SEARCH INVOICE / CLIENT</Text>
             <View style={[styles.customerSearch, { backgroundColor: isDark ? "#0E1714" : "#F7F9FC", borderColor: card.borderColor }]}>
               <Ionicons name="search-outline" size={17} color="#159A7C" />
@@ -1391,6 +2367,127 @@ export default function CustomerToolScreen() {
           </View>
         ) : null}
 
+        {/* ── TOOL: UNASSIGNED CUSTOMERS CONTROLS ── */}
+        {tool === "unassigned" && !loading && (
+          <View style={[styles.customerFilters, card, { marginBottom: 4 }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                <Text style={{ fontFamily: Typography.bold, fontSize: 16, color: foreground }}>
+                  Total: {visibleRows.length}
+                </Text>
+                {visibleRows.length !== rows.length && (
+                  <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: muted }}>
+                    (of {rows.length})
+                  </Text>
+                )}
+              </View>
+
+              {/* View Switcher: Table vs Cards */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <TouchableOpacity
+                  onPress={() => setUnassignedViewMode("table")}
+                  style={[
+                    styles.viewSwitchBtn,
+                    {
+                      backgroundColor: unassignedViewMode === "table" ? (isDark ? "#064E3B" : "#D1FAE5") : "transparent",
+                      borderColor: unassignedViewMode === "table" ? "#059669" : card.borderColor,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="grid-outline"
+                    size={13}
+                    color={unassignedViewMode === "table" ? "#059669" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.viewSwitchText,
+                      { color: unassignedViewMode === "table" ? "#059669" : muted, fontFamily: Typography.semiBold },
+                    ]}
+                  >
+                    Table
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setUnassignedViewMode("cards")}
+                  style={[
+                    styles.viewSwitchBtn,
+                    {
+                      backgroundColor: unassignedViewMode === "cards" ? (isDark ? "#064E3B" : "#D1FAE5") : "transparent",
+                      borderColor: unassignedViewMode === "cards" ? "#059669" : card.borderColor,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="albums-outline"
+                    size={13}
+                    color={unassignedViewMode === "cards" ? "#059669" : muted}
+                  />
+                  <Text
+                    style={[
+                      styles.viewSwitchText,
+                      { color: unassignedViewMode === "cards" ? "#059669" : muted, fontFamily: Typography.semiBold },
+                    ]}
+                  >
+                    Cards
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={[styles.customerSearch, { backgroundColor: isDark ? "#0E1714" : "#F7F9FC", borderColor: card.borderColor }]}>
+              <Ionicons name="search-outline" size={17} color="#059669" />
+              <TextInput
+                value={customerSearch}
+                onChangeText={setCustomerSearch}
+                placeholder="Search name, phone, district, state..."
+                placeholderTextColor={muted}
+                style={[styles.customerSearchInput, { color: foreground }]}
+              />
+              {customerSearch ? (
+                <TouchableOpacity onPress={() => setCustomerSearch("")} hitSlop={8}>
+                  <Ionicons name="close-circle" size={17} color={muted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {canAssignCustomers && visibleRows.length > 0 && (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: card.borderColor }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (selectedUnassignedIds.length === visibleRows.length) {
+                      setSelectedUnassignedIds([]);
+                    } else {
+                      setSelectedUnassignedIds(visibleRows.map((r) => Number(r.id)));
+                    }
+                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                >
+                  <Ionicons
+                    name={selectedUnassignedIds.length > 0 && selectedUnassignedIds.length === visibleRows.length ? "checkbox" : selectedUnassignedIds.length > 0 ? "remove-circle" : "square-outline"}
+                    size={18}
+                    color="#059669"
+                  />
+                  <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>
+                    {selectedUnassignedIds.length === visibleRows.length ? "Deselect All" : `Select All (${visibleRows.length})`}
+                  </Text>
+                </TouchableOpacity>
+
+                {selectedUnassignedIds.length > 0 && (
+                  <TouchableOpacity onPress={() => setSelectedUnassignedIds([])}>
+                    <Text style={{ fontFamily: Typography.semiBold, fontSize: 11, color: "#EF4444" }}>
+                      Clear ({selectedUnassignedIds.length})
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Main Records List / View Switching */}
         {loading ? (
           <SkeletonCardList count={5} height={96} style={{ marginTop: 12 }} />
@@ -1402,6 +2499,8 @@ export default function CustomerToolScreen() {
             const outstanding = entry.members.reduce((t, m) => t + Math.max(0, Number(m.outstandingPaymentNum) || 0), 0);
             const active = entry.members.some((m) => String(m.portfolioStatus || m.status || "").toLowerCase() === "active");
             const unitColor = active ? "#159A7C" : "#DF5262";
+
+            const unitIdVal = (entry as any).unit_id || entry.id;
 
             return (
               <View key={`unit-${entry.id}`} style={[styles.unitCard, card]}>
@@ -1415,12 +2514,18 @@ export default function CustomerToolScreen() {
                     })
                   }
                   style={styles.unitHeader}
+                  activeOpacity={0.8}
                 >
                   <View style={[styles.unitIcon, { backgroundColor: isDark ? "#183B32" : "#E2F7F1" }]}>
-                    <Ionicons name="business-outline" size={19} color="#159A7C" />
+                    <Ionicons name="folder-outline" size={19} color="#159A7C" />
                   </View>
                   <View style={styles.customerIdentity}>
-                    <Text style={[styles.rowTitle, { color: foreground }]} numberOfLines={2}>{entry.name}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View style={[styles.unitBadgePill, { backgroundColor: isDark ? "#064E3B" : "#D1FAE5" }]}>
+                        <Text style={{ fontFamily: Typography.bold, fontSize: 9.5, color: "#059669" }}>UNIT</Text>
+                      </View>
+                      <Text style={[styles.rowTitle, { color: foreground, flex: 1 }]} numberOfLines={1}>{entry.name}</Text>
+                    </View>
                     <Text style={[styles.detail, { color: muted }]}>
                       {entry.members.length} {entry.members.length === 1 ? "ledger" : "ledgers"} · {orders} orders
                     </Text>
@@ -1436,9 +2541,27 @@ export default function CustomerToolScreen() {
                   </View>
                 </TouchableOpacity>
 
+                {/* Quick Unit Actions Bar: Rename & Delete (Matching Web Image 1) */}
+                <View style={[styles.unitActionsBar, { borderTopColor: card.borderColor }]}>
+                  <TouchableOpacity
+                    onPress={() => setRenameUnitModal({ id: unitIdVal, currentName: entry.name })}
+                    style={[styles.unitActionBtn, { borderColor: card.borderColor }]}
+                  >
+                    <Ionicons name="pencil-outline" size={13} color="#159A7C" />
+                    <Text style={[styles.unitActionText, { color: foreground }]}>Rename</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteUnit(unitIdVal, entry.name)}
+                    style={[styles.unitActionBtn, { borderColor: card.borderColor }]}
+                  >
+                    <Ionicons name="trash-outline" size={13} color="#EF4444" />
+                    <Text style={[styles.unitActionText, { color: "#EF4444" }]}>Delete Unit</Text>
+                  </TouchableOpacity>
+                </View>
+
                 {expandedUnitIds.has(entry.id) && (
                   <View style={styles.unitMembers}>
-                    {entry.members.map((member, mIdx) => renderPortfolioCustomer(member, mIdx))}
+                    {entry.members.map((member, mIdx) => renderPortfolioCustomer(member, mIdx, true, unitIdVal))}
                   </View>
                 )}
               </View>
@@ -1447,9 +2570,17 @@ export default function CustomerToolScreen() {
         ) : tool === "cross-selling" ? (
           visibleRows.map((row, idx) => renderCrossSellingCard(row, idx))
         ) : tool === "payment-followups" ? (
-          visibleRows.map((row, idx) => renderPaymentFollowupCard(row, idx))
+          paymentViewMode === "table" ? (
+            renderPaymentFollowupsTable()
+          ) : (
+            visibleRows.map((row, idx) => renderPaymentFollowupCard(row, idx))
+          )
         ) : tool === "unassigned" ? (
-          visibleRows.map((row, idx) => renderUnassignedCard(row, idx))
+          unassignedViewMode === "table" ? (
+            renderUnassignedTable()
+          ) : (
+            visibleRows.map((row, idx) => renderUnassignedCard(row, idx))
+          )
         ) : tool === "monthly-sales" ? (
           visibleRows.map((row, idx) => renderMonthlySalesRow(row, idx))
         ) : (
@@ -1628,6 +2759,244 @@ export default function CustomerToolScreen() {
         )}
       </ScrollView>
 
+      {/* ── BOTTOM CENTER FLOATING ACTION: ASSIGN CUSTOMER ── */}
+      {tool === "unassigned" && canAssignCustomers && visibleRows.length > 0 && (
+        <View
+          style={[
+            styles.bottomCenterFloatingContainer,
+            { bottom: Math.max(insets.bottom, 16) + 16 },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.bottomCenterAssignBtn,
+              {
+                backgroundColor: "#059669",
+                shadowColor: "#059669",
+              },
+            ]}
+            activeOpacity={0.88}
+            onPress={() => {
+              if (selectedUnassignedIds.length > 0) {
+                const targets = rows
+                  .filter((r) => selectedUnassignedIds.includes(Number(r.id)))
+                  .map((r) => ({ id: Number(r.id), name: String(r.name) }));
+                setAssignTargetCustomers(targets);
+              } else {
+                setAssignTargetCustomers([]);
+              }
+              setSelectedSalespersonId(null);
+              setSalespersonSearch("");
+              setAssignModalVisible(true);
+            }}
+          >
+            <View style={styles.bottomCenterAssignIconBadge}>
+              <Ionicons name="person-add" size={17} color="#059669" />
+            </View>
+            <Text style={styles.bottomCenterAssignBtnText}>
+              {selectedUnassignedIds.length > 0
+                ? `Assign (${selectedUnassignedIds.length}) Customer${selectedUnassignedIds.length > 1 ? "s" : ""}`
+                : "Assign Customer"}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color="#FFFFFF" style={{ marginLeft: 2 }} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── MODAL: ASSIGN CUSTOMER TO SALESPERSON ── */}
+      <Modal
+        visible={assignModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          if (!assignSubmitting) setAssignModalVisible(false);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, card, { maxHeight: "88%", paddingBottom: 16 }]}>
+            {/* Modal Header */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: foreground }]}>Assign Customer</Text>
+                <Text style={[styles.detail, { color: muted, marginTop: 2 }]}>
+                  {assignTargetCustomers.length > 0
+                    ? `Assigning ${assignTargetCustomers.length} selected customer${assignTargetCustomers.length > 1 ? "s" : ""}`
+                    : selectedUnassignedIds.length > 0
+                    ? `Assigning ${selectedUnassignedIds.length} selected customer${selectedUnassignedIds.length > 1 ? "s" : ""}`
+                    : "Select customers & choose salesperson"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                disabled={assignSubmitting}
+                onPress={() => setAssignModalVisible(false)}
+                style={{ padding: 4 }}
+              >
+                <Ionicons name="close" size={22} color={muted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Target Customers Overview / Selector */}
+            {assignTargetCustomers.length === 0 && selectedUnassignedIds.length === 0 ? (
+              <View style={{ marginBottom: 12 }}>
+                <Text style={[styles.filterLabel, { color: muted }]}>CHOOSE CUSTOMERS TO ASSIGN</Text>
+                <ScrollView style={{ maxHeight: 130, borderWidth: 1, borderColor: card.borderColor, borderRadius: 12, padding: 8, backgroundColor: isDark ? "#0A1410" : "#F8FAF9" }}>
+                  {rows.map((cust) => {
+                    const idNum = Number(cust.id);
+                    const isPicked = selectedUnassignedIds.includes(idNum);
+                    return (
+                      <TouchableOpacity
+                        key={`pick-cust-${cust.id}`}
+                        onPress={() => {
+                          setSelectedUnassignedIds((prev) =>
+                            prev.includes(idNum) ? prev.filter((id) => id !== idNum) : [...prev, idNum]
+                          );
+                        }}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
+                          paddingVertical: 7,
+                          paddingHorizontal: 8,
+                          borderRadius: 8,
+                          backgroundColor: isPicked ? (isDark ? "#122E23" : "#DCFCE7") : "transparent",
+                        }}
+                      >
+                        <Ionicons
+                          name={isPicked ? "checkbox" : "square-outline"}
+                          size={18}
+                          color={isPicked ? "#059669" : muted}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontFamily: Typography.medium, fontSize: 13, color: foreground }} numberOfLines={1}>
+                            {cust.name}
+                          </Text>
+                          <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }} numberOfLines={1}>
+                            {[cust.district, cust.state].filter(Boolean).join(", ") || "No location"}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : (
+              <View style={{ marginBottom: 12, padding: 10, borderRadius: 12, backgroundColor: isDark ? "#0A1F18" : "#ECFDF5", borderWidth: 1, borderColor: "#A7F3D0" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <Ionicons name="people" size={14} color="#059669" />
+                  <Text style={{ fontFamily: Typography.bold, fontSize: 11, color: "#059669" }}>
+                    ASSIGNING {(assignTargetCustomers.length || selectedUnassignedIds.length)} CUSTOMER{(assignTargetCustomers.length || selectedUnassignedIds.length) > 1 ? "S" : ""}
+                  </Text>
+                </View>
+                <Text style={{ fontFamily: Typography.regular, fontSize: 12, color: foreground }} numberOfLines={2}>
+                  {assignTargetCustomers.length > 0
+                    ? assignTargetCustomers.map((c) => c.name).join(", ")
+                    : rows.filter((r) => selectedUnassignedIds.includes(Number(r.id))).map((r) => r.name).join(", ")}
+                </Text>
+              </View>
+            )}
+
+            {/* Salesperson Picker Header & Search */}
+            <Text style={[styles.filterLabel, { color: muted, marginBottom: 6 }]}>SELECT SALESPERSON TO ASSIGN</Text>
+            <View style={[styles.customerSearch, { backgroundColor: isDark ? "#0E1714" : "#F7F9FC", borderColor: card.borderColor, marginBottom: 10 }]}>
+              <Ionicons name="search-outline" size={16} color="#059669" />
+              <TextInput
+                value={salespersonSearch}
+                onChangeText={setSalespersonSearch}
+                placeholder="Search salesperson by name..."
+                placeholderTextColor={muted}
+                style={[styles.customerSearchInput, { color: foreground }]}
+              />
+              {salespersonSearch ? (
+                <TouchableOpacity onPress={() => setSalespersonSearch("")} hitSlop={8}>
+                  <Ionicons name="close-circle" size={16} color={muted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Salesperson List */}
+            <ScrollView style={{ maxHeight: 220, marginBottom: 14 }}>
+              {availableSalespersons
+                .filter((sp) => !salespersonSearch.trim() || sp.name.toLowerCase().includes(salespersonSearch.trim().toLowerCase()))
+                .map((sp) => {
+                  const isSelected = selectedSalespersonId === sp.id;
+                  const initials = sp.name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+                  return (
+                    <TouchableOpacity
+                      key={`sp-${sp.id}`}
+                      onPress={() => setSelectedSalespersonId(sp.id)}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        padding: 10,
+                        borderRadius: 12,
+                        marginBottom: 6,
+                        borderWidth: 1,
+                        borderColor: isSelected ? "#059669" : card.borderColor,
+                        backgroundColor: isSelected ? (isDark ? "#062817" : "#DCFCE7") : card.backgroundColor,
+                        gap: 10,
+                      }}
+                    >
+                      <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: isSelected ? "#059669" : (isDark ? "#1C2723" : "#E2E8F0"), alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontFamily: Typography.bold, fontSize: 12, color: isSelected ? "#FFFFFF" : foreground }}>
+                          {initials || "SP"}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: Typography.semiBold, fontSize: 13, color: foreground }}>
+                          {sp.name}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={isSelected ? "radio-button-on" : "radio-button-off"}
+                        size={20}
+                        color={isSelected ? "#059669" : muted}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
+              {availableSalespersons.length === 0 && (
+                <View style={{ padding: 16, alignItems: "center" }}>
+                  <ActivityIndicator size="small" color="#059669" />
+                  <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: muted, marginTop: 6 }}>
+                    Loading available salespersons...
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Modal Actions */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                disabled={assignSubmitting}
+                onPress={() => setAssignModalVisible(false)}
+                style={[styles.modalCancel, { borderColor: card.borderColor }]}
+              >
+                <Text style={[styles.modalBtnText, { color: muted }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                disabled={assignSubmitting || !selectedSalespersonId || (assignTargetCustomers.length === 0 && selectedUnassignedIds.length === 0)}
+                onPress={() => void handleAssignCustomers()}
+                style={[
+                  styles.modalSave,
+                  {
+                    backgroundColor: "#059669",
+                    opacity: (assignSubmitting || !selectedSalespersonId || (assignTargetCustomers.length === 0 && selectedUnassignedIds.length === 0)) ? 0.45 : 1,
+                  },
+                ]}
+              >
+                {assignSubmitting ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={[styles.modalBtnText, { color: "white", fontFamily: Typography.bold }]}>
+                    Assign Now
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── MODAL: PAYMENT DISCUSSION & REMARKS HISTORY ── */}
       <Modal visible={newRemarkModal !== null} transparent animationType="fade" onRequestClose={() => setNewRemarkModal(null)}>
         <View style={styles.modalBackdrop}>
@@ -1687,12 +3056,261 @@ export default function CustomerToolScreen() {
         </View>
       </Modal>
 
+      {/* ── MODAL: CREATE CUSTOMER UNIT ── */}
+      <Modal visible={createUnitModal !== null} transparent animationType="fade" onRequestClose={() => setCreateUnitModal(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, card]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={[styles.modalTitle, { color: foreground }]}>Create Customer Unit</Text>
+              <TouchableOpacity onPress={() => setCreateUnitModal(null)}>
+                <Ionicons name="close" size={22} color={muted} />
+              </TouchableOpacity>
+            </View>
+            {createUnitModal?.preselectedCustomerName ? (
+              <Text style={[styles.detail, { color: muted }]}>
+                Starting with customer: <Text style={{ color: foreground, fontFamily: Typography.bold }}>{createUnitModal.preselectedCustomerName}</Text>
+              </Text>
+            ) : (
+              <Text style={[styles.detail, { color: muted }]}>Group sister companies or branch ledgers under one parent unit.</Text>
+            )}
+
+            <Text style={[styles.filterLabel, { color: muted, marginTop: 8 }]}>UNIT PORTFOLIO NAME</Text>
+            <TextInput
+              style={[styles.modalInput, { borderColor: card.borderColor, color: foreground, minHeight: 46 }]}
+              placeholder="e.g. A1 Aligners Portfolio / 32 Watts Dental"
+              placeholderTextColor={muted}
+              value={createUnitName}
+              onChangeText={setCreateUnitName}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setCreateUnitModal(null)}
+                style={[styles.modalCancel, { borderColor: card.borderColor }]}
+              >
+                <Text style={[styles.modalBtnText, { color: muted }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void handleCreateUnit()}
+                disabled={unitActionLoading || !createUnitName.trim()}
+                style={[styles.modalSave, { backgroundColor: "#159A7C", opacity: (!createUnitName.trim() || unitActionLoading) ? 0.5 : 1 }]}
+              >
+                {unitActionLoading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={[styles.modalBtnText, { color: "white" }]}>Create Unit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── MODAL: RENAME UNIT ── */}
+      <Modal visible={renameUnitModal !== null} transparent animationType="fade" onRequestClose={() => setRenameUnitModal(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, card]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={[styles.modalTitle, { color: foreground }]}>Rename Unit</Text>
+              <TouchableOpacity onPress={() => setRenameUnitModal(null)}>
+                <Ionicons name="close" size={22} color={muted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.detail, { color: muted }]}>
+              Current: <Text style={{ color: foreground, fontFamily: Typography.bold }}>{renameUnitModal?.currentName}</Text>
+            </Text>
+
+            <Text style={[styles.filterLabel, { color: muted, marginTop: 8 }]}>NEW UNIT NAME</Text>
+            <TextInput
+              style={[styles.modalInput, { borderColor: card.borderColor, color: foreground, minHeight: 46 }]}
+              placeholder="Enter new unit name..."
+              placeholderTextColor={muted}
+              value={renameUnitName}
+              onChangeText={setRenameUnitName}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setRenameUnitModal(null)}
+                style={[styles.modalCancel, { borderColor: card.borderColor }]}
+              >
+                <Text style={[styles.modalBtnText, { color: muted }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void handleRenameUnit()}
+                disabled={unitActionLoading || !renameUnitName.trim()}
+                style={[styles.modalSave, { backgroundColor: "#159A7C", opacity: (!renameUnitName.trim() || unitActionLoading) ? 0.5 : 1 }]}
+              >
+                {unitActionLoading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={[styles.modalBtnText, { color: "white" }]}>Save Name</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── MODAL: ADD CUSTOMER TO UNIT ── */}
+      <Modal visible={addToUnitModal !== null} transparent animationType="fade" onRequestClose={() => setAddToUnitModal(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, card, { maxHeight: "75%" }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={[styles.modalTitle, { color: foreground }]}>Add to Unit</Text>
+              <TouchableOpacity onPress={() => setAddToUnitModal(null)}>
+                <Ionicons name="close" size={22} color={muted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.detail, { color: muted }]}>
+              Assign <Text style={{ color: foreground, fontFamily: Typography.bold }}>{addToUnitModal?.customerName}</Text> to an existing unit:
+            </Text>
+
+            <ScrollView style={{ maxHeight: 240, marginVertical: 8 }}>
+              {allUnits.length > 0 ? (
+                allUnits.map((u) => {
+                  const isSelected = selectedUnitIdForAdd === u.id;
+                  return (
+                    <TouchableOpacity
+                      key={`unit-opt-${u.id}`}
+                      onPress={() => setSelectedUnitIdForAdd(u.id)}
+                      style={[
+                        styles.filterOption,
+                        {
+                          backgroundColor: isSelected ? (isDark ? "#064E3B" : "#D1FAE5") : "transparent",
+                          borderWidth: 1,
+                          borderColor: isSelected ? "#059669" : card.borderColor,
+                          borderRadius: 10,
+                          marginBottom: 6,
+                        },
+                      ]}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                        <Ionicons name="folder-outline" size={16} color={isSelected ? "#059669" : "#159A7C"} />
+                        <Text style={[styles.filterOptionText, { color: foreground, fontFamily: isSelected ? Typography.bold : Typography.regular }]}>
+                          {u.name}
+                        </Text>
+                      </View>
+                      {isSelected && <Ionicons name="checkmark-circle" size={18} color="#059669" />}
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <Text style={{ color: muted, fontStyle: "italic", textAlign: "center", paddingVertical: 16 }}>
+                  No units created yet. Create a new unit first.
+                </Text>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setAddToUnitModal(null)}
+                style={[styles.modalCancel, { borderColor: card.borderColor }]}
+              >
+                <Text style={[styles.modalBtnText, { color: muted }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void handleAddToUnit()}
+                disabled={unitActionLoading || !selectedUnitIdForAdd}
+                style={[styles.modalSave, { backgroundColor: "#2563EB", opacity: (!selectedUnitIdForAdd || unitActionLoading) ? 0.5 : 1 }]}
+              >
+                {unitActionLoading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={[styles.modalBtnText, { color: "white" }]}>Add to Unit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── MODAL: SET EXPECTED PAYMENT DATE ── */}
+      <Modal visible={expectedDateModal !== null} transparent animationType="fade" onRequestClose={() => setExpectedDateModal(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, card]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={[styles.modalTitle, { color: foreground }]}>Expected Payment Date</Text>
+              <TouchableOpacity onPress={() => setExpectedDateModal(null)}>
+                <Ionicons name="close" size={22} color={muted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.detail, { color: muted }]}>
+              Account: <Text style={{ color: foreground, fontFamily: Typography.bold }}>{expectedDateModal?.customer}</Text>
+            </Text>
+
+            {/* Quick date shortcuts */}
+            <Text style={[styles.filterLabel, { color: muted, marginTop: 8 }]}>QUICK SELECTION</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {[
+                { label: "Tomorrow", days: 1 },
+                { label: "In 3 Days", days: 3 },
+                { label: "In 7 Days", days: 7 },
+                { label: "In 15 Days", days: 15 },
+                { label: "In 30 Days", days: 30 },
+              ].map((chip) => {
+                const target = new Date();
+                target.setDate(target.getDate() + chip.days);
+                const isoStr = target.toISOString().split("T")[0];
+                const isSelected = expectedDateInput === isoStr;
+                return (
+                  <TouchableOpacity
+                    key={chip.label}
+                    onPress={() => setExpectedDateInput(isoStr)}
+                    style={[
+                      styles.quickDateChip,
+                      {
+                        backgroundColor: isSelected ? (isDark ? "#0C2742" : "#DBEAFE") : (isDark ? "#121A16" : "#F1F5F9"),
+                        borderColor: isSelected ? "#2563EB" : card.borderColor,
+                      },
+                    ]}
+                  >
+                    <Text style={{ fontFamily: isSelected ? Typography.bold : Typography.medium, fontSize: 11, color: isSelected ? "#1D4ED8" : foreground }}>
+                      {chip.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.filterLabel, { color: muted }]}>DATE (YYYY-MM-DD)</Text>
+            <TextInput
+              style={[styles.modalInput, { borderColor: card.borderColor, color: foreground, minHeight: 46 }]}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={muted}
+              value={expectedDateInput}
+              onChangeText={setExpectedDateInput}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setExpectedDateModal(null)}
+                style={[styles.modalCancel, { borderColor: card.borderColor }]}
+              >
+                <Text style={[styles.modalBtnText, { color: muted }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void handleSaveExpectedDate()}
+                disabled={actionInProgress || !expectedDateInput.trim()}
+                style={[styles.modalSave, { backgroundColor: "#2563EB", opacity: (!expectedDateInput.trim() || actionInProgress) ? 0.5 : 1 }]}
+              >
+                {actionInProgress ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={[styles.modalBtnText, { color: "white" }]}>Set Date</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <CustomerNavDrawer
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
         isAdmin={isAdminUser}
       />
-    </>
+    </View>
   );
 }
 
@@ -1817,4 +3435,264 @@ const styles = StyleSheet.create({
   pageNavText: { fontFamily: Typography.semiBold, fontSize: 12 },
   pageIndicator: { minHeight: 40, paddingHorizontal: 14, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   pageIndicatorText: { fontFamily: Typography.bold, fontSize: 12 },
+  // Floating bottom center assign button
+  bottomCenterFloatingContainer: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 99999,
+    elevation: 25,
+  },
+  bottomCenterAssignBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 30,
+    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+  },
+  bottomCenterAssignIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomCenterAssignBtnText: {
+    color: "#FFFFFF",
+    fontFamily: Typography.bold,
+    fontSize: 13.5,
+    letterSpacing: 0.2,
+  },
+  quickAssignBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: "transparent",
+  },
+  // Table View styles for Unassigned Customers (exact web match)
+  tableContainer: {
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginVertical: 4,
+  },
+  tableWrapper: {
+    minWidth: 860,
+  },
+  tableHeaderRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    paddingVertical: 10,
+    minHeight: 44,
+    alignItems: "center",
+  },
+  tableHeaderCell: {
+    fontFamily: Typography.bold,
+    fontSize: 12,
+  },
+  tableDataRow: {
+    flexDirection: "row",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    minHeight: 56,
+    alignItems: "center",
+  },
+  tableColCheck: {
+    width: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tableColName: {
+    width: 200,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    gap: 2,
+  },
+  tableColState: {
+    width: 130,
+    paddingHorizontal: 10,
+    justifyContent: "center",
+  },
+  tableColDistrict: {
+    width: 130,
+    paddingHorizontal: 10,
+    justifyContent: "center",
+  },
+  tableColAddress: {
+    width: 260,
+    paddingHorizontal: 10,
+    justifyContent: "center",
+  },
+  tableColAction: {
+    width: 90,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingRight: 8,
+  },
+  tableDataCell: {
+    fontFamily: Typography.regular,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  tableDataCellBold: {
+    fontFamily: Typography.semiBold,
+    fontSize: 12.5,
+    lineHeight: 16,
+  },
+  tableDataCellMuted: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  tableQuickAssignBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    backgroundColor: "rgba(5, 150, 105, 0.08)",
+  },
+  viewSwitchBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  viewSwitchText: {
+    fontSize: 11,
+  },
+  // Unit Management & Actions Styles
+  newUnitBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  unitHeaderContainer: {
+    width: "100%",
+  },
+  unitBadgePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  unitActionsBar: {
+    flexDirection: "row",
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  unitActionBtn: {
+    flex: 1,
+    minHeight: 32,
+    borderWidth: 1,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  unitActionText: {
+    fontFamily: Typography.medium,
+    fontSize: 11,
+  },
+  // Payment Follow-ups Table Columns
+  pfColSno: { width: 50, paddingHorizontal: 6, alignItems: "center" },
+  pfColCustVoucher: { width: 190, paddingHorizontal: 8, justifyContent: "center", gap: 2 },
+  pfColDate: { width: 95, paddingHorizontal: 8, justifyContent: "center" },
+  pfColCredit: { width: 150, paddingHorizontal: 8, justifyContent: "center" },
+  pfColAmount: { width: 105, paddingHorizontal: 8, justifyContent: "center" },
+  pfColPending: { width: 105, paddingHorizontal: 8, justifyContent: "center" },
+  pfColRemark: { width: 200, paddingHorizontal: 8, justifyContent: "center" },
+  pfColExpected: { width: 190, paddingHorizontal: 8, justifyContent: "center" },
+  pfColTicket: { width: 85, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" },
+  pfColHistory: { width: 75, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" },
+  tableBadgeGreen: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 6,
+  },
+  tableBadgeBlue: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 6,
+  },
+  tableInlineBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  tableTicketBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tableHistoryBtn: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pfCreditBanner: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  pfExpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 8,
+  },
+  pfRemarkBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 8,
+  },
+  quickDateChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 6,
+    marginRight: 6,
+  },
 });

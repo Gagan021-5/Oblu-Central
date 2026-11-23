@@ -92,7 +92,26 @@ class DashboardHomeView(RBACViewMixin, TemplateView):
         return ctx
 
 
-EXCLUDED_SALESPERSON_NAMES = ["Abhijay", "Aryan", "Danish", "Jackson", "Mukesh", "Nimit", "Raman", "test1", "Vibhuti"]
+EXCLUDED_SALESPERSON_NAMES = [
+    "Abhijay",
+    "Aditya",
+    "Aryan",
+    "Charan",
+    "Danish",
+    "Jackson",
+    "Mukesh",
+    "Myke",
+    "Nimit",
+    "Online",
+    "Online Order",
+    "Raman",
+    "test1",
+    "Vibhuti",
+    "Admin",
+    "None",
+    "Unknown",
+]
+EXCLUDED_SALESPERSON_NAMES_LOWER = {name.lower().strip() for name in EXCLUDED_SALESPERSON_NAMES}
 
 class AdminSalesPersonCustomersView(RBACViewMixin,  TemplateView):
     template_name = "customers/admin_salesperson_customers.html"
@@ -3135,7 +3154,7 @@ class CrossSellingMatrixView(RBACViewMixin, TemplateView):
 
         ctx["customers_data"] = filtered_customers
         ctx["total_filtered"] = len(filtered_customers)
-        ctx["stats"] = compute_cross_selling_stats(base_accessible_customers)
+        ctx["stats"] = compute_cross_selling_stats(scoped_customers if sp_id else base_accessible_customers)
 
         # Selected filters for maintaining state in template
         ctx["selected_sp_id"] = sp_id if perm["can_select_salesperson"] else ""

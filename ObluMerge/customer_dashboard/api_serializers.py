@@ -200,6 +200,7 @@ class CustomerListSerializer(serializers.ModelSerializer):
     lastContactTime = serializers.SerializerMethodField()
     nextFollowUp = serializers.SerializerMethodField()
     followups_due = serializers.SerializerMethodField()
+    remarks_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
@@ -232,6 +233,7 @@ class CustomerListSerializer(serializers.ModelSerializer):
             "lastContactTime",
             "nextFollowUp",
             "followups_due",
+            "remarks_count",
             "created_at",
             "updated_at",
         ]
@@ -412,6 +414,12 @@ class CustomerListSerializer(serializers.ModelSerializer):
             followup_date__lte=today,
             is_completed=False,
         ).count()
+
+    def get_remarks_count(self, obj):
+        count = getattr(obj, "api_remarks_count", None)
+        if count is not None:
+            return int(count or 0)
+        return obj.remarks.count()
 
 
 class CustomerDetailSerializer(CustomerListSerializer):

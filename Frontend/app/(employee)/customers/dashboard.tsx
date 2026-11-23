@@ -1,23 +1,57 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator } from "react-native";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
+  useWindowDimensions,
+} from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PieChart } from "react-native-chart-kit";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, hasRole } from "@/services/permissionService";
-import { DashboardStats, fetchDashboardStatsApi, fetchCustomerChartsApi } from "@/services/customerService";
+import {
+  DashboardStats,
+  CustomerChartsData,
+  fetchDashboardStatsApi,
+  fetchCustomerChartsApi,
+} from "@/services/customerService";
 import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
 import { SkeletonBlock } from "@/components/ui/SkeletonCard";
 import { Typography } from "@/constants/theme";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
+import { triggerLightHaptic } from "@/utils/haptics";
+
+const PIE_COLORS = [
+  "#20B99A",
+  "#0EA5E9",
+  "#6366F1",
+  "#F59E0B",
+  "#EC4899",
+  "#8B5CF6",
+  "#14B8A6",
+  "#F97316",
+  "#10B981",
+  "#64748B",
+  "#A855F7",
+  "#06B6D4",
+  "#3B82F6",
+  "#E11D48",
+  "#D97706",
+];
 
 const links = [
   { title: "Customer Directory", description: "Search accounts and open customer records", icon: "people-outline", route: "/(employee)/customers", color: "#20B99A", permissions: ["customer.view", "customer.view_all"] },
   { title: "Team Customers", description: "Review customers in your permitted team scope", icon: "person-add-outline", route: "/(employee)/customers/tool/team-customers", color: "#159A7C", permissions: ["customer.view", "customer.view_all"] },
   { title: "Payment Follow-ups", description: "Review customers with pending or overdue payments", icon: "cash-outline", route: "/(employee)/customers/tool/payment-followups", color: "#F59E0B", permission: "payment.view" },
   { title: "Monthly Sales Report", description: "Review monthly sales performance", icon: "calendar-outline", route: "/(employee)/customers/tool/monthly-sales", color: "#0EA5E9", permissions: ["customer.view", "customer.view_all", "payment.view"] },
-  { title: "Analytics", description: "Customer, salesperson and state summaries", icon: "bar-chart-outline", route: "/(employee)/customers/analytics", color: "#6366F1", permission: "customer.view_all" },
   { title: "Detailed Map", description: "Browse customer locations by city and state", icon: "map-outline", route: "/(employee)/customers/map", color: "#0EA5E9", permission: "customer.view_all" },
   { title: "My Incentives", description: "View your incentive workspace", icon: "wallet-outline", route: "/(employee)/incentives", color: "#A855F7" },
   { title: "RSM Team Incentives", description: "Review team incentive performance", icon: "people-outline", route: "/(employee)/customers/tool/rsm-incentives", color: "#6366F1", roles: ["rsm", "sales_head", "admin", "accountant", "finance"] },
@@ -32,11 +66,16 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
   const { t, isDark } = useEmployeeTheme();
   const { colors } = useTheme();
   const { user, permissionProfile } = useAuth();
+  const { width: screenWidth } = useWindowDimensions();
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [chartsData, setChartsData] = useState<CustomerChartsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [showAllSalespersons, setShowAllSalespersons] = useState(false);
 
   const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
   const userIsSuperuser =
@@ -74,20 +113,25 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
   const load = useCallback(async () => {
     setError("");
     try {
-      const data = await fetchDashboardStatsApi();
-      setStats(data);
-      if (can("customer.view_all") || isFinance) {
-        try {
-          await fetchCustomerChartsApi();
-        } catch {}
+      const [statsRes, chartsRes] = await Promise.allSettled([
+        fetchDashboardStatsApi(),
+        fetchCustomerChartsApi(),
+      ]);
+
+      if (statsRes.status === "fulfilled") {
+        setStats(statsRes.value);
+      }
+      if (chartsRes.status === "fulfilled") {
+        setChartsData(chartsRes.value);
       }
     } catch {
       setError("Could not reach the customer dashboard. Check your connection and sign-in.");
     } finally {
       setLoading(false);
+      setChartsLoading(false);
       setRefreshing(false);
     }
-  }, [can, isFinance]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -97,6 +141,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
   const cardBg = t.surface;
   const text = isDark ? "#F1F7F4" : "#101827";
   const muted = isDark ? "#9AA9A3" : "#637083";
+  const chartWidth = Math.max(260, screenWidth - 72);
 
   const availableLinks = links.filter((item) => {
     if (userIsSuperuser || isFinance) return true;
@@ -130,13 +175,127 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
     },
   ];
 
+  // Chart data calculations
+  const salespersonPieData = useMemo(() => {
+    return (chartsData?.salespersonDistribution || [])
+      .filter((item) => item.customers > 0)
+      .slice(0, 15)
+      .map((item, idx) => ({
+        name: item.name ? (item.name.length > 12 ? `${item.name.slice(0, 10)}…` : item.name) : "Unassigned",
+        customers: item.customers,
+        color: PIE_COLORS[idx % PIE_COLORS.length],
+        legendFontColor: isDark ? "#D1D5DB" : "#374151",
+        legendFontSize: 11,
+      }));
+  }, [chartsData?.salespersonDistribution, isDark]);
+
+  const statePieData = useMemo(() => {
+    return (chartsData?.stateDistribution || [])
+      .filter((item) => item.count > 0)
+      .slice(0, 10)
+      .map((item, idx) => ({
+        name: item.state ? (item.state.length > 12 ? `${item.state.slice(0, 10)}…` : item.state) : "Other",
+        count: item.count,
+        color: PIE_COLORS[(idx + 2) % PIE_COLORS.length],
+        legendFontColor: isDark ? "#D1D5DB" : "#374151",
+        legendFontSize: 11,
+      }));
+  }, [chartsData?.stateDistribution, isDark]);
+
+  const maxSales = useMemo(() => {
+    return Math.max(1, ...(chartsData?.salespersonDistribution?.map((x) => x.customers) || [1]));
+  }, [chartsData?.salespersonDistribution]);
+
+  const maxState = useMemo(() => {
+    return Math.max(1, ...(chartsData?.stateDistribution?.map((x) => x.count) || [1]));
+  }, [chartsData?.stateDistribution]);
+
+  const chartConfig = {
+    backgroundGradientFrom: cardBg,
+    backgroundGradientTo: cardBg,
+    color: (opacity = 1) => `rgba(32, 185, 154, ${opacity})`,
+    labelColor: () => muted,
+  };
+
+  const displayedSalespersons = useMemo(() => {
+    const list = chartsData?.salespersonDistribution || [];
+    return showAllSalespersons ? list : list.slice(0, 8);
+  }, [chartsData?.salespersonDistribution, showAllSalespersons]);
+
+  const displayedStates = useMemo(() => {
+    return (chartsData?.stateDistribution || []).slice(0, 10);
+  }, [chartsData?.stateDistribution]);
+
+  // Dual Bar Row Component matching Web Dashboard (Total vs Active)
+  const DualBarRow = ({
+    label,
+    total,
+    active,
+    max,
+    totalColor,
+    activeColor,
+    icon,
+    rightAction,
+  }: {
+    label: string;
+    total: number;
+    active?: number;
+    max: number;
+    totalColor: string;
+    activeColor: string;
+    icon?: string;
+    rightAction?: React.ReactNode;
+  }) => {
+    const activeVal = typeof active === "number" ? active : 0;
+    const totalPct = Math.max(total ? 4 : 0, (total / max) * 100);
+    const activePct = Math.max(activeVal ? 4 : 0, (activeVal / max) * 100);
+
+    return (
+      <View style={{ gap: 6 }}>
+        <View style={styles.barLabelLine}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+            {icon ? <Ionicons name={icon as any} size={15} color={totalColor} /> : null}
+            <Text numberOfLines={1} style={[styles.barLabel, { color: text, flex: 1 }]}>
+              {label || "Other"}
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[styles.metricTag, { color: totalColor }]}>
+                {total} <Text style={{ fontSize: 10, color: muted, fontFamily: Typography.regular }}>total</Text>
+              </Text>
+              {typeof active === "number" && (
+                <Text style={[styles.metricTag, { color: activeColor }]}>
+                  {activeVal} <Text style={{ fontSize: 10, color: muted, fontFamily: Typography.regular }}>active</Text>
+                </Text>
+              )}
+            </View>
+            {rightAction}
+          </View>
+        </View>
+
+        {/* Dual Bars: Total (top) & Active (bottom) */}
+        <View style={{ gap: 3 }}>
+          <View style={[styles.track, { backgroundColor: isDark ? "#23322D" : "#EDF2F5", height: 6 }]}>
+            <View style={[styles.fill, { width: `${totalPct}%`, backgroundColor: totalColor }]} />
+          </View>
+          {typeof active === "number" && activeVal > 0 && (
+            <View style={[styles.track, { backgroundColor: isDark ? "#23322D" : "#EDF2F5", height: 5 }]}>
+              <View style={[styles.fill, { width: `${activePct}%`, backgroundColor: activeColor }]} />
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <>
       <ScrollView
         style={{ flex: 1, backgroundColor: isDark ? colors.background : "#F5F8FA" }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: Math.max(insets.top, 12) + 8, paddingBottom: 110 },
+          { paddingTop: Math.max(insets.top, 20) + 10, paddingBottom: 110 },
         ]}
         refreshControl={
           <RefreshControl
@@ -148,21 +307,32 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
           />
         }
       >
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.eyebrow, { color: "#20B99A" }]}>OBLU CUSTOMER WORKSPACE</Text>
-            <Text style={[styles.title, { color: text }]}>Customers, managed smarter.</Text>
-            <Text style={[styles.subtitle, { color: muted }]}>
-              Your customer accounts, payment follow-ups and sales tools in one place.
-            </Text>
-          </View>
+        {/* Top Navigation Row: Left Menu Button + Right 3D Home Button */}
+        <View style={styles.topNavRow}>
           <TouchableOpacity
-            accessibilityLabel="Open customer navigation"
-            onPress={() => setDrawerVisible(true)}
-            style={[styles.profileIcon, { backgroundColor: cardBg }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open customer navigation menu"
+            onPress={() => {
+              triggerLightHaptic();
+              setDrawerVisible(true);
+            }}
+            style={[styles.navButton, { backgroundColor: cardBg, borderColor: t.border }]}
+            activeOpacity={0.7}
           >
-            <Ionicons name="menu" size={22} color={text} />
+            <Ionicons name="menu" size={21} color={text} />
           </TouchableOpacity>
+
+          {/* Right 3D Home Button (Redirects to Main Home) */}
+          <SubAppHomeButton isAdmin={isAdmin} size={42} />
+        </View>
+
+        {/* Hero Title Section */}
+        <View style={styles.heroHeader}>
+          <Text style={[styles.eyebrow, { color: "#20B99A" }]}>OBLU CUSTOMER WORKSPACE</Text>
+          <Text style={[styles.title, { color: text }]}>Customers, managed smarter.</Text>
+          <Text style={[styles.subtitle, { color: muted }]}>
+            Your customer accounts, payment follow-ups and sales tools in one place.
+          </Text>
         </View>
 
         {!!error && (
@@ -179,6 +349,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
           </TouchableOpacity>
         )}
 
+        {/* Top Key Metrics Row */}
         <View style={styles.metricRow}>
           {metricItems.map((item) => (
             <TouchableOpacity
@@ -210,6 +381,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
           ))}
         </View>
 
+        {/* Total Outstanding Card */}
         <View style={[styles.balanceCard, { backgroundColor: "#0E9E83" }]}>
           <View style={{ flex: 1 }}>
             <Text style={styles.balanceLabel}>TOTAL OUTSTANDING</Text>
@@ -219,6 +391,197 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
           <Ionicons name="trending-up" size={30} color="#D9FFF5" />
         </View>
 
+        {/* ── Section 1: Customers per Salesperson & Salesperson Share ── */}
+        <View style={[styles.chartSection, { backgroundColor: cardBg, borderColor: t.border }]}>
+          <View style={styles.sectionHeader}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+              <Ionicons name="person-circle-outline" size={20} color="#3B82F6" />
+              <Text style={[styles.chartTitle, { color: text }]}>Customers per Salesperson</Text>
+            </View>
+            <Text style={[styles.chartSubtitle, { color: muted }]}>
+              Customer allocation & active performance by salesperson
+            </Text>
+          </View>
+
+          {chartsLoading ? (
+            <SkeletonBlock height={190} borderRadius={16} />
+          ) : salespersonPieData.length > 0 ? (
+            <>
+              {/* Salesperson Share Donut / Pie Chart */}
+              <View style={styles.chartBox}>
+                <PieChart
+                  data={salespersonPieData}
+                  width={chartWidth}
+                  height={190}
+                  chartConfig={chartConfig}
+                  accessor="customers"
+                  backgroundColor="transparent"
+                  paddingLeft="10"
+                  absolute
+                />
+              </View>
+
+              {/* Legend Row: Total vs Active */}
+              <View style={styles.chartLegendRow}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: "#3B82F6" }]} />
+                  <Text style={[styles.legendText, { color: muted }]}>Total Customers</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: "#10B981" }]} />
+                  <Text style={[styles.legendText, { color: muted }]}>Active Customers</Text>
+                </View>
+              </View>
+
+              {/* Dual Bar Rows for each salesperson */}
+              <View style={{ gap: 12, marginTop: 4 }}>
+                {displayedSalespersons.map((x) => (
+                  <DualBarRow
+                    key={x.name}
+                    label={x.name}
+                    total={x.customers}
+                    active={x.active}
+                    max={maxSales}
+                    totalColor="#3B82F6"
+                    activeColor="#10B981"
+                  />
+                ))}
+              </View>
+
+              {(chartsData?.salespersonDistribution?.length || 0) > 8 && (
+                <TouchableOpacity
+                  onPress={() => setShowAllSalespersons(!showAllSalespersons)}
+                  style={[
+                    styles.toggleButton,
+                    {
+                      borderColor: t.border,
+                      backgroundColor: isDark ? "rgba(59, 130, 246, 0.1)" : "#EFF6FF",
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.toggleButtonText, { color: "#3B82F6" }]}>
+                    {showAllSalespersons
+                      ? "Show Top 8"
+                      : `Show All (${chartsData?.salespersonDistribution?.length}) Salespersons`}
+                  </Text>
+                  <Ionicons
+                    name={showAllSalespersons ? "chevron-up" : "chevron-down"}
+                    size={14}
+                    color="#3B82F6"
+                  />
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <Text style={{ color: muted, fontFamily: Typography.regular }}>
+              No salesperson distribution data available.
+            </Text>
+          )}
+        </View>
+
+        {/* ── Section 2: Top 10 States & State Share (with District Drilldown) ── */}
+        <View style={[styles.chartSection, { backgroundColor: cardBg, borderColor: t.border }]}>
+          <View style={styles.sectionHeader}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+              <Ionicons name="map-outline" size={20} color="#EF4444" />
+              <Text style={[styles.chartTitle, { color: text }]}>Top 10 States & State Share</Text>
+            </View>
+            <Text style={[styles.chartSubtitle, { color: muted }]}>
+              Customer distribution across states. Tap any state to view district share & pie chart.
+            </Text>
+          </View>
+
+          {chartsLoading ? (
+            <SkeletonBlock height={190} borderRadius={16} />
+          ) : statePieData.length > 0 ? (
+            <>
+              {/* State Share Pie Chart */}
+              <View style={styles.chartBox}>
+                <PieChart
+                  data={statePieData}
+                  width={chartWidth}
+                  height={190}
+                  chartConfig={chartConfig}
+                  accessor="count"
+                  backgroundColor="transparent"
+                  paddingLeft="10"
+                  absolute
+                />
+              </View>
+
+              {/* Legend Row: Total vs Active */}
+              <View style={styles.chartLegendRow}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: "#EF4444" }]} />
+                  <Text style={[styles.legendText, { color: muted }]}>Total Customers</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: "#10B981" }]} />
+                  <Text style={[styles.legendText, { color: muted }]}>Active Customers</Text>
+                </View>
+              </View>
+
+              {/* Clickable Dual Bar Rows for each State */}
+              <View style={{ gap: 10, marginTop: 4 }}>
+                {displayedStates.map((x) => (
+                  <TouchableOpacity
+                    key={x.state}
+                    onPress={() => {
+                      triggerLightHaptic();
+                      router.push({
+                        pathname: "/(employee)/customers/district-share" as any,
+                        params: { state: x.state },
+                      });
+                    }}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.stateCard,
+                      {
+                        borderColor: isDark ? "#2D493F" : "#E2EBE6",
+                        backgroundColor: isDark ? "rgba(32, 185, 154, 0.05)" : "#F8FCFA",
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View district share for ${x.state}`}
+                  >
+                    <DualBarRow
+                      label={x.state || "Other"}
+                      total={x.count}
+                      active={x.active}
+                      max={maxState}
+                      totalColor="#EF4444"
+                      activeColor="#10B981"
+                      icon="location-sharp"
+                      rightAction={
+                        <View
+                          style={[
+                            styles.districtPill,
+                            {
+                              backgroundColor: isDark ? "rgba(53, 214, 160, 0.15)" : "#E6F8F2",
+                              borderColor: isDark ? "#35D6A0" : "#00A879",
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.districtPillText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                            Districts
+                          </Text>
+                          <Ionicons name="chevron-forward" size={12} color={isDark ? "#35D6A0" : "#00A879"} />
+                        </View>
+                      }
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          ) : (
+            <Text style={{ color: muted, fontFamily: Typography.regular }}>
+              No state distribution data available.
+            </Text>
+          )}
+        </View>
+
+        {/* ── Section 3: Workspace Tools ── */}
         <View style={styles.sectionHeading}>
           <Text style={[styles.sectionTitle, { color: text }]}>Workspace</Text>
           <Text style={[styles.sectionHint, { color: muted }]}>Tools available to your account</Text>
@@ -255,6 +618,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
 
         {loading && <SkeletonBlock height={96} borderRadius={16} style={{ marginTop: 4 }} />}
       </ScrollView>
+
       <CustomerNavDrawer
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
@@ -266,19 +630,28 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 18, gap: 14 },
-  header: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 10 },
-  eyebrow: { fontFamily: Typography.bold, fontSize: 10, letterSpacing: 1.2, marginBottom: 8 },
-  title: { fontFamily: Typography.heading, fontSize: 26, lineHeight: 32, letterSpacing: -0.6 },
-  subtitle: { fontFamily: Typography.regular, marginTop: 6, fontSize: 13, lineHeight: 19 },
-  profileIcon: {
+  topNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+    marginBottom: 4,
+  },
+  navButton: {
     width: 42,
     height: 42,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#E4EAF0",
   },
+  heroHeader: {
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  eyebrow: { fontFamily: Typography.bold, fontSize: 10, letterSpacing: 1.2, marginBottom: 8 },
+  title: { fontFamily: Typography.heading, fontSize: 26, lineHeight: 32, letterSpacing: -0.6 },
+  subtitle: { fontFamily: Typography.regular, marginTop: 6, fontSize: 13, lineHeight: 19 },
   error: { padding: 12, borderRadius: 12 },
   metricRow: { flexDirection: "row", gap: 9 },
   metric: { flex: 1, minHeight: 116, padding: 12, borderRadius: 16, borderWidth: 1 },
@@ -296,7 +669,114 @@ const styles = StyleSheet.create({
   balanceLabel: { color: "#D9FFF5", fontFamily: Typography.bold, fontSize: 10, letterSpacing: 1 },
   balanceValue: { color: "#FFFFFF", fontFamily: Typography.bold, fontSize: 26, marginTop: 5 },
   balanceHint: { color: "#D9FFF5", fontFamily: Typography.regular, fontSize: 11, marginTop: 2 },
-  sectionHeading: { marginTop: 5 },
+
+  // Chart sections
+  chartSection: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 16,
+    gap: 12,
+  },
+  sectionHeader: {
+    gap: 2,
+    marginBottom: 4,
+  },
+  chartTitle: {
+    fontFamily: Typography.headingSemi,
+    fontSize: 16,
+  },
+  chartSubtitle: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  chartLegendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontFamily: Typography.medium,
+    fontSize: 11,
+  },
+  metricTag: {
+    fontFamily: Typography.bold,
+    fontSize: 12,
+  },
+  chartBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 4,
+  },
+  barLabelLine: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  barLabel: {
+    fontFamily: Typography.medium,
+    flex: 1,
+    fontSize: 13,
+  },
+  track: {
+    height: 7,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  fill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  stateCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  districtPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderWidth: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  districtPillText: {
+    fontFamily: Typography.bold,
+    fontSize: 11,
+  },
+  toggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 6,
+  },
+  toggleButtonText: {
+    fontFamily: Typography.semiBold,
+    fontSize: 12,
+  },
+
+  // Workspace tools
+  sectionHeading: { marginTop: 8 },
   sectionTitle: { fontFamily: Typography.headingSemi, fontSize: 20 },
   sectionHint: { fontFamily: Typography.regular, marginTop: 3, fontSize: 12 },
   linkCard: {

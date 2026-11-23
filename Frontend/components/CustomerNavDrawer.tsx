@@ -66,11 +66,6 @@ export function CustomerNavDrawer({ visible, onClose, isAdmin = false }: Props) 
       title: "WORKSPACE",
       entries: [
         {
-          title: "Main Home",
-          icon: "apps-outline" as const,
-          route: isAdmin ? "/(admin)/users" : "/(employee)",
-        },
-        {
           title: "Dashboard",
           icon: "home-outline" as const,
           route: isAdmin ? "/(admin)/customer-dashboard" : "/(employee)/customers/dashboard",

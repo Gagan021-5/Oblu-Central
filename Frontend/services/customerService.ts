@@ -2,7 +2,7 @@
  * Customer Service — Real REST API integration for Employee CRM with normalization.
  */
 
-import api from "./api";
+import api, { API_BASE_URL, getAccessToken } from "./api";
 import { Customer, CustomerRemark, CustomerFollowUp, CustomerPayment } from "@/data/customerTypes";
 
 export interface CustomerListResponse {
@@ -122,6 +122,8 @@ export async function fetchCustomerPageFromApi(params?: {
   payment_status?: string;
   has_outstanding?: boolean;
   ordering?: string;
+  salesperson?: string | number;
+  state?: string;
   page?: number;
   page_size?: number;
 }): Promise<{ customers: Customer[]; nextPage: number | null; count: number }> {
@@ -134,6 +136,8 @@ export async function fetchCustomerPageFromApi(params?: {
       payment_status: params?.payment_status && params.payment_status !== "all" ? params.payment_status : undefined,
       has_outstanding: params?.has_outstanding ? "true" : undefined,
       ordering: params?.ordering && params.ordering !== "default" ? params.ordering : undefined,
+      salesperson: params?.salesperson && params.salesperson !== "all" ? params.salesperson : undefined,
+      state: params?.state && params.state !== "all" ? params.state : undefined,
       page: currentPage,
       page_size: pageSize,
     },
@@ -262,10 +266,44 @@ export async function fetchDashboardStatsApi(): Promise<DashboardStats> {
 }
 
 
+import { isSalespersonActive } from "@/constants/salespeople";
+
+export interface CustomerFilterOptions {
+  salespersons: Array<{ id: number; name: string }>;
+  states: string[];
+}
+
+export async function fetchCustomerFilterOptionsApi(): Promise<CustomerFilterOptions> {
+  const res = await api.get<CustomerFilterOptions>("/customers/filter-options/");
+  const data = res.data;
+  return {
+    ...data,
+    salespersons: (data?.salespersons || []).filter((s) => isSalespersonActive(s?.name)),
+  };
+}
+
+export async function getCustomerExportUrl(params: {
+  state?: string;
+  salesperson?: string | number;
+  search?: string;
+}): Promise<string> {
+  const token = await getAccessToken();
+  const query = new URLSearchParams();
+  if (token) query.set("token", token);
+  if (params.state && params.state !== "all") query.set("state", params.state);
+  if (params.salesperson && params.salesperson !== "all") query.set("salesperson", String(params.salesperson));
+  if (params.search) query.set("search", params.search);
+  return `${API_BASE_URL}/customers/export/?${query.toString()}`;
+}
+
 export interface CustomerChartsData {
   totalCustomers: number;
-  salespersonDistribution: Array<{ name: string; customers: number }>;
-  stateDistribution: Array<{ state: string; count: number }>;
+  salespersonsCount?: number;
+  statesCount?: number;
+  activeCustomers?: number;
+  inactiveCustomers?: number;
+  salespersonDistribution: Array<{ name: string; customers: number; active?: number; inactive?: number }>;
+  stateDistribution: Array<{ state: string; count: number; active?: number; inactive?: number }>;
   vouchers: {
     total: number;
     overdue: number;
@@ -279,6 +317,94 @@ export interface CustomerChartsData {
 export async function fetchCustomerChartsApi(): Promise<CustomerChartsData> {
   const res = await api.get<CustomerChartsData>("/customers/charts/");
   return res.data;
+}
+
+export interface StateDistrictsData {
+  state: string;
+  totalCustomers: number;
+  activeCustomers: number;
+  inactiveCustomers: number;
+  districtCount: number;
+  districtDistribution: Array<{
+    district: string;
+    count: number;
+    active: number;
+    inactive: number;
+  }>;
+}
+
+export async function fetchStateDistrictsApi(state: string): Promise<StateDistrictsData> {
+  try {
+    const res = await api.get<StateDistrictsData>("/customers/state-districts/", {
+      params: { state },
+    });
+    if (res.data && Array.isArray(res.data.districtDistribution) && res.data.districtDistribution.length > 0) {
+      return res.data;
+    }
+  } catch (err) {
+    // If remote endpoint isn't deployed yet on AWS server, fallback gracefully
+    console.warn("fetchStateDistrictsApi backend request failed, computing fallback from customer list:", err);
+  }
+
+  // Graceful fallback: fetch customers for this state specifically
+  const stateCusts: Customer[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore && page <= 5) {
+    const pageData = await fetchCustomerPageFromApi({ page, state, page_size: 100 });
+    stateCusts.push(...pageData.customers);
+    if (!pageData.nextPage || pageData.customers.length === 0) {
+      hasMore = false;
+    } else {
+      page = pageData.nextPage;
+    }
+  }
+
+  const districtMap = new Map<string, { count: number; active: number; inactive: number }>();
+  let activeTotal = 0;
+  let matchingStateCustomers = 0;
+  const stateNormalized = state.trim().toLowerCase();
+
+  for (const c of stateCusts) {
+    // Strictly match target state
+    const custState = (c.state || "").trim().toLowerCase();
+    if (custState !== stateNormalized) continue;
+
+    matchingStateCustomers++;
+    const rawDist = (c.district || c.city || "").trim();
+    const isInvalid = !rawDist || rawDist.toLowerCase() === "nan" || rawDist.toLowerCase() === "null" || rawDist.toLowerCase() === "undefined";
+    const distName = isInvalid ? "Unassigned / Other" : rawDist;
+    const isActive = c.status === "Active" || c.paymentStatus === "paid";
+    if (isActive) activeTotal++;
+
+    const entry = districtMap.get(distName) || { count: 0, active: 0, inactive: 0 };
+    entry.count++;
+    if (isActive) {
+      entry.active++;
+    } else {
+      entry.inactive++;
+    }
+    districtMap.set(distName, entry);
+  }
+
+  const districtDistribution = Array.from(districtMap.entries())
+    .map(([district, stats]) => ({
+      district,
+      count: stats.count,
+      active: stats.active,
+      inactive: stats.inactive,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    state,
+    totalCustomers: matchingStateCustomers,
+    activeCustomers: activeTotal,
+    inactiveCustomers: Math.max(0, matchingStateCustomers - activeTotal),
+    districtCount: districtDistribution.length,
+    districtDistribution,
+  };
 }
 
 export async function updatePaymentExpectedDateApi(
@@ -295,3 +421,23 @@ export async function addPaymentThreadRemarkApi(
 ): Promise<{ success: boolean; payment?: any }> {
   return handlePaymentTicketApi(customerId, paymentId, "remark", { remark });
 }
+
+export async function assignUnassignedCustomerApi(
+  customerIds: number | number[],
+  salespersonId: number
+): Promise<{
+  status: string;
+  customer_id?: number;
+  customer_ids?: number[];
+  updated_count?: number;
+  salesperson?: string;
+  salesperson_id?: number;
+}> {
+  const payload = Array.isArray(customerIds)
+    ? { customer_ids: customerIds, salesperson_id: salespersonId }
+    : { customer_id: customerIds, salesperson_id: salespersonId };
+
+  const res = await api.post("/customers/workspace/unassigned/", payload);
+  return res.data;
+}
+

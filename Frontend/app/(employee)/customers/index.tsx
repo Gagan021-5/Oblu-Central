@@ -8,6 +8,8 @@ import {
   RefreshControl,
   Platform,
   ActivityIndicator,
+  Linking,
+  Alert,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,12 +24,16 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { CustomerCard } from "@/components/employee/CustomerCard";
 import { Customer } from "@/data/customerTypes";
 import {
+  CustomerFilterOptions,
   DashboardStats,
+  fetchCustomerFilterOptionsApi,
   fetchCustomerPageFromApi,
   fetchCustomersFromApi,
   fetchDashboardStatsApi,
+  getCustomerExportUrl,
 } from "@/services/customerService";
 import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 import {
   CustomerBalanceFilter,
   CustomerFilterSheet,
@@ -71,7 +77,7 @@ export default function CustomerDashboardScreen() {
   const insets = useSafeAreaInsets();
   const { t, isDark } = useEmployeeTheme();
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, permissionProfile } = useAuth();
 
   const isBusinessManager = useMemo(() => {
     const role = (user?.role || "").toLowerCase();
@@ -124,6 +130,52 @@ export default function CustomerDashboardScreen() {
   const [paymentFilter, setPaymentFilter] = useState<CustomerPaymentFilter>("all");
   const [balanceFilter, setBalanceFilter] = useState<CustomerBalanceFilter>("all");
   const [sortOption, setSortOption] = useState<CustomerSortOption>("default");
+  const [salespersonFilter, setSalespersonFilter] = useState<string | number>("all");
+  const [stateFilter, setStateFilter] = useState<string>("all");
+  const [filterOptions, setFilterOptions] = useState<CustomerFilterOptions>({ salespersons: [], states: [] });
+  const [exporting, setExporting] = useState(false);
+
+  const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
+  const isSuperOrAdmin = Boolean(
+    (user as any)?.is_superuser ||
+    roleText.includes("superuser") ||
+    roleText.includes("admin") ||
+    user?.username?.toLowerCase() === "infected" ||
+    (user?.permissions || []).includes("*")
+  );
+
+  const selectedSalespersonName = useMemo(() => {
+    if (salespersonFilter === "all") return "";
+    const found = filterOptions.salespersons.find((s) => String(s.id) === String(salespersonFilter) || s.name === salespersonFilter);
+    return found ? found.name : String(salespersonFilter);
+  }, [salespersonFilter, filterOptions.salespersons]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const opts = await fetchCustomerFilterOptionsApi();
+        if (opts) setFilterOptions(opts);
+      } catch (e) {
+        console.warn("[EmployeeCustomers] Could not fetch filter options:", e);
+      }
+    })();
+  }, []);
+
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true);
+      const url = await getCustomerExportUrl({
+        state: stateFilter,
+        salesperson: salespersonFilter,
+        search: debouncedSearch,
+      });
+      await Linking.openURL(url);
+    } catch (error) {
+      Alert.alert("Export Error", "Could not start customer export.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const loadDashboardStats = useCallback(async () => {
     try {
@@ -151,6 +203,8 @@ export default function CustomerDashboardScreen() {
         payment_status?: CustomerPaymentFilter;
         balance?: CustomerBalanceFilter;
         sort?: CustomerSortOption;
+        salesperson?: string | number;
+        state?: string;
       }
     ) => {
       const activeSearch = overrides?.search !== undefined ? overrides.search : debouncedSearch;
@@ -158,6 +212,8 @@ export default function CustomerDashboardScreen() {
       const currentPaymentFilter = overrides?.payment_status !== undefined ? overrides.payment_status : paymentFilter;
       const currentBalanceFilter = overrides?.balance !== undefined ? overrides.balance : balanceFilter;
       const currentSort = overrides?.sort !== undefined ? overrides.sort : sortOption;
+      const currentSalesperson = overrides?.salesperson !== undefined ? overrides.salesperson : salespersonFilter;
+      const currentState = overrides?.state !== undefined ? overrides.state : stateFilter;
 
       const reqId = ++reqIdRef.current;
       if (page === 1 && !isPullToRefresh) {
@@ -174,6 +230,8 @@ export default function CustomerDashboardScreen() {
           payment_status: currentPaymentFilter !== "all" ? currentPaymentFilter : undefined,
           has_outstanding: currentBalanceFilter === "outstanding",
           ordering: currentSort !== "default" ? currentSort : undefined,
+          salesperson: currentSalesperson !== "all" ? currentSalesperson : undefined,
+          state: currentState !== "all" ? currentState : undefined,
           page,
           page_size: 25,
         });
@@ -201,7 +259,7 @@ export default function CustomerDashboardScreen() {
               customerList = fallbackCustomers;
               count = Math.max(count, dashboardStatsRef.current?.totalCustomers ?? fallbackCustomers.length);
             }
-          } catch {}
+          } catch { }
         }
 
         if (reqId !== reqIdRef.current) return;
@@ -226,7 +284,7 @@ export default function CustomerDashboardScreen() {
         }
       }
     },
-    [debouncedSearch, activeFilter, paymentFilter, balanceFilter, sortOption]
+    [debouncedSearch, activeFilter, paymentFilter, balanceFilter, sortOption, salespersonFilter, stateFilter]
   );
 
   useEffect(() => {
@@ -253,7 +311,12 @@ export default function CustomerDashboardScreen() {
   );
 
   const filtersActive =
-    activeFilter !== "all" || paymentFilter !== "all" || balanceFilter !== "all" || sortOption !== "default";
+    activeFilter !== "all" ||
+    paymentFilter !== "all" ||
+    balanceFilter !== "all" ||
+    sortOption !== "default" ||
+    salespersonFilter !== "all" ||
+    stateFilter !== "all";
 
   const resetDirectoryFilters = useCallback(() => {
     router.setParams({ filter: undefined });
@@ -261,6 +324,8 @@ export default function CustomerDashboardScreen() {
     setPaymentFilter("all");
     setBalanceFilter("all");
     setSortOption("default");
+    setSalespersonFilter("all");
+    setStateFilter("all");
     setSearchQuery("");
     setDebouncedSearch("");
     setCurrentPage(1);
@@ -270,6 +335,8 @@ export default function CustomerDashboardScreen() {
       payment_status: "all",
       balance: "all",
       sort: "default",
+      salesperson: "all",
+      state: "all",
     });
   }, [loadData]);
 
@@ -281,21 +348,45 @@ export default function CustomerDashboardScreen() {
       <View>
         {/* Top Workspace Bar */}
         <View style={styles.navRow}>
-          <TouchableOpacity
-            style={[
-              styles.backButton,
-              {
-                backgroundColor: t.surface,
-                borderColor: t.border,
-              },
-            ]}
-            onPress={() => setDrawerVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Open customer navigation"
-            activeOpacity={0.7}
-          >
-            <Ionicons name="menu" size={18} color={t.text} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <TouchableOpacity
+              style={[
+                styles.backButton,
+                {
+                  backgroundColor: t.surface,
+                  borderColor: t.border,
+                },
+              ]}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.push("/(employee)/customers/dashboard" as any);
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Customer Workspace"
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={18} color={t.text} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.backButton,
+                {
+                  backgroundColor: t.surface,
+                  borderColor: t.border,
+                },
+              ]}
+              onPress={() => setDrawerVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Open customer navigation"
+              activeOpacity={0.7}
+            >
+              <Ionicons name="menu" size={18} color={t.text} />
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.titleColumn}>
             <Text
@@ -312,6 +403,35 @@ export default function CustomerDashboardScreen() {
                 ? "enterprise relationships"
                 : "assigned accounts"}
             </Text>
+          </View>
+
+          {/* Right Actions: Excel Download (Admins) + 3D Home Button */}
+          <View style={styles.topRightActions}>
+            {isSuperOrAdmin && (
+              <TouchableOpacity
+                onPress={handleExportExcel}
+                disabled={exporting}
+                style={[
+                  styles.exportBtn,
+                  {
+                    backgroundColor: isDark ? "rgba(53, 214, 160, 0.15)" : "#E6F8F2",
+                    borderColor: isDark ? "#35D6A0" : "#00A879",
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Download customers in Excel"
+              >
+                {exporting ? (
+                  <ActivityIndicator size="small" color={isDark ? "#35D6A0" : "#00A879"} />
+                ) : (
+                  <>
+                    <Ionicons name="download-outline" size={15} color={isDark ? "#35D6A0" : "#00A879"} />
+                    <Text style={[styles.exportBtnText, { color: isDark ? "#35D6A0" : "#00A879" }]}>Excel</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+            <SubAppHomeButton size={38} />
           </View>
         </View>
 
@@ -416,6 +536,32 @@ export default function CustomerDashboardScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Active Filter Chips */}
+        {(salespersonFilter !== "all" || stateFilter !== "all") && (
+          <View style={styles.activeFiltersRow}>
+            {salespersonFilter !== "all" && (
+              <View style={[styles.filterPill, { backgroundColor: isDark ? "#1C2D26" : "#EAF8F4", borderColor: isDark ? "#35D6A0" : "#00A879" }]}>
+                <Text style={[styles.filterPillText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                  Rep: {selectedSalespersonName}
+                </Text>
+                <TouchableOpacity onPress={() => setSalespersonFilter("all")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Ionicons name="close-circle" size={15} color={isDark ? "#35D6A0" : "#00A879"} />
+                </TouchableOpacity>
+              </View>
+            )}
+            {stateFilter !== "all" && (
+              <View style={[styles.filterPill, { backgroundColor: isDark ? "#1C2D26" : "#EAF8F4", borderColor: isDark ? "#35D6A0" : "#00A879" }]}>
+                <Text style={[styles.filterPillText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                  State: {stateFilter}
+                </Text>
+                <TouchableOpacity onPress={() => setStateFilter("all")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Ionicons name="close-circle" size={15} color={isDark ? "#35D6A0" : "#00A879"} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* List Header Count */}
         <View style={styles.listHeaderRow}>
           <Text style={[styles.listCountText, { color: t.textSecondary }]}>
@@ -428,6 +574,11 @@ export default function CustomerDashboardScreen() {
     [
       isDark,
       isBusinessManager,
+      isSuperOrAdmin,
+      exporting,
+      salespersonFilter,
+      stateFilter,
+      selectedSalespersonName,
       searchQuery,
       filtersActive,
       dashboardStats,
@@ -458,8 +609,8 @@ export default function CustomerDashboardScreen() {
           loadError
             ? "Customer data unavailable"
             : filtersActive || searchQuery
-            ? "No matching customers"
-            : "No customers found"
+              ? "No matching customers"
+              : "No customers found"
         }
         description={
           loadError ||
@@ -471,8 +622,8 @@ export default function CustomerDashboardScreen() {
           loadError
             ? "Retry"
             : filtersActive || searchQuery || activeFilter !== "all"
-            ? "Reset Filters"
-            : "Refresh List"
+              ? "Reset Filters"
+              : "Refresh List"
         }
         onAction={() => {
           if (loadError) {
@@ -637,6 +788,12 @@ export default function CustomerDashboardScreen() {
         paymentFilter={paymentFilter}
         balanceFilter={balanceFilter}
         sortOption={sortOption}
+        salespersonFilter={salespersonFilter}
+        onSalespersonFilterChange={setSalespersonFilter}
+        stateFilter={stateFilter}
+        onStateFilterChange={setStateFilter}
+        salespersonOptions={filterOptions.salespersons}
+        stateOptions={filterOptions.states}
         onPaymentFilterChange={setPaymentFilter}
         onBalanceFilterChange={setBalanceFilter}
         onSortOptionChange={setSortOption}
@@ -663,6 +820,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     marginBottom: 4,
+  },
+  topRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  exportBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  exportBtnText: {
+    fontFamily: Typography.semiBold,
+    fontSize: FontSizes.caption,
+  },
+  activeFiltersRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  filterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontFamily: Typography.medium,
+    fontSize: FontSizes.caption,
   },
   backButton: {
     width: 38,

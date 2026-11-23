@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { FilterChip } from "@/components/ui/FilterChip";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 import {
   fetchHRMSDashboardApi,
   fetchHRMSEmployeesApi,
@@ -155,7 +156,7 @@ export default function HRMSScreen() {
           </Text>
         </View>
 
-        <View style={styles.topBarRightPlaceholder} />
+        <SubAppHomeButton size={38} isAdmin={true} />
       </View>
 
       <FlatList

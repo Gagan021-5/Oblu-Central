@@ -14,6 +14,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes, Radius, Shadows } from "@/constants/theme";
 import { MetricCard } from "@/components/employee/MetricCard";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
 interface DeviceItem {
   id: string;
@@ -72,7 +73,7 @@ export default function SecurityScreen() {
           </Text>
         </View>
 
-        <View style={styles.topBarRightPlaceholder} />
+        <SubAppHomeButton size={38} isAdmin={true} />
       </View>
 
       <FlatList

@@ -26,6 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes } from "@/constants/theme";
 import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { triggerLightHaptic, triggerSelectionHaptic } from "@/utils/haptics";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -300,6 +301,7 @@ export default function IncentivesScreen() {
           <Text style={styles.eyebrow}>OBLU INCENTIVE ENGINE</Text>
           <Text style={[styles.title, { color: foreground }]}>My Incentives</Text>
         </View>
+        <SubAppHomeButton size={38} />
       </View>
 
       {/* Month Navigator */}

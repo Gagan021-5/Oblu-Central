@@ -85,22 +85,6 @@ export function InventoryNavDrawer({
             {/* ── CORE OPERATIONS ── */}
             <Text style={[styles.sectionTitle, { color: muted }]}>CORE OPERATIONS</Text>
 
-            {/* Main App Home */}
-            <TouchableOpacity
-              onPress={() => {
-                onClose();
-                router.replace(isAdmin ? "/(admin)/users" : "/(employee)");
-              }}
-              style={styles.navEntry}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="apps-outline" size={18} color={muted} />
-              <Text style={[styles.navEntryText, { color: foreground }]}>
-                Main Home
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={muted} />
-            </TouchableOpacity>
-
             {/* Executive Dashboard */}
             <TouchableOpacity
               onPress={() => handleSelect("overview")}

@@ -62,6 +62,8 @@ export interface Customer {
   paymentStatus: PaymentStatus;
   status: CustomerStatus;
   remarks: CustomerRemark[];
+  remarksCount?: number;
+  remarks_count?: number;
   followUps: CustomerFollowUp[];
   payments: CustomerPayment[];
   purchases?: CustomerPurchase[];

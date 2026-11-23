@@ -21,6 +21,7 @@ import { SkeletonCard } from "@/components/ui/SkeletonCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LeadCard } from "@/components/employee/LeadCard";
 import { MetricCard } from "@/components/employee/MetricCard";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 import { Lead, LeadStage } from "@/data/mockLeads";
 import { fetchLeadsFromApi } from "@/services/leadService";
 
@@ -160,37 +161,40 @@ export default function LeadsDashboardScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.iconBtn,
-            {
-              backgroundColor: showSearch
-                ? isDark
-                  ? "rgba(53, 214, 160, 0.16)"
-                  : "#DDF4EA"
-                : isDark
-                ? "#121F1B"
-                : "#FFFFFF",
-              borderColor: t.border,
-            },
-          ]}
-          onPress={() => setShowSearch(!showSearch)}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="search-outline"
-            size={18}
-            color={
-              showSearch
-                ? isDark
-                  ? "#35D6A0"
-                  : "#00A879"
-                : isDark
-                ? "#F1F7F4"
-                : "#101513"
-            }
-          />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TouchableOpacity
+            style={[
+              styles.iconBtn,
+              {
+                backgroundColor: showSearch
+                  ? isDark
+                    ? "rgba(53, 214, 160, 0.16)"
+                    : "#DDF4EA"
+                  : isDark
+                  ? "#121F1B"
+                  : "#FFFFFF",
+                borderColor: t.border,
+              },
+            ]}
+            onPress={() => setShowSearch(!showSearch)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="search-outline"
+              size={18}
+              color={
+                showSearch
+                  ? isDark
+                    ? "#35D6A0"
+                    : "#00A879"
+                  : isDark
+                  ? "#F1F7F4"
+                  : "#101513"
+              }
+            />
+          </TouchableOpacity>
+          <SubAppHomeButton size={38} />
+        </View>
       </View>
 
       {/* Pipeline Summary Horizontal Stage Ribbon */}

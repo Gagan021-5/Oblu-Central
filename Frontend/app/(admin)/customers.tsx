@@ -31,13 +31,17 @@ import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { Customer } from "@/data/customerTypes";
 import {
   CustomerEditOptions,
+  CustomerFilterOptions,
   fetchCustomerEditOptionsApi,
+  fetchCustomerFilterOptionsApi,
   fetchCustomerPageFromApi,
   fetchCustomersFromApi,
+  getCustomerExportUrl,
   updateCustomerEditableFieldsApi,
 } from "@/services/customerService";
 import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
 import { CustomerBalanceFilter, CustomerFilterSheet, CustomerPaymentFilter, CustomerSortOption } from "@/components/ui/CustomerFilterSheet";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
 function getOutstandingAmount(value: string): number {
   const normalized = (value || "").replace(/[^0-9.-]/g, "");
@@ -75,6 +79,10 @@ export default function CustomersScreen() {
   const [paymentFilter, setPaymentFilter] = useState<CustomerPaymentFilter>("all");
   const [balanceFilter, setBalanceFilter] = useState<CustomerBalanceFilter>("all");
   const [sortOption, setSortOption] = useState<CustomerSortOption>("default");
+  const [salespersonFilter, setSalespersonFilter] = useState<string | number>("all");
+  const [stateFilter, setStateFilter] = useState<string>("all");
+  const [filterOptions, setFilterOptions] = useState<CustomerFilterOptions>({ salespersons: [], states: [] });
+  const [exporting, setExporting] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [editMode, setEditMode] = useState<CustomerEditMode | null>(null);
   const [editForm, setEditForm] = useState<CustomerEditFormState | null>(null);
@@ -107,11 +115,13 @@ export default function CustomersScreen() {
         payment_status: paymentFilter,
         has_outstanding: balanceFilter === "outstanding",
         ordering: sortOption,
+        salesperson: salespersonFilter,
+        state: stateFilter,
         page,
         page_size: 25,
       });
       let customerList = result?.customers || [];
-      if (customerList.length === 0 && !debouncedSearch && page === 1 && paymentFilter === "all" && balanceFilter === "all") {
+      if (customerList.length === 0 && !debouncedSearch && page === 1 && paymentFilter === "all" && balanceFilter === "all" && salespersonFilter === "all" && stateFilter === "all") {
         try {
           const fallback = await fetchCustomersFromApi({ page: 1, page_size: 25 });
           if (fallback.length > 0) customerList = fallback;
@@ -134,7 +144,34 @@ export default function CustomersScreen() {
       if (page > 1) setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [debouncedSearch, paymentFilter, balanceFilter, sortOption]);
+  }, [debouncedSearch, paymentFilter, balanceFilter, sortOption, salespersonFilter, stateFilter]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const opts = await fetchCustomerFilterOptionsApi();
+        if (opts) setFilterOptions(opts);
+      } catch (e) {
+        console.warn("[AdminCustomers] Could not fetch filter options:", e);
+      }
+    })();
+  }, []);
+
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true);
+      const url = await getCustomerExportUrl({
+        state: stateFilter,
+        salesperson: salespersonFilter,
+        search: debouncedSearch,
+      });
+      await Linking.openURL(url);
+    } catch (error) {
+      Alert.alert("Export Error", "Could not start customer export.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -182,12 +219,20 @@ export default function CustomersScreen() {
     return list;
   }, [customers, search, paymentFilter, balanceFilter, sortOption]);
 
-  const filtersActive = paymentFilter !== "all" || balanceFilter !== "all" || sortOption !== "default";
+  const selectedSalespersonName = useMemo(() => {
+    if (salespersonFilter === "all") return "";
+    const found = filterOptions.salespersons.find((s) => String(s.id) === String(salespersonFilter) || s.name === salespersonFilter);
+    return found ? found.name : String(salespersonFilter);
+  }, [salespersonFilter, filterOptions.salespersons]);
+
+  const filtersActive = paymentFilter !== "all" || balanceFilter !== "all" || sortOption !== "default" || salespersonFilter !== "all" || stateFilter !== "all";
 
   const resetDirectoryFilters = () => {
     setPaymentFilter("all");
     setBalanceFilter("all");
     setSortOption("default");
+    setSalespersonFilter("all");
+    setStateFilter("all");
   };
 
   const closeCustomerEditor = () => {
@@ -553,7 +598,31 @@ export default function CustomersScreen() {
         <Text style={[styles.screenHeading, { color: colors.textPrimary }]} numberOfLines={1}>
           Customer Directory
         </Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            onPress={handleExportExcel}
+            disabled={exporting}
+            style={[
+              styles.exportBtn,
+              {
+                backgroundColor: isDark ? "rgba(53, 214, 160, 0.15)" : "#E6F8F2",
+                borderColor: isDark ? "#35D6A0" : "#00A879",
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Download customers in Excel"
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color={isDark ? "#35D6A0" : "#00A879"} />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={15} color={isDark ? "#35D6A0" : "#00A879"} />
+                <Text style={[styles.exportBtnText, { color: isDark ? "#35D6A0" : "#00A879" }]}>Excel</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <SubAppHomeButton size={38} isAdmin={true} />
+        </View>
       </View>
 
       {/* Search */}
@@ -573,6 +642,32 @@ export default function CustomersScreen() {
           filterActive={filtersActive}
         />
       </View>
+
+      {/* Active Filter Chips */}
+      {(salespersonFilter !== "all" || stateFilter !== "all") && (
+        <View style={styles.activeFiltersRow}>
+          {salespersonFilter !== "all" && (
+            <View style={[styles.filterPill, { backgroundColor: isDark ? "#1C2D26" : "#EAF8F4", borderColor: isDark ? "#35D6A0" : "#00A879" }]}>
+              <Text style={[styles.filterPillText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                Rep: {selectedSalespersonName}
+              </Text>
+              <TouchableOpacity onPress={() => setSalespersonFilter("all")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                <Ionicons name="close-circle" size={15} color={isDark ? "#35D6A0" : "#00A879"} />
+              </TouchableOpacity>
+            </View>
+          )}
+          {stateFilter !== "all" && (
+            <View style={[styles.filterPill, { backgroundColor: isDark ? "#1C2D26" : "#EAF8F4", borderColor: isDark ? "#35D6A0" : "#00A879" }]}>
+              <Text style={[styles.filterPillText, { color: isDark ? "#35D6A0" : "#00A879" }]}>
+                State: {stateFilter}
+              </Text>
+              <TouchableOpacity onPress={() => setStateFilter("all")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                <Ionicons name="close-circle" size={15} color={isDark ? "#35D6A0" : "#00A879"} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
 
       {loading ? (
         <SkeletonCardList count={5} height={112} style={{ paddingHorizontal: 16, paddingTop: 6 }} />
@@ -838,6 +933,12 @@ export default function CustomersScreen() {
         paymentFilter={paymentFilter}
         balanceFilter={balanceFilter}
         sortOption={sortOption}
+        salespersonFilter={salespersonFilter}
+        onSalespersonFilterChange={setSalespersonFilter}
+        stateFilter={stateFilter}
+        onStateFilterChange={setStateFilter}
+        salespersonOptions={filterOptions.salespersons}
+        stateOptions={filterOptions.states}
         onPaymentFilterChange={setPaymentFilter}
         onBalanceFilterChange={setBalanceFilter}
         onSortOptionChange={setSortOption}
@@ -874,9 +975,43 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  headerSpacer: {
-    width: 34,
-    height: 34,
+  headerRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  exportBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  exportBtnText: {
+    fontFamily: Typography.semiBold,
+    fontSize: FontSizes.caption,
+  },
+  activeFiltersRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: Spacing.screenPadding,
+    marginBottom: Spacing.sm,
+  },
+  filterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontFamily: Typography.medium,
+    fontSize: FontSizes.caption,
   },
   searchWrap: {
     paddingHorizontal: Spacing.screenPadding,

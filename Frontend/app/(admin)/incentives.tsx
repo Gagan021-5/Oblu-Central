@@ -14,6 +14,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes, Radius, Shadows } from "@/constants/theme";
 import { MetricCard } from "@/components/employee/MetricCard";
+import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
 export default function IncentivesScreen() {
   const insets = useSafeAreaInsets();
@@ -54,7 +55,7 @@ export default function IncentivesScreen() {
           </Text>
         </View>
 
-        <View style={styles.topBarRightPlaceholder} />
+        <SubAppHomeButton size={38} isAdmin={true} />
       </View>
 
       <ScrollView
