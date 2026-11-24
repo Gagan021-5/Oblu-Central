@@ -58,7 +58,7 @@ const links = [
   { title: "RSM Team Incentives", description: "Review team incentive performance", icon: "people-outline", route: "/(employee)/customers/tool/rsm-incentives", color: "#6366F1", roles: ["rsm", "sales_head", "admin", "accountant", "finance"] },
   { title: "Sales Head Incentives", description: "Review sales head incentive performance", icon: "git-network-outline", route: "/(employee)/customers/tool/sales-head-incentives", color: "#6366F1", roles: ["sales_head", "business", "admin", "finance"] },
   { title: "Cross-Selling Matrix", description: "Identify customer product gap opportunities", icon: "grid-outline", route: "/(employee)/customers/tool/cross-selling", color: "#159A7C", permissions: ["customer.view", "customer.view_all"] },
-  { title: "Voucher Approvals", description: "Review pending voucher claims", icon: "checkbox-outline", route: "/(employee)/customers/tool/voucher-approvals", color: "#F59E0B", roles: ["admin", "accounts_operations", "sales_head", "finance", "business"] },
+  { title: "Voucher Approvals", description: "Review and approve pending voucher claim requests", icon: "checkbox-outline", route: "/(employee)/customers/tool/voucher-approvals", color: "#159A7C", roles: ["admin", "accounts_operations", "sales_head", "finance", "business", "salesperson", "rsm"] },
   { title: "Unassigned Customers", description: "Review and assign unattached accounts", icon: "person-remove-outline", route: "/(employee)/customers/tool/unassigned", color: "#EF4444", permissions: ["customer.view_all", "customer.view"] },
 ];
 

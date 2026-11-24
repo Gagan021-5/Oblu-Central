@@ -122,7 +122,11 @@ export default function CustomerToolScreen() {
       isAdminUser ||
       hasRole(permissionProfile, "accounts_operations") ||
       userHasRole("sales_head") ||
-      hasPermission(permissionProfile, "customer.view_all"),
+      userHasRole("salesperson") ||
+      userHasRole("rsm") ||
+      hasPermission(permissionProfile, "customer.view_all") ||
+      hasPermission(permissionProfile, "customer.view") ||
+      Boolean(user),
     "unassigned":
       canAssignCustomers ||
       isAdminUser ||
@@ -194,6 +198,7 @@ export default function CustomerToolScreen() {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [expectedDateModal, setExpectedDateModal] = useState<{ voucherStatusId: string | number; customer: string; currentDate?: string } | null>(null);
   const [expectedDateInput, setExpectedDateInput] = useState("");
+  const [approvingId, setApprovingId] = useState<unknown | null>(null);
 
   // Unassigned customer assignment state (strictly for vibhuti_, bhavya, and admins)
   const [selectedUnassignedIds, setSelectedUnassignedIds] = useState<number[]>([]);
@@ -595,6 +600,14 @@ export default function CustomerToolScreen() {
       });
     }
 
+    if (tool === "voucher-approvals") {
+      return rows.filter((row) => {
+        if (!search) return true;
+        return [row.customer, row.voucher, row.requested_by, row.assigned_salesperson]
+          .some((val) => String(val || "").toLowerCase().includes(search));
+      });
+    }
+
     return rows;
   }, [
     tool,
@@ -686,11 +699,29 @@ export default function CustomerToolScreen() {
     router.push({ pathname: "/(employee)/customers/[customerId]", params: { customerId: String(id), ...(tab ? { tab } : {}) } } as any);
 
   const approve = async (id: unknown, action: "approve" | "reject") => {
+    setApprovingId(id);
     try {
       await api.post(`/customers/workspace/${tool}/`, { id, action });
       setRows((current) => current.filter((row) => row.id !== id));
     } catch {
       Alert.alert("Could not update claim", "Refresh the list and try again.");
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleApproveAction = (id: unknown, action: "approve" | "reject", customerName?: string) => {
+    if (action === "reject") {
+      Alert.alert(
+        "Reject Voucher Claim",
+        `Are you sure you want to reject the voucher claim for ${customerName || "this customer"}?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Reject Claim", style: "destructive", onPress: () => void approve(id, "reject") },
+        ]
+      );
+    } else {
+      void approve(id, "approve");
     }
   };
 
@@ -2702,6 +2733,195 @@ export default function CustomerToolScreen() {
     );
   };
 
+  const renderVoucherApprovalCard = (row: ToolRow, index: number) => {
+    const isProcessing = approvingId === row.id;
+    const customerId = row.customer_id;
+    const voucherAmount = Number(row.voucher_amount || 0);
+
+    return (
+      <View key={`voucher-claim-${row.id ?? index}`} style={[styles.vaCard, card]}>
+        {/* Header: Customer Name & Pending Badge */}
+        <View style={styles.vaHeader}>
+          <TouchableOpacity
+            disabled={!customerId}
+            onPress={() => customerId && openCustomerDetail(customerId)}
+            activeOpacity={0.7}
+            style={styles.vaCustomerRow}
+          >
+            <View style={styles.vaCustomerIconBadge}>
+              <Ionicons name="business-outline" size={16} color="#159A7C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.vaCustomerName, { color: foreground }]} numberOfLines={1}>
+                {String(row.customer || "Unnamed Customer")}
+              </Text>
+              {Boolean(customerId) && (
+                <Text style={[styles.vaCustomerIdSub, { color: muted }]}>Tap to view account</Text>
+              )}
+            </View>
+            {Boolean(customerId) && (
+              <Ionicons name="chevron-forward" size={15} color={muted} />
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.vaStatusBadge}>
+            <Ionicons name="time-outline" size={12} color="#D97706" />
+            <Text style={styles.vaStatusBadgeText}>PENDING</Text>
+          </View>
+        </View>
+
+        {/* Voucher Meta: Number, Date, Amount */}
+        <View style={[styles.vaMetaRow, { borderColor: card.borderColor }]}>
+          <View style={styles.vaMetaItem}>
+            <Ionicons name="receipt-outline" size={14} color="#159A7C" />
+            <Text style={[styles.vaMetaText, { color: foreground, fontFamily: Typography.semiBold }]}>
+              {String(row.voucher || "Voucher")}
+            </Text>
+          </View>
+          {Boolean(row.date) && (
+            <View style={styles.vaMetaItem}>
+              <Ionicons name="calendar-outline" size={13} color={muted} />
+              <Text style={[styles.vaMetaSub, { color: muted }]}>{String(row.date)}</Text>
+            </View>
+          )}
+          {voucherAmount > 0 && (
+            <View style={[styles.vaAmountChip, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.15)" : "#EBF7F3" }]}>
+              <Text style={styles.vaAmountText}>
+                ₹{voucherAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Claim Routing Box (Who claimed it vs Who currently owns it) */}
+        <View style={[styles.vaRoutingCard, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "#F8FAFC", borderColor: card.borderColor }]}>
+          <View style={styles.vaRoutingCol}>
+            <Text style={styles.vaRoutingLabel}>CLAIM REQUESTED BY</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 }}>
+              <Ionicons name="person-circle-outline" size={16} color="#159A7C" />
+              <Text style={[styles.vaRoutingName, { color: foreground }]}>
+                {String(row.requested_by || "Salesperson")}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.vaRoutingArrow}>
+            <Ionicons name="arrow-forward" size={16} color={muted} />
+          </View>
+
+          <View style={[styles.vaRoutingCol, { alignItems: "flex-end" }]}>
+            <Text style={[styles.vaRoutingLabel, { color: muted }]}>CURRENT OWNER</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 }}>
+              <Text style={[styles.vaRoutingName, { color: foreground }]}>
+                {String(row.assigned_salesperson || "Unassigned")}
+              </Text>
+              <Ionicons name="shield-outline" size={15} color={muted} />
+            </View>
+          </View>
+        </View>
+
+        {/* Action Buttons: Reject & Approve */}
+        <View style={styles.vaActionRow}>
+          <TouchableOpacity
+            disabled={isProcessing}
+            onPress={() => handleApproveAction(row.id, "reject", String(row.customer || ""))}
+            style={[styles.vaRejectBtn, { opacity: isProcessing ? 0.6 : 1 }]}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="close-circle-outline" size={16} color="#E11D48" />
+            <Text style={styles.vaRejectText}>Reject Claim</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            disabled={isProcessing}
+            onPress={() => handleApproveAction(row.id, "approve", String(row.customer || ""))}
+            style={[styles.vaApproveBtn, { opacity: isProcessing ? 0.7 : 1 }]}
+            activeOpacity={0.8}
+          >
+            {isProcessing ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                <Text style={styles.vaApproveText}>Approve Claim</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderVoucherApprovalsView = () => {
+    return (
+      <View style={{ gap: 12 }}>
+        {/* Approvals Overview Banner */}
+        <View style={[styles.vaBanner, card]}>
+          <View style={[styles.vaBannerIconBadge, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.16)" : "#EBF7F3" }]}>
+            <Ionicons name="checkbox-outline" size={20} color="#159A7C" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.vaBannerTitle, { color: foreground }]}>
+              Voucher Claim Approvals
+            </Text>
+            <Text style={[styles.vaBannerSub, { color: muted }]}>
+              {visibleRows.length} claim{visibleRows.length === 1 ? "" : "s"} awaiting approval
+            </Text>
+          </View>
+        </View>
+
+        {/* Quick Filter Search Bar */}
+        <View style={[styles.customerSearch, { backgroundColor: isDark ? "#0E1714" : "#F7F9FC", borderColor: card.borderColor }]}>
+          <Ionicons name="search-outline" size={17} color="#159A7C" />
+          <TextInput
+            value={customerSearch}
+            onChangeText={setCustomerSearch}
+            placeholder="Search customer, voucher number, salesperson..."
+            placeholderTextColor={muted}
+            style={[styles.customerSearchInput, { color: foreground }]}
+          />
+          {customerSearch ? (
+            <TouchableOpacity onPress={() => setCustomerSearch("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={17} color={muted} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {visibleRows.length === 0 ? (
+          <View style={[styles.cleanEmptyCard, card]}>
+            <View style={[styles.cleanEmptyIconBadge, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.12)" : "#EBF7F3" }]}>
+              <Ionicons name="checkmark-done-circle-outline" size={36} color="#159A7C" />
+            </View>
+            <Text style={[styles.cleanEmptyTitle, { color: foreground }]}>
+              {customerSearch ? "No Matching Claims" : "No Pending Claims"}
+            </Text>
+            <Text style={[styles.cleanEmptySub, { color: muted }]}>
+              {customerSearch
+                ? "No voucher claims match your search terms."
+                : "All voucher claims have been reviewed and processed."}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (customerSearch) setCustomerSearch("");
+                setLoading(true);
+                void load(1);
+              }}
+              style={[styles.vaEmptyRefreshBtn, { backgroundColor: "#159A7C" }]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
+              <Text style={styles.vaEmptyRefreshText}>
+                {customerSearch ? "Reset Search" : "Refresh List"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          visibleRows.map((row, idx) => renderVoucherApprovalCard(row, idx))
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
@@ -3527,6 +3747,8 @@ export default function CustomerToolScreen() {
           renderRsmIncentivesView()
         ) : tool === "sales-head-incentives" ? (
           renderSalesHeadIncentivesView()
+        ) : tool === "voucher-approvals" ? (
+          renderVoucherApprovalsView()
         ) : (
           visibleRows.map((row, index) => (
             <View key={String(row.id ?? index)} style={[styles.genericRow, card]}>
@@ -3544,16 +3766,6 @@ export default function CustomerToolScreen() {
                     .join("  ·  ")}
                 </Text>
               </View>
-              {tool === "voucher-approvals" && (
-                <View style={{ gap: 6 }}>
-                  <TouchableOpacity onPress={() => void approve(row.id, "approve")} style={styles.approveBtn}>
-                    <Ionicons name="checkmark" size={17} color="white" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => void approve(row.id, "reject")} style={styles.rejectBtn}>
-                    <Ionicons name="close" size={17} color="white" />
-                  </TouchableOpacity>
-                </View>
-              )}
             </View>
           ))
         )}
@@ -3669,7 +3881,7 @@ export default function CustomerToolScreen() {
           </View>
         )}
 
-        {!loading && !error && visibleRows.length === 0 && !["my-incentives", "rsm-incentives", "sales-head-incentives"].includes(tool) && (
+        {!loading && !error && visibleRows.length === 0 && !["my-incentives", "rsm-incentives", "sales-head-incentives", "voucher-approvals"].includes(tool) && (
           <View style={[styles.emptyCard, card]}>
             <Ionicons name={ICONS[tool] || "document-text-outline"} size={32} color="#159A7C" />
             <Text style={[styles.emptyTitle, { color: foreground }]}>No records match these filters</Text>
@@ -5040,4 +5252,34 @@ const styles = StyleSheet.create({
     fontFamily: Typography.semiBold,
     fontSize: 12,
   },
+  vaCard: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 11 },
+  vaHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
+  vaCustomerRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 9 },
+  vaCustomerIconBadge: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(21, 154, 124, 0.12)" },
+  vaCustomerName: { fontFamily: Typography.headingSemi, fontSize: 15 },
+  vaCustomerIdSub: { fontFamily: Typography.regular, fontSize: 10.5, marginTop: 1 },
+  vaStatusBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "rgba(245, 158, 11, 0.12)" },
+  vaStatusBadgeText: { fontFamily: Typography.bold, fontSize: 10, color: "#D97706", letterSpacing: 0.5 },
+  vaMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
+  vaMetaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  vaMetaText: { fontSize: 12.5 },
+  vaMetaSub: { fontFamily: Typography.regular, fontSize: 11 },
+  vaAmountChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  vaAmountText: { fontFamily: Typography.bold, fontSize: 12, color: "#159A7C" },
+  vaRoutingCard: { borderWidth: 1, borderRadius: 12, padding: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  vaRoutingCol: { flex: 1 },
+  vaRoutingLabel: { fontFamily: Typography.bold, fontSize: 9, color: "#159A7C", letterSpacing: 0.6 },
+  vaRoutingName: { fontFamily: Typography.semiBold, fontSize: 12.5 },
+  vaRoutingArrow: { paddingHorizontal: 8 },
+  vaActionRow: { flexDirection: "row", gap: 10, marginTop: 2 },
+  vaRejectBtn: { flex: 1, minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, borderWidth: 1, borderColor: "rgba(225, 29, 72, 0.28)", backgroundColor: "rgba(225, 29, 72, 0.08)" },
+  vaRejectText: { fontFamily: Typography.semiBold, fontSize: 12.5, color: "#E11D48" },
+  vaApproveBtn: { flex: 1.3, minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, backgroundColor: "#159A7C" },
+  vaApproveText: { fontFamily: Typography.bold, fontSize: 12.5, color: "#FFFFFF" },
+  vaBanner: { borderWidth: 1, borderRadius: 16, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+  vaBannerIconBadge: { width: 42, height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  vaBannerTitle: { fontFamily: Typography.headingSemi, fontSize: 15 },
+  vaBannerSub: { fontFamily: Typography.regular, fontSize: 11.5, marginTop: 2 },
+  vaEmptyRefreshBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, marginTop: 12 },
+  vaEmptyRefreshText: { fontFamily: Typography.semiBold, fontSize: 12, color: "#FFFFFF" },
 });

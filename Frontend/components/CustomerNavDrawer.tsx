@@ -58,7 +58,8 @@ export function CustomerNavDrawer({ visible, onClose, isAdmin = false }: Props) 
     hasRole(permissionProfile, "accounts_operations") ||
     isSalesHead ||
     isFinance ||
-    canViewAllCustomers;
+    canViewAllCustomers ||
+    Boolean(user);
 
   const tool = (slug: string) => `/(employee)/customers/tool/${slug}`;
   const sections = [
