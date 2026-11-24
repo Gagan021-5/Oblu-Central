@@ -147,22 +147,28 @@ class ProformaCustomersLookupAPIView(APIView):
             qs = scope_queryset(user, "customer.view", qs)
 
         if search:
-            qs = qs.filter(
+            q_filter = (
                 Q(name__icontains=search)
                 | Q(phone__icontains=search)
                 | Q(city__icontains=search)
-                | Q(id__icontains=search)
+                | Q(state__icontains=search)
+                | Q(gstin__icontains=search)
+                | Q(address__icontains=search)
             )
+            if search.isdigit():
+                q_filter |= Q(id=int(search))
+            qs = qs.filter(q_filter)
 
         customers = []
-        for c in qs.order_by("name")[:60]:
+        for c in qs.order_by("name")[:100]:
             customers.append({
                 "id": c.id,
                 "name": c.name,
                 "phone": getattr(c, "phone", "") or "",
-                "city": getattr(c, "city", "") or "",
+                "city": getattr(c, "city", "") or getattr(c, "district", "") or "",
                 "state": getattr(c, "state", "") or "",
-                "gstin": getattr(c, "gstin", "") or "",
+                "address": getattr(c, "address", "") or "",
+                "gstin": getattr(c, "gstin", "") or getattr(c, "gst_number", "") or "",
                 "has_overdue": getattr(c, "has_overdue_invoices", False),
             })
 
@@ -415,11 +421,13 @@ class DispatchQueueListAPIView(APIView):
             qs = qs.exclude(status__in=["completed", "cancelled"])
 
         if search:
-            qs = qs.filter(
+            q_filter = (
                 Q(invoice__customer__name__icontains=search)
                 | Q(invoice_number__icontains=search)
-                | Q(invoice__id__icontains=search)
             )
+            if search.isdigit():
+                q_filter |= Q(invoice__id=int(search))
+            qs = qs.filter(q_filter)
 
         results = []
         for d in qs[:60]:

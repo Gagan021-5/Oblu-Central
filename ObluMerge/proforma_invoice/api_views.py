@@ -335,16 +335,18 @@ class ProformaListCreateAPIView(APIView):
 
         # ── 3. Search Filter ───────────────────────────────────────────
         if search_query:
-            pi_qs = pi_qs.filter(
-                Q(customer__name__icontains=search_query)
-                | Q(created_by__icontains=search_query)
-                | Q(id__icontains=search_query.replace("PI-", "").replace("pi-", ""))
-            )
-            q_qs = q_qs.filter(
-                Q(customer__name__icontains=search_query)
-                | Q(created_by__icontains=search_query)
-                | Q(id__icontains=search_query.replace("QT-", "").replace("qt-", ""))
-            )
+            clean_search = search_query.strip()
+            pi_filter = Q(customer__name__icontains=clean_search) | Q(created_by__icontains=clean_search)
+            num_pi = clean_search.replace("PI-", "").replace("pi-", "").replace("-", "").strip()
+            if num_pi.isdigit():
+                pi_filter |= Q(id=int(num_pi))
+            pi_qs = pi_qs.filter(pi_filter)
+
+            q_filter = Q(customer__name__icontains=clean_search) | Q(created_by__icontains=clean_search)
+            num_q = clean_search.replace("QT-", "").replace("qt-", "").replace("-", "").strip()
+            if num_q.isdigit():
+                q_filter |= Q(id=int(num_q))
+            q_qs = q_qs.filter(q_filter)
 
         items_list = []
 
@@ -446,8 +448,11 @@ class ProformaListCreateAPIView(APIView):
         data = request.data
         doc_type = data.get("doc_type", "proforma").lower()
         customer_id = data.get("customer_id")
+        shipping_customer_id = data.get("shipping_customer_id")
         courier_mode = data.get("courier_mode", "surface").lower()
         items_data = data.get("items", [])
+        requested_courier_charge = data.get("requested_courier_charge")
+        request_reason = data.get("request_reason", "").strip()
 
         if not customer_id:
             return Response({"error": "Customer is required."}, status=400)
@@ -455,11 +460,13 @@ class ProformaListCreateAPIView(APIView):
             return Response({"error": "At least one item is required."}, status=400)
 
         customer = get_object_or_404(Customer, pk=customer_id)
+        shipping_customer = Customer.objects.filter(pk=shipping_customer_id).first() if shipping_customer_id else customer
 
         with transaction.atomic():
             if doc_type == "quotation":
                 doc = QuotationMaker.objects.create(
                     customer=customer,
+                    shipping_customer=shipping_customer,
                     created_by=user.username,
                     courier_mode=courier_mode,
                 )
@@ -468,30 +475,99 @@ class ProformaListCreateAPIView(APIView):
             else:
                 doc = ProformaInvoice.objects.create(
                     customer=customer,
+                    shipping_customer=shipping_customer,
                     created_by=user.username,
                     courier_mode=courier_mode,
                 )
                 item_model = ProformaInvoiceItem
                 fk_name = "invoice"
 
+            has_price_issue = False
             for item in items_data:
                 product_id = item.get("product_id")
                 qty = int(item.get("quantity", 1))
                 requested_price = item.get("requested_price")
 
                 product = get_object_or_404(InventoryItem, pk=product_id)
-                current_price = getattr(getattr(product, "proforma_price", None), "price", Decimal("0.00"))
+                pricing = getattr(product, "proforma_price", None)
+                standard_price = pricing.price if pricing else Decimal("0.00")
+                msrp = getattr(pricing, "msrp", None) or Decimal("0.00")
+
+                if pricing and pricing.has_dynamic_price:
+                    tier = pricing.price_tiers.filter(min_quantity__lte=qty).order_by("-min_quantity").first()
+                    if tier:
+                        standard_price = tier.unit_price
+
+                user_val = standard_price
+                if requested_price is not None and str(requested_price).strip() != "":
+                    try:
+                        user_val = Decimal(str(requested_price))
+                    except (ValueError, TypeError):
+                        user_val = standard_price
 
                 item_kwargs = {
                     fk_name: doc,
                     "product": product,
                     "quantity": qty,
-                    "current_price": current_price or Decimal("0.00"),
+                    "current_price": standard_price,
                 }
-                if requested_price:
-                    item_kwargs["requested_price"] = Decimal(str(requested_price))
+                if requested_price is not None:
+                    item_kwargs["requested_price"] = user_val
 
-                item_model.objects.create(**item_kwargs)
+                created_item = item_model.objects.create(**item_kwargs)
+
+                # Check if price change request is needed
+                memory = ApprovedPriceMemory.objects.filter(customer=customer, product=product).first()
+                is_permitted = False
+                if memory and memory.base_price_at_approval == standard_price and user_val >= memory.min_approved_price:
+                    is_permitted = True
+
+                if user_val < standard_price and not is_permitted:
+                    has_price_issue = True
+                    is_under_msrp = user_val < msrp
+                    pr_kwargs = {
+                        fk_name: doc,
+                        "customer": customer,
+                        "product": product,
+                        "requested_by": user,
+                        "is_product_request": True,
+                        "quantity": qty,
+                        "requested_price": user_val,
+                        "recommended_price": standard_price,
+                        "msrp_snapshot": msrp,
+                        "is_under_msrp": is_under_msrp,
+                        "reason": request_reason,
+                        "status": "pending",
+                    }
+                    ProformaPriceChangeRequest.objects.create(**pr_kwargs)
+                elif user_val < standard_price and is_permitted:
+                    created_item.current_price = user_val
+                    created_item.save(update_fields=["current_price"])
+                elif user_val >= standard_price:
+                    created_item.current_price = user_val
+                    created_item.save(update_fields=["current_price"])
+
+            has_courier_issue = False
+            if requested_courier_charge is not None and str(requested_courier_charge).strip() != "" and not user.is_superuser:
+                try:
+                    req_courier_dec = Decimal(str(requested_courier_charge))
+                    has_courier_issue = True
+                    pr_courier_kwargs = {
+                        fk_name: doc,
+                        "customer": customer,
+                        "requested_by": user,
+                        "is_product_request": False,
+                        "requested_courier_charge": req_courier_dec,
+                        "reason": request_reason,
+                        "status": "pending",
+                    }
+                    ProformaPriceChangeRequest.objects.create(**pr_courier_kwargs)
+                except (ValueError, TypeError):
+                    pass
+
+            if (has_price_issue or has_courier_issue) and not user.is_superuser:
+                doc.is_price_altered = True
+                doc.save(update_fields=["is_price_altered"])
 
         return Response({
             "success": True,
@@ -608,6 +684,7 @@ class ProformaDetailAPIView(APIView):
         can_approve = bool(user.is_superuser or is_admin(user) or is_finance(user) or can(user, "proforma.price_approval"))
 
         cust = doc.customer
+        ship_cust = getattr(doc, "shipping_customer", None) or cust
         return Response({
             "id": doc.id,
             "doc_type": doc_type,
@@ -622,11 +699,21 @@ class ProformaDetailAPIView(APIView):
                 "name": cust.name if cust else "Unknown",
                 "phone": cust.phone if cust else "",
                 "email": cust.email if cust else "",
-                "city": cust.district or cust.state or "",
+                "city": getattr(cust, "district", "") or getattr(cust, "state", "") or "",
                 "state": cust.state if cust else "",
                 "address": getattr(cust, "address", "") or "",
                 "gstin": getattr(cust, "gstin", "") or getattr(cust, "gst_number", "") or "",
             },
+            "shipping_customer": {
+                "id": ship_cust.id if ship_cust else None,
+                "name": ship_cust.name if ship_cust else "Same as Billing",
+                "phone": ship_cust.phone if ship_cust else "",
+                "email": ship_cust.email if ship_cust else "",
+                "city": getattr(ship_cust, "district", "") or getattr(ship_cust, "state", "") or "",
+                "state": ship_cust.state if ship_cust else "",
+                "address": getattr(ship_cust, "address", "") or "",
+                "gstin": getattr(ship_cust, "gstin", "") or getattr(ship_cust, "gst_number", "") or "",
+            } if ship_cust else None,
             "items": items_list,
             "totals": {
                 "taxable_total": f"₹{int(taxable_num):,}",

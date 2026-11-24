@@ -73,6 +73,16 @@ export interface ProformaDetail {
     address: string;
     gstin: string;
   };
+  shipping_customer?: {
+    id?: number | null;
+    name: string;
+    phone: string;
+    email: string;
+    city: string;
+    state: string;
+    address: string;
+    gstin: string;
+  } | null;
   items: ProformaDetailItem[];
   totals: {
     taxable_total: string;
@@ -252,7 +262,10 @@ export async function fetchProformaDetailApi(
 export async function createProformaApi(payload: {
   doc_type: "proforma" | "quotation";
   customer_id: number;
+  shipping_customer_id?: number | null;
   courier_mode?: string;
+  requested_courier_charge?: number | string;
+  request_reason?: string;
   items: Array<{
     product_id: number;
     quantity: number;
@@ -450,6 +463,7 @@ export interface ProformaCustomerLookup {
   phone: string;
   city: string;
   state: string;
+  address?: string;
   gstin: string;
   has_overdue: boolean;
 }

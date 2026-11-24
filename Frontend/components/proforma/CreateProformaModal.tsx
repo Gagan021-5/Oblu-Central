@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Modal,
   View,
@@ -13,7 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Typography, Radius } from "@/constants/theme";
+import { Typography } from "@/constants/theme";
 import { triggerLightHaptic, triggerSelectionHaptic } from "@/utils/haptics";
 import {
   fetchProformaCustomersApi,
@@ -43,13 +43,9 @@ export function CreateProformaModal({
   onSuccess,
 }: CreateProformaModalProps) {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { isDark } = useTheme();
 
-  // State
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [customers, setCustomers] = useState<ProformaCustomerLookup[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<ProformaCustomerLookup | null>(null);
-  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  // Document Type
   const [currentDocType, setCurrentDocType] = useState<"proforma" | "quotation">(docType || "proforma");
 
   useEffect(() => {
@@ -58,7 +54,21 @@ export function CreateProformaModal({
     }
   }, [visible, docType]);
 
+  // Customer & Shipping State
+  const [allCustomers, setAllCustomers] = useState<ProformaCustomerLookup[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [selectedBilling, setSelectedBilling] = useState<ProformaCustomerLookup | null>(null);
+  const [selectedShipping, setSelectedShipping] = useState<ProformaCustomerLookup | null>(null);
+  const [customerModalVisible, setCustomerModalVisible] = useState(false);
+  const [activePickerTarget, setActivePickerTarget] = useState<"billing" | "shipping">("billing");
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+
+  // Courier Mode & Optional Request Fields
   const [courierMode, setCourierMode] = useState<"surface" | "air">("surface");
+  const [requestedCourierCharge, setRequestedCourierCharge] = useState("");
+  const [requestReason, setRequestReason] = useState("");
+
+  // Line items
   const [items, setItems] = useState<DraftLineItem[]>([]);
 
   // Product Picker State
@@ -77,12 +87,55 @@ export function CreateProformaModal({
   const muted = isDark ? "#94A3B8" : "#64748B";
   const activeColor = "#10B981";
 
-  // Load customers
+  // Preload customers on modal open
   useEffect(() => {
     if (visible) {
-      fetchProformaCustomersApi(customerSearch).then((data) => setCustomers(data));
+      setCustomersLoading(true);
+      fetchProformaCustomersApi("").then((data) => {
+        setAllCustomers(data);
+        setCustomersLoading(false);
+      });
     }
-  }, [visible, customerSearch]);
+  }, [visible]);
+
+  // Debounced server search fallback if query changes
+  const searchTimeoutRef = useRef<any>(null);
+  useEffect(() => {
+    if (customerModalVisible && customerSearchQuery.trim()) {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = setTimeout(async () => {
+        const fetched = await fetchProformaCustomersApi(customerSearchQuery);
+        if (fetched.length > 0) {
+          setAllCustomers((prev) => {
+            const map = new Map<number, ProformaCustomerLookup>();
+            prev.forEach((c) => map.set(c.id, c));
+            fetched.forEach((c) => map.set(c.id, c));
+            return Array.from(map.values());
+          });
+        }
+      }, 300);
+    }
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [customerSearchQuery, customerModalVisible]);
+
+  // Instant client-side filter
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearchQuery.trim()) return allCustomers;
+    const q = customerSearchQuery.toLowerCase().trim();
+    return allCustomers.filter((c) => {
+      return (
+        c.name.toLowerCase().includes(q) ||
+        (c.phone && c.phone.includes(q)) ||
+        (c.city && c.city.toLowerCase().includes(q)) ||
+        (c.state && c.state.toLowerCase().includes(q)) ||
+        (c.address && c.address.toLowerCase().includes(q)) ||
+        (c.gstin && c.gstin.toLowerCase().includes(q)) ||
+        String(c.id).includes(q)
+      );
+    });
+  }, [allCustomers, customerSearchQuery]);
 
   // Load catalog when product picker opens
   useEffect(() => {
@@ -110,13 +163,24 @@ export function CreateProformaModal({
     let gst = 0;
 
     items.forEach((item) => {
-      const price = item.requestedPrice !== undefined ? item.requestedPrice : item.product.base_price;
-      const lineTotal = price * item.quantity;
+      // Find tier price if available
+      let tierPrice = item.product.base_price;
+      if (item.product.tiers && item.product.tiers.length > 0) {
+        for (const t of item.product.tiers) {
+          if (item.quantity >= t.min_qty) {
+            tierPrice = t.unit_price;
+            break;
+          }
+        }
+      }
+      const effectivePrice = item.requestedPrice !== undefined ? item.requestedPrice : tierPrice;
+      const lineTotal = effectivePrice * item.quantity;
       subtotal += lineTotal;
       const taxRate = item.product.gst_percentage || 18;
       gst += lineTotal * (taxRate / 100);
     });
 
+    // Approximate courier calculation
     const courierCost = courierMode === "air" ? 450 : 200;
     const courierGst = courierCost * 0.18;
     const grandTotal = subtotal + courierCost;
@@ -156,6 +220,13 @@ export function CreateProformaModal({
     setItems(copy);
   };
 
+  const handleSetExactQty = (idx: number, text: string) => {
+    const val = parseInt(text.replace(/[^0-9]/g, ""), 10);
+    const copy = [...items];
+    copy[idx].quantity = isNaN(val) || val < 1 ? 1 : val;
+    setItems(copy);
+  };
+
   const handleUpdatePrice = (idx: number, val: string) => {
     const copy = [...items];
     const num = parseFloat(val);
@@ -170,9 +241,14 @@ export function CreateProformaModal({
     setItems(copy);
   };
 
+  const handleUseBillingForShipping = () => {
+    triggerLightHaptic();
+    setSelectedShipping(selectedBilling);
+  };
+
   const handleSubmit = async () => {
-    if (!selectedCustomer) {
-      Alert.alert("Missing Customer", "Please select a client/customer.");
+    if (!selectedBilling) {
+      Alert.alert("Missing Billing Customer", "Please select a billing customer.");
       return;
     }
     if (items.length === 0) {
@@ -184,8 +260,11 @@ export function CreateProformaModal({
     try {
       const payload = {
         doc_type: currentDocType,
-        customer_id: selectedCustomer.id,
+        customer_id: selectedBilling.id,
+        shipping_customer_id: selectedShipping?.id || selectedBilling.id,
         courier_mode: courierMode,
+        requested_courier_charge: requestedCourierCharge.trim() ? requestedCourierCharge.trim() : undefined,
+        request_reason: requestReason.trim(),
         items: items.map((it) => ({
           product_id: it.product.id,
           quantity: it.quantity,
@@ -206,7 +285,7 @@ export function CreateProformaModal({
         Alert.alert("Creation Failed", res?.message || "Could not generate document.");
       }
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.error || "An unexpected error occurred.");
+      Alert.alert("Error", err?.response?.data?.error || err?.message || "An unexpected error occurred.");
     } finally {
       setSubmitting(false);
     }
@@ -222,16 +301,16 @@ export function CreateProformaModal({
           </TouchableOpacity>
           <View style={{ alignItems: "center" }}>
             <Text style={[styles.title, { color: foreground }]}>
-              {currentDocType === "quotation" ? "Create New Quotation" : "Create New Proforma"}
+              {currentDocType === "quotation" ? "QUOTATION MAKER" : "PROFORMA INVOICE MAKER"}
             </Text>
-            <Text style={[styles.subtitle, { color: muted }]}>Draft invoice with tax & courier</Text>
+            <Text style={[styles.subtitle, { color: muted }]}>Create official document with live tax & tiers</Text>
           </View>
           <View style={{ width: 40 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
           {/* Document Type Selector Segment */}
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border, marginBottom: 12 }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border, marginBottom: 14 }]}>
             <Text style={[styles.label, { color: muted }]}>DOCUMENT TYPE</Text>
             <View style={styles.segmentedRow}>
               <TouchableOpacity
@@ -286,42 +365,256 @@ export function CreateProformaModal({
             </View>
           </View>
 
-          {/* Customer Selection Card */}
+          {/* ── 1. CUSTOMER & SHIPPING SECTION (Web Parity) ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.label, { color: muted }]}>CLIENT / CUSTOMER *</Text>
-            {selectedCustomer ? (
-              <View style={styles.selectedCustomerRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.customerName, { color: foreground }]}>{selectedCustomer.name}</Text>
-                  <Text style={[styles.customerDetail, { color: muted }]}>
-                    {selectedCustomer.phone} • {selectedCustomer.city || "India"}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <Text style={[styles.label, { color: muted, marginBottom: 0 }]}>CUSTOMER & SHIPPING</Text>
+              {selectedBilling && !selectedShipping && (
+                <TouchableOpacity onPress={handleUseBillingForShipping} style={styles.copyBtn}>
+                  <Ionicons name="copy-outline" size={13} color={activeColor} />
+                  <Text style={[styles.copyBtnText, { color: activeColor }]}>Same for Shipping</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Select Customer & Shipping Main Button */}
+            <TouchableOpacity
+              style={[styles.selectCustomerBigBtn, { backgroundColor: isDark ? "#1E293B" : "#0F172A" }]}
+              onPress={() => {
+                triggerSelectionHaptic();
+                setActivePickerTarget("billing");
+                setCustomerSearchQuery("");
+                setCustomerModalVisible(true);
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="people" size={18} color="#FFFFFF" />
+              <Text style={styles.selectCustomerBigBtnText}>Select Customer & Shipping</Text>
+              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+
+            {/* Selected Billing Box */}
+            <View style={[styles.partyBox, { borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}>
+              <View style={styles.partyHeaderRow}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="card-outline" size={15} color={activeColor} />
+                  <Text style={[styles.partyHeaderTitle, { color: foreground }]}>Selected Billing:</Text>
+                </View>
+                {selectedBilling && (
+                  <TouchableOpacity onPress={() => setSelectedBilling(null)} style={styles.removePartyBtn}>
+                    <Ionicons name="close-circle" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {selectedBilling ? (
+                <View style={{ marginTop: 4 }}>
+                  <Text style={[styles.partyName, { color: foreground }]}>{selectedBilling.name}</Text>
+                  {selectedBilling.address ? (
+                    <Text style={[styles.partyDetail, { color: muted }]}>
+                      Addr: {selectedBilling.address}
+                    </Text>
+                  ) : null}
+                  <Text style={[styles.partyDetail, { color: muted }]}>
+                    Phone: {selectedBilling.phone || "N/A"} {selectedBilling.city ? `• ${selectedBilling.city}` : ""}
                   </Text>
-                  {selectedCustomer.has_overdue && (
+                  {selectedBilling.gstin ? (
+                    <Text style={[styles.partyDetail, { color: muted }]}>GSTIN: {selectedBilling.gstin}</Text>
+                  ) : null}
+                  {selectedBilling.has_overdue && (
                     <View style={styles.overdueAlert}>
                       <Ionicons name="warning-outline" size={13} color="#F59E0B" />
                       <Text style={styles.overdueText}>Customer has overdue invoices in Tally</Text>
                     </View>
                   )}
                 </View>
-                <TouchableOpacity onPress={() => setSelectedCustomer(null)} style={styles.changeBtn}>
-                  <Text style={[styles.changeText, { color: activeColor }]}>Change</Text>
+              ) : (
+                <Text style={[styles.partyPlaceholder, { color: muted }]}>None selected (tap above to choose)</Text>
+              )}
+            </View>
+
+            {/* Selected Shipping Box */}
+            <View style={[styles.partyBox, { borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF", marginTop: 10 }]}>
+              <View style={styles.partyHeaderRow}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="location-outline" size={15} color="#3B82F6" />
+                  <Text style={[styles.partyHeaderTitle, { color: foreground }]}>Selected Shipping:</Text>
+                </View>
+                {selectedShipping ? (
+                  <TouchableOpacity onPress={() => setSelectedShipping(null)} style={styles.removePartyBtn}>
+                    <Ionicons name="close-circle" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                ) : selectedBilling ? (
+                  <TouchableOpacity onPress={handleUseBillingForShipping}>
+                    <Text style={{ fontSize: 11, color: activeColor, fontFamily: Typography.bold }}>Copy Billing</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {selectedShipping ? (
+                <View style={{ marginTop: 4 }}>
+                  <Text style={[styles.partyName, { color: foreground }]}>{selectedShipping.name}</Text>
+                  {selectedShipping.address ? (
+                    <Text style={[styles.partyDetail, { color: muted }]}>
+                      Addr: {selectedShipping.address}
+                    </Text>
+                  ) : null}
+                  <Text style={[styles.partyDetail, { color: muted }]}>
+                    Phone: {selectedShipping.phone || "N/A"} {selectedShipping.city ? `• ${selectedShipping.city}` : ""}
+                  </Text>
+                  {selectedShipping.gstin ? (
+                    <Text style={[styles.partyDetail, { color: muted }]}>GSTIN: {selectedShipping.gstin}</Text>
+                  ) : null}
+                </View>
+              ) : (
+                <Text style={[styles.partyPlaceholder, { color: muted }]}>
+                  {selectedBilling ? "Same as Billing (Default)" : "None"}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* ── 2. ITEMS SECTION (Web Parity: Product, Qty, Stock, System Price, Requested Price) ── */}
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.label, { color: muted }]}>
+                {currentDocType === "quotation" ? "QUOTATION ITEMS" : "INVOICE ITEMS"} ({items.length})
+              </Text>
+              <TouchableOpacity
+                onPress={() => setProductPickerOpen(true)}
+                style={[styles.addItemsBtn, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.16)" : "#DDF4EA" }]}
+              >
+                <Ionicons name="add" size={16} color={activeColor} />
+                <Text style={[styles.addItemsText, { color: activeColor }]}>Add Product</Text>
+              </TouchableOpacity>
+            </View>
+
+            {items.length === 0 ? (
+              <View style={styles.emptyItemsBox}>
+                <Ionicons name="cart-outline" size={32} color={muted} />
+                <Text style={[styles.emptyItemsText, { color: muted }]}>No items added yet. Tap below to add products.</Text>
+                <TouchableOpacity
+                  style={[styles.addFirstItemBtn, { backgroundColor: isDark ? "#1E293B" : "#0F172A" }]}
+                  onPress={() => setProductPickerOpen(true)}
+                >
+                  <Ionicons name="add-circle-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.addFirstItemText}>Add First Product</Text>
                 </TouchableOpacity>
               </View>
             ) : (
+              items.map((item, idx) => {
+                // Tier pricing check
+                let tierPrice = item.product.base_price;
+                if (item.product.tiers && item.product.tiers.length > 0) {
+                  for (const t of item.product.tiers) {
+                    if (item.quantity >= t.min_qty) {
+                      tierPrice = t.unit_price;
+                      break;
+                    }
+                  }
+                }
+                const effectivePrice = item.requestedPrice !== undefined ? item.requestedPrice : tierPrice;
+                const isPriceAltered = item.requestedPrice !== undefined && item.requestedPrice !== tierPrice;
+                const inStock = item.product.stock > 0;
+
+                return (
+                  <View key={`${item.product.id}-${idx}`} style={[styles.itemCard, { borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}>
+                    {/* Item Top: Name, Category, Remove Button */}
+                    <View style={styles.itemCardTop}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.itemName, { color: foreground }]}>{item.product.name}</Text>
+                        <Text style={[styles.itemSku, { color: muted }]}>
+                          {item.product.category} • SKU: {item.product.sku || "N/A"}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => handleRemoveItem(idx)} style={styles.trashBtn}>
+                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Stock & Tier badges */}
+                    <View style={styles.stockRow}>
+                      <View style={[styles.stockBadge, { backgroundColor: inStock ? (isDark ? "rgba(16, 185, 129, 0.15)" : "#ECFDF5") : (isDark ? "rgba(239, 68, 68, 0.15)" : "#FEF2F2") }]}>
+                        <Ionicons name={inStock ? "checkmark-circle" : "alert-circle"} size={13} color={inStock ? activeColor : "#EF4444"} />
+                        <Text style={[styles.stockBadgeText, { color: inStock ? activeColor : "#EF4444" }]}>
+                          {item.product.stock} in inventory
+                        </Text>
+                      </View>
+                      <Text style={[styles.systemPriceText, { color: muted }]}>
+                        System: ₹{intFormat(tierPrice)} (Tiers)
+                      </Text>
+                    </View>
+
+                    {/* Quantity Stepper & Inputs */}
+                    <View style={styles.itemInputsRow}>
+                      {/* Order Qty */}
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.inputSubLabel, { color: muted }]}>ORDER QTY</Text>
+                        <View style={[styles.stepperContainer, { borderColor: border }]}>
+                          <TouchableOpacity onPress={() => handleUpdateQty(idx, -1)} style={styles.stepperBtn}>
+                            <Ionicons name="remove" size={14} color={foreground} />
+                          </TouchableOpacity>
+                          <TextInput
+                            style={[styles.stepperInput, { color: foreground }]}
+                            keyboardType="numeric"
+                            value={String(item.quantity)}
+                            onChangeText={(t) => handleSetExactQty(idx, t)}
+                          />
+                          <TouchableOpacity onPress={() => handleUpdateQty(idx, 1)} style={styles.stepperBtn}>
+                            <Ionicons name="add" size={14} color={foreground} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Requested Price */}
+                      <View style={{ flex: 1.2, marginLeft: 12 }}>
+                        <Text style={[styles.inputSubLabel, { color: muted }]}>REQUESTED PRICE</Text>
+                        <TextInput
+                          style={[
+                            styles.requestedPriceInput,
+                            {
+                              color: foreground,
+                              borderColor: isPriceAltered ? "#F59E0B" : border,
+                              backgroundColor: isDark ? "#12151E" : "#F8FAFC",
+                            },
+                          ]}
+                          keyboardType="numeric"
+                          placeholder={`Default (₹${intFormat(tierPrice)})`}
+                          placeholderTextColor={muted}
+                          defaultValue={item.requestedPrice !== undefined ? String(item.requestedPrice) : ""}
+                          onChangeText={(val) => handleUpdatePrice(idx, val)}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Line Total */}
+                    <View style={[styles.lineTotalRow, { borderTopColor: border }]}>
+                      <Text style={[styles.lineTotalLabel, { color: muted }]}>Line Total ({item.quantity} × ₹{intFormat(effectivePrice)}):</Text>
+                      <Text style={[styles.lineTotalValue, { color: activeColor }]}>
+                        ₹{intFormat(effectivePrice * item.quantity)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+
+            {items.length > 0 && (
               <TouchableOpacity
-                style={[styles.customerPickerBtn, { borderColor: border }]}
-                onPress={() => setCustomerPickerOpen(true)}
+                onPress={() => setProductPickerOpen(true)}
+                style={[styles.addAnotherProductBtn, { borderColor: border }]}
               >
-                <Ionicons name="person-outline" size={18} color={muted} />
-                <Text style={[styles.pickerPlaceholder, { color: muted }]}>Select Client from CRM...</Text>
-                <Ionicons name="chevron-forward" size={16} color={muted} />
+                <Ionicons name="add-circle-outline" size={18} color={activeColor} />
+                <Text style={[styles.addAnotherProductText, { color: activeColor }]}>
+                  Add Another Product
+                </Text>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Courier Mode Selection */}
+          {/* ── 3. COURIER SECTION (Surface vs Air) ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.label, { color: muted }]}>SHIPPING & COURIER MODE</Text>
+            <Text style={[styles.label, { color: muted }]}>COURIER MODE</Text>
             <View style={styles.segmentedRow}>
               <TouchableOpacity
                 style={[
@@ -333,18 +626,14 @@ export function CreateProformaModal({
                   setCourierMode("surface");
                 }}
               >
-                <Ionicons
-                  name="bus-outline"
-                  size={16}
-                  color={courierMode === "surface" ? "#06281E" : muted}
-                />
+                <Text style={{ fontSize: 16 }}>🚚</Text>
                 <Text
                   style={[
                     styles.segmentText,
-                    { color: courierMode === "surface" ? "#06281E" : foreground },
+                    { color: courierMode === "surface" ? "#06281E" : foreground, fontFamily: Typography.bold },
                   ]}
                 >
-                  Surface Cargo (Standard)
+                  Surface Cargo
                 </Text>
               </TouchableOpacity>
 
@@ -358,102 +647,57 @@ export function CreateProformaModal({
                   setCourierMode("air");
                 }}
               >
-                <Ionicons
-                  name="airplane-outline"
-                  size={16}
-                  color={courierMode === "air" ? "#06281E" : muted}
-                />
+                <Text style={{ fontSize: 16 }}>✈️</Text>
                 <Text
                   style={[
                     styles.segmentText,
-                    { color: courierMode === "air" ? "#06281E" : foreground },
+                    { color: courierMode === "air" ? "#06281E" : foreground, fontFamily: Typography.bold },
                   ]}
                 >
-                  Air Express (Priority)
+                  Air Express
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Product Items Section */}
+          {/* ── 4. PRICE & COURIER REQUEST (OPTIONAL REMARKS) ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.label, { color: muted }]}>LINE ITEMS ({items.length})</Text>
-              <TouchableOpacity
-                onPress={() => setProductPickerOpen(true)}
-                style={[styles.addItemsBtn, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.16)" : "#DDF4EA" }]}
-              >
-                <Ionicons name="add" size={16} color={activeColor} />
-                <Text style={[styles.addItemsText, { color: activeColor }]}>Add Products</Text>
-              </TouchableOpacity>
+            <Text style={[styles.label, { color: muted }]}>PRICE & COURIER REQUEST (OPTIONAL)</Text>
+
+            <View style={styles.courierEstimateRow}>
+              <Text style={[styles.courierEstimateLabel, { color: muted }]}>Approximate Courier:</Text>
+              <Text style={[styles.courierEstimateValue, { color: activeColor }]}>
+                ₹{intFormat(calculations.courier)}
+              </Text>
             </View>
 
-            {items.length === 0 ? (
-              <View style={styles.emptyItemsBox}>
-                <Ionicons name="cart-outline" size={32} color={muted} />
-                <Text style={[styles.emptyItemsText, { color: muted }]}>No items added to this invoice yet.</Text>
-              </View>
-            ) : (
-              items.map((item, idx) => {
-                const effectivePrice = item.requestedPrice !== undefined ? item.requestedPrice : item.product.base_price;
-                const isPriceAltered = item.requestedPrice !== undefined && item.requestedPrice !== item.product.base_price;
-                return (
-                  <View key={item.product.id} style={[styles.itemRow, { borderBottomColor: border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.itemName, { color: foreground }]}>{item.product.name}</Text>
-                      <Text style={[styles.itemSku, { color: muted }]}>
-                        SKU: {item.product.sku || "N/A"} • Stock: {item.product.stock}
-                      </Text>
+            <View style={{ marginTop: 10 }}>
+              <Text style={[styles.inputSubLabel, { color: muted }]}>REQUESTED COURIER CHARGE (₹)</Text>
+              <TextInput
+                style={[styles.inputBox, { color: foreground, borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}
+                keyboardType="numeric"
+                placeholder="Leave empty for Actual"
+                placeholderTextColor={muted}
+                value={requestedCourierCharge}
+                onChangeText={setRequestedCourierCharge}
+              />
+            </View>
 
-                      <View style={styles.itemPricingInputs}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                          <Text style={[styles.priceTag, { color: muted }]}>Unit: ₹</Text>
-                          <TextInput
-                            style={[
-                              styles.priceInput,
-                              {
-                                color: foreground,
-                                borderColor: isPriceAltered ? "#F59E0B" : border,
-                              },
-                            ]}
-                            keyboardType="numeric"
-                            defaultValue={String(effectivePrice)}
-                            onChangeText={(val) => handleUpdatePrice(idx, val)}
-                          />
-                          {isPriceAltered && (
-                            <Text style={styles.alteredBadge}>Custom</Text>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Stepper & Total */}
-                    <View style={styles.stepperCluster}>
-                      <View style={[styles.stepper, { borderColor: border }]}>
-                        <TouchableOpacity onPress={() => handleUpdateQty(idx, -1)} style={styles.stepperBtn}>
-                          <Ionicons name="remove" size={14} color={foreground} />
-                        </TouchableOpacity>
-                        <Text style={[styles.stepperVal, { color: foreground }]}>{item.quantity}</Text>
-                        <TouchableOpacity onPress={() => handleUpdateQty(idx, 1)} style={styles.stepperBtn}>
-                          <Ionicons name="add" size={14} color={foreground} />
-                        </TouchableOpacity>
-                      </View>
-
-                      <Text style={[styles.lineTotal, { color: activeColor }]}>
-                        ₹{intFormat(effectivePrice * item.quantity)}
-                      </Text>
-
-                      <TouchableOpacity onPress={() => handleRemoveItem(idx)} style={styles.trashBtn}>
-                        <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })
-            )}
+            <View style={{ marginTop: 10 }}>
+              <Text style={[styles.inputSubLabel, { color: muted }]}>REASON FOR PRICE / COURIER CHANGE</Text>
+              <TextInput
+                style={[styles.textAreaBox, { color: foreground, borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}
+                multiline
+                numberOfLines={3}
+                placeholder="Explain changes (volume match, client agreement, discount justification)..."
+                placeholderTextColor={muted}
+                value={requestReason}
+                onChangeText={setRequestReason}
+              />
+            </View>
           </View>
 
-          {/* Pricing Breakdown Summary */}
+          {/* ── 5. ORDER TOTALS ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
             <Text style={[styles.label, { color: muted }]}>ORDER TOTALS</Text>
 
@@ -494,101 +738,254 @@ export function CreateProformaModal({
               <>
                 <Ionicons name="checkmark-done" size={20} color="#06281E" />
                 <Text style={styles.submitBtnText}>
-                  Generate {docType === "quotation" ? "Quotation" : "Proforma Invoice"}
+                  {currentDocType === "quotation" ? "Save Quotation" : "Save Proforma Invoice"}
                 </Text>
               </>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* ── CUSTOMER PICKER MODAL ── */}
-        <Modal visible={customerPickerOpen} animationType="slide">
+        {/* ── CUSTOMER & SHIPPING PICKER MODAL (WEB PARITY) ── */}
+        <Modal visible={customerModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCustomerModalVisible(false)}>
           <View style={[styles.pickerModal, { backgroundColor: bg, paddingTop: Math.max(insets.top, 16) }]}>
+            {/* Modal Header */}
             <View style={[styles.header, { borderBottomColor: border }]}>
-              <TouchableOpacity onPress={() => setCustomerPickerOpen(false)} style={styles.closeBtn}>
-                <Ionicons name="arrow-back" size={22} color={foreground} />
+              <TouchableOpacity onPress={() => setCustomerModalVisible(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={24} color={muted} />
               </TouchableOpacity>
-              <Text style={[styles.title, { color: foreground }]}>Select Customer</Text>
-              <View style={{ width: 40 }} />
+              <View style={{ alignItems: "center" }}>
+                <Text style={[styles.title, { color: foreground }]}>Select Customer</Text>
+                <Text style={[styles.subtitle, { color: muted }]}>Billing and Shipping accounts</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setCustomerModalVisible(false)}
+                style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+              >
+                <Text style={{ fontSize: 13, fontFamily: Typography.bold, color: activeColor }}>Done</Text>
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.searchBarBox}>
-              <TextInput
-                style={[styles.searchInput, { backgroundColor: cardBg, color: foreground, borderColor: border }]}
-                placeholder="Search customers by name, phone..."
-                placeholderTextColor={muted}
-                value={customerSearch}
-                onChangeText={setCustomerSearch}
-              />
-            </View>
-
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 16 }}>
-              {customers.map((c) => (
-                <TouchableOpacity
-                  key={c.id}
-                  style={[styles.customerPickItem, { borderBottomColor: border }]}
-                  onPress={() => {
-                    triggerSelectionHaptic();
-                    setSelectedCustomer(c);
-                    setCustomerPickerOpen(false);
-                  }}
+            {/* Target Tab Switcher (Billing vs Shipping) */}
+            <View style={[styles.modalTabRow, { borderBottomColor: border }]}>
+              <TouchableOpacity
+                style={[
+                  styles.modalTabBtn,
+                  activePickerTarget === "billing" && { borderBottomColor: activeColor, borderBottomWidth: 2 },
+                ]}
+                onPress={() => {
+                  triggerSelectionHaptic();
+                  setActivePickerTarget("billing");
+                }}
+              >
+                <Ionicons name="card-outline" size={16} color={activePickerTarget === "billing" ? activeColor : muted} />
+                <Text
+                  style={[
+                    styles.modalTabText,
+                    { color: activePickerTarget === "billing" ? activeColor : muted, fontFamily: Typography.bold },
+                  ]}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.customerName, { color: foreground }]}>{c.name}</Text>
-                    <Text style={[styles.customerDetail, { color: muted }]}>
-                      {c.phone} • {c.city || "India"}
-                    </Text>
-                  </View>
-                  <Ionicons name="checkmark-circle-outline" size={20} color={activeColor} />
+                  Billing: {selectedBilling ? selectedBilling.name.slice(0, 16) : "None"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalTabBtn,
+                  activePickerTarget === "shipping" && { borderBottomColor: "#3B82F6", borderBottomWidth: 2 },
+                ]}
+                onPress={() => {
+                  triggerSelectionHaptic();
+                  setActivePickerTarget("shipping");
+                }}
+              >
+                <Ionicons name="location-outline" size={16} color={activePickerTarget === "shipping" ? "#3B82F6" : muted} />
+                <Text
+                  style={[
+                    styles.modalTabText,
+                    { color: activePickerTarget === "shipping" ? "#3B82F6" : muted, fontFamily: Typography.bold },
+                  ]}
+                >
+                  Shipping: {selectedShipping ? selectedShipping.name.slice(0, 16) : "None"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Quick Helper if on Shipping */}
+            {activePickerTarget === "shipping" && selectedBilling && (
+              <View style={[styles.quickHelperBar, { backgroundColor: isDark ? "#12151E" : "#F1F5F9" }]}>
+                <Text style={[styles.quickHelperText, { color: muted }]}>
+                  Copy from billing account?
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    triggerLightHaptic();
+                    setSelectedShipping(selectedBilling);
+                  }}
+                  style={[styles.quickHelperBtn, { backgroundColor: activeColor }]}
+                >
+                  <Ionicons name="copy-outline" size={13} color="#06281E" />
+                  <Text style={styles.quickHelperBtnText}>Use {selectedBilling.name.slice(0, 15)}</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              </View>
+            )}
+
+            {/* Search Bar */}
+            <View style={styles.searchBarBox}>
+              <View style={[styles.searchBarInner, { backgroundColor: cardBg, borderColor: border }]}>
+                <Ionicons name="search-outline" size={18} color={muted} />
+                <TextInput
+                  style={[styles.searchInput, { color: foreground }]}
+                  placeholder={
+                    activePickerTarget === "billing"
+                      ? "Search billing (name, phone, city, ID)..."
+                      : "Search shipping (name, phone, city, ID)..."
+                  }
+                  placeholderTextColor={muted}
+                  value={customerSearchQuery}
+                  onChangeText={setCustomerSearchQuery}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {customerSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setCustomerSearchQuery("")} style={{ padding: 4 }}>
+                    <Ionicons name="close-circle" size={16} color={muted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Customer List */}
+            {customersLoading && allCustomers.length === 0 ? (
+              <ActivityIndicator style={{ marginTop: 40 }} color={activeColor} />
+            ) : filteredCustomers.length === 0 ? (
+              <View style={styles.emptyItemsBox}>
+                <Ionicons name="search" size={32} color={muted} />
+                <Text style={[styles.emptyItemsText, { color: muted }]}>
+                  No customers found matching "{customerSearchQuery}"
+                </Text>
+              </View>
+            ) : (
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+                {filteredCustomers.map((c) => {
+                  const isSelected =
+                    activePickerTarget === "billing"
+                      ? selectedBilling?.id === c.id
+                      : selectedShipping?.id === c.id;
+
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[
+                        styles.customerPickItem,
+                        {
+                          borderBottomColor: border,
+                          backgroundColor: isSelected ? (isDark ? "rgba(16, 185, 129, 0.12)" : "#ECFDF5") : "transparent",
+                        },
+                      ]}
+                      onPress={() => {
+                        triggerSelectionHaptic();
+                        if (activePickerTarget === "billing") {
+                          setSelectedBilling(c);
+                          if (!selectedShipping) {
+                            setSelectedShipping(c);
+                          }
+                        } else {
+                          setSelectedShipping(c);
+                        }
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.customerName, { color: foreground }]}>{c.name}</Text>
+                        {c.address ? (
+                          <Text style={[styles.customerDetail, { color: muted }]} numberOfLines={1}>
+                            Addr: {c.address}
+                          </Text>
+                        ) : null}
+                        <Text style={[styles.customerDetail, { color: muted }]}>
+                          Phone: {c.phone || "N/A"} • {c.city || c.state || "India"}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                        size={22}
+                        color={isSelected ? activeColor : muted}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* Footer Confirm */}
+            <View style={[styles.modalFooterConfirm, { borderTopColor: border }]}>
+              <TouchableOpacity
+                style={[styles.confirmCustomerBtn, { backgroundColor: isDark ? "#1E293B" : "#0F172A" }]}
+                onPress={() => setCustomerModalVisible(false)}
+              >
+                <Text style={styles.confirmCustomerText}>Confirm Selection</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Modal>
 
         {/* ── PRODUCT CATALOG PICKER MODAL ── */}
-        <Modal visible={productPickerOpen} animationType="slide">
+        <Modal visible={productPickerOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setProductPickerOpen(false)}>
           <View style={[styles.pickerModal, { backgroundColor: bg, paddingTop: Math.max(insets.top, 16) }]}>
             <View style={[styles.header, { borderBottomColor: border }]}>
               <TouchableOpacity onPress={() => setProductPickerOpen(false)} style={styles.closeBtn}>
-                <Ionicons name="arrow-back" size={22} color={foreground} />
+                <Ionicons name="close" size={24} color={muted} />
               </TouchableOpacity>
-              <Text style={[styles.title, { color: foreground }]}>Add Products</Text>
+              <Text style={[styles.title, { color: foreground }]}>Select Product</Text>
               <View style={{ width: 40 }} />
             </View>
 
             <View style={styles.searchBarBox}>
-              <TextInput
-                style={[styles.searchInput, { backgroundColor: cardBg, color: foreground, borderColor: border }]}
-                placeholder="Search product name or SKU..."
-                placeholderTextColor={muted}
-                value={catalogSearch}
-                onChangeText={setCatalogSearch}
-              />
+              <View style={[styles.searchBarInner, { backgroundColor: cardBg, borderColor: border }]}>
+                <Ionicons name="search-outline" size={18} color={muted} />
+                <TextInput
+                  style={[styles.searchInput, { color: foreground }]}
+                  placeholder="Search products by name or SKU..."
+                  placeholderTextColor={muted}
+                  value={catalogSearch}
+                  onChangeText={setCatalogSearch}
+                />
+              </View>
             </View>
 
             {catalogLoading ? (
               <ActivityIndicator style={{ marginTop: 40 }} color={activeColor} />
+            ) : visibleCatalogProducts.length === 0 ? (
+              <View style={styles.emptyItemsBox}>
+                <Ionicons name="cube-outline" size={32} color={muted} />
+                <Text style={[styles.emptyItemsText, { color: muted }]}>No products found.</Text>
+              </View>
             ) : (
-              <ScrollView contentContainerStyle={{ paddingHorizontal: 16 }}>
-                {visibleCatalogProducts.map((p) => (
-                  <TouchableOpacity
-                    key={p.id}
-                    style={[styles.catalogPickItem, { borderBottomColor: border }]}
-                    onPress={() => handleAddProduct(p)}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.itemName, { color: foreground }]}>{p.name}</Text>
-                      <Text style={[styles.itemSku, { color: muted }]}>
-                        {p.category} • SKU: {p.sku || "N/A"} • Stock: {p.stock}
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: "flex-end", marginRight: 8 }}>
-                      <Text style={[styles.catalogPrice, { color: activeColor }]}>₹{intFormat(p.base_price)}</Text>
-                    </View>
-                    <Ionicons name="add-circle" size={24} color={activeColor} />
-                  </TouchableOpacity>
-                ))}
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
+                {visibleCatalogProducts.map((p) => {
+                  const inStock = p.stock > 0;
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[styles.catalogPickItem, { borderBottomColor: border }]}
+                      onPress={() => handleAddProduct(p)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.itemName, { color: foreground }]}>{p.name}</Text>
+                        <Text style={[styles.itemSku, { color: muted }]}>
+                          {p.category} • SKU: {p.sku || "N/A"}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: inStock ? activeColor : "#EF4444", marginTop: 2, fontFamily: Typography.bold }}>
+                          Stock: {p.stock} In Inventory
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: "flex-end", marginRight: 10 }}>
+                        <Text style={[styles.catalogPrice, { color: activeColor }]}>₹{intFormat(p.base_price)}</Text>
+                        <Text style={[styles.catalogGst, { color: muted }]}>+18% GST</Text>
+                      </View>
+                      <Ionicons name="add-circle" size={24} color={activeColor} />
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             )}
           </View>
@@ -615,7 +1012,7 @@ const styles = StyleSheet.create({
   closeBtn: { padding: 4 },
   title: { fontSize: 16, fontFamily: Typography.bold },
   subtitle: { fontSize: 11, fontFamily: Typography.regular, marginTop: 2 },
-  scrollBody: { padding: 16, paddingBottom: 100 },
+  scrollBody: { padding: 16, paddingBottom: 110 },
   card: {
     borderRadius: 16,
     borderWidth: 1,
@@ -628,32 +1025,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 10,
   },
-  selectedCustomerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  customerName: { fontSize: 14, fontFamily: Typography.bold },
-  customerDetail: { fontSize: 11, fontFamily: Typography.regular, marginTop: 2 },
-  overdueAlert: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 6,
-    gap: 4,
-  },
-  overdueText: { fontSize: 11, color: "#F59E0B", fontFamily: Typography.medium },
-  changeBtn: { paddingHorizontal: 10, paddingVertical: 6 },
-  changeText: { fontSize: 12, fontFamily: Typography.bold },
-  customerPickerBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 8,
-  },
-  pickerPlaceholder: { flex: 1, fontSize: 13, fontFamily: Typography.regular },
   segmentedRow: { flexDirection: "row", gap: 10 },
   segmentBtn: {
     flex: 1,
@@ -666,6 +1037,70 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(128, 128, 128, 0.1)",
   },
   segmentText: { fontSize: 11, fontFamily: Typography.semiBold },
+  selectCustomerBigBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 12,
+  },
+  selectCustomerBigBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontFamily: Typography.bold,
+  },
+  partyBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+  },
+  partyHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  partyHeaderTitle: {
+    fontSize: 12,
+    fontFamily: Typography.bold,
+  },
+  partyName: {
+    fontSize: 14,
+    fontFamily: Typography.bold,
+    marginTop: 2,
+  },
+  partyDetail: {
+    fontSize: 11,
+    fontFamily: Typography.regular,
+    marginTop: 2,
+  },
+  partyPlaceholder: {
+    fontSize: 12,
+    fontFamily: Typography.regular,
+    fontStyle: "italic",
+    marginTop: 4,
+  },
+  removePartyBtn: {
+    padding: 2,
+  },
+  copyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  copyBtnText: {
+    fontSize: 11,
+    fontFamily: Typography.bold,
+  },
+  overdueAlert: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    gap: 4,
+  },
+  overdueText: { fontSize: 11, color: "#F59E0B", fontFamily: Typography.medium },
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -685,52 +1120,139 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 24,
-    gap: 6,
+    gap: 8,
   },
-  emptyItemsText: { fontSize: 12, fontFamily: Typography.regular },
-  itemRow: {
+  emptyItemsText: { fontSize: 12, fontFamily: Typography.regular, textAlign: "center" },
+  addFirstItemBtn: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    marginTop: 4,
+  },
+  addFirstItemText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: Typography.bold,
+  },
+  itemCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  itemCardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   itemName: { fontSize: 13, fontFamily: Typography.bold },
   itemSku: { fontSize: 11, fontFamily: Typography.regular, marginTop: 2 },
-  itemPricingInputs: { marginTop: 6 },
-  priceTag: { fontSize: 12, fontFamily: Typography.medium },
-  priceInput: {
-    borderWidth: 1,
-    borderRadius: 6,
+  stockRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  stockBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    fontSize: 12,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+  },
+  stockBadgeText: { fontSize: 10, fontFamily: Typography.bold },
+  systemPriceText: { fontSize: 11, fontFamily: Typography.medium },
+  itemInputsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  inputSubLabel: {
+    fontSize: 10,
     fontFamily: Typography.bold,
-    minWidth: 70,
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  alteredBadge: {
-    fontSize: 9,
-    fontFamily: Typography.bold,
-    color: "#F59E0B",
-    backgroundColor: "rgba(245, 158, 11, 0.15)",
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 4,
-  },
-  stepperCluster: {
-    alignItems: "flex-end",
-    gap: 6,
-  },
-  stepper: {
+  stepperContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 8,
     borderWidth: 1,
+    height: 38,
   },
-  stepperBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  stepperVal: { fontSize: 13, fontFamily: Typography.bold, paddingHorizontal: 4 },
-  lineTotal: { fontSize: 13, fontFamily: Typography.bold },
+  stepperBtn: {
+    paddingHorizontal: 10,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  stepperInput: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 13,
+    fontFamily: Typography.bold,
+  },
+  requestedPriceInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    height: 38,
+    paddingHorizontal: 10,
+    fontSize: 12,
+    fontFamily: Typography.medium,
+  },
+  lineTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+  },
+  lineTotalLabel: { fontSize: 11, fontFamily: Typography.regular },
+  lineTotalValue: { fontSize: 13, fontFamily: Typography.bold },
   trashBtn: { padding: 4 },
+  addAnotherProductBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    gap: 6,
+    marginTop: 4,
+  },
+  addAnotherProductText: { fontSize: 13, fontFamily: Typography.bold },
+  courierEstimateRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  courierEstimateLabel: { fontSize: 12, fontFamily: Typography.bold },
+  courierEstimateValue: { fontSize: 14, fontFamily: Typography.bold },
+  inputBox: {
+    borderWidth: 1,
+    borderRadius: 10,
+    height: 42,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    fontFamily: Typography.regular,
+  },
+  textAreaBox: {
+    borderWidth: 1,
+    borderRadius: 10,
+    minHeight: 70,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontFamily: Typography.regular,
+    textAlignVertical: "top",
+  },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -764,12 +1286,54 @@ const styles = StyleSheet.create({
     color: "#06281E",
   },
   pickerModal: { flex: 1 },
-  searchBarBox: { padding: 16 },
-  searchInput: {
+  modalTabRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+  },
+  modalTabBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    gap: 6,
+  },
+  modalTabText: {
+    fontSize: 12,
+  },
+  quickHelperBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  quickHelperText: { fontSize: 11, fontFamily: Typography.regular },
+  quickHelperBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  quickHelperBtnText: {
+    fontSize: 11,
+    fontFamily: Typography.bold,
+    color: "#06281E",
+  },
+  searchBarBox: { paddingHorizontal: 16, paddingVertical: 10 },
+  searchBarInner: {
+    flexDirection: "row",
+    alignItems: "center",
     height: 44,
     borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 12,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 13,
     fontFamily: Typography.regular,
   },
@@ -777,7 +1341,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     borderBottomWidth: 1,
+  },
+  customerName: { fontSize: 14, fontFamily: Typography.bold },
+  customerDetail: { fontSize: 11, fontFamily: Typography.regular, marginTop: 2 },
+  modalFooterConfirm: {
+    padding: 16,
+    borderTopWidth: 1,
+  },
+  confirmCustomerBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  confirmCustomerText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: Typography.bold,
   },
   catalogPickItem: {
     flexDirection: "row",

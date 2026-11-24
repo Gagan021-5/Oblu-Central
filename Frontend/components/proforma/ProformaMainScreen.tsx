@@ -861,15 +861,54 @@ export function ProformaMainScreen() {
                 </View>
               )}
 
-              {/* Customer Box */}
+              {/* Customer Box (Billing & Shipping) */}
               <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
-                <Text style={[styles.detailCardLabel, { color: muted }]}>CLIENT INFORMATION</Text>
-                <Text style={[styles.detailClientName, { color: foreground }]}>{detailData.customer.name}</Text>
-                <Text style={[styles.detailClientSub, { color: muted }]}>
-                  {detailData.customer.phone} • {detailData.customer.city || "India"}
-                </Text>
-                {Boolean(detailData.customer.gstin) && (
-                  <Text style={[styles.detailGstin, { color: muted }]}>GSTIN: {detailData.customer.gstin}</Text>
+                <Text style={[styles.detailCardLabel, { color: muted }]}>CUSTOMER & SHIPPING</Text>
+
+                {/* Billing Address */}
+                <View style={{ marginBottom: detailData.shipping_customer ? 10 : 0 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Ionicons name="card-outline" size={14} color={activeColor} />
+                    <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: foreground }}>BILLING TO</Text>
+                  </View>
+                  <Text style={[styles.detailClientName, { color: foreground, marginTop: 4 }]}>{detailData.customer.name}</Text>
+                  {Boolean(detailData.customer.address) && (
+                    <Text style={[styles.detailClientSub, { color: muted }]}>
+                      Addr: {detailData.customer.address}
+                    </Text>
+                  )}
+                  <Text style={[styles.detailClientSub, { color: muted }]}>
+                    Phone: {detailData.customer.phone || "N/A"} • {detailData.customer.city || "India"}
+                  </Text>
+                  {Boolean(detailData.customer.gstin) && (
+                    <Text style={[styles.detailGstin, { color: muted }]}>GSTIN: {detailData.customer.gstin}</Text>
+                  )}
+                </View>
+
+                {/* Shipping Address */}
+                {detailData.shipping_customer && (
+                  <View style={{ marginTop: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: border }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons name="location-outline" size={14} color="#3B82F6" />
+                      <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: foreground }}>SHIP TO</Text>
+                    </View>
+                    <Text style={[styles.detailClientName, { color: foreground, marginTop: 4 }]}>
+                      {detailData.shipping_customer.name}
+                    </Text>
+                    {Boolean(detailData.shipping_customer.address) && (
+                      <Text style={[styles.detailClientSub, { color: muted }]}>
+                        Addr: {detailData.shipping_customer.address}
+                      </Text>
+                    )}
+                    <Text style={[styles.detailClientSub, { color: muted }]}>
+                      Phone: {detailData.shipping_customer.phone || "N/A"} • {detailData.shipping_customer.city || "India"}
+                    </Text>
+                    {Boolean(detailData.shipping_customer.gstin) && (
+                      <Text style={[styles.detailGstin, { color: muted }]}>
+                        GSTIN: {detailData.shipping_customer.gstin}
+                      </Text>
+                    )}
+                  </View>
                 )}
               </View>
 
