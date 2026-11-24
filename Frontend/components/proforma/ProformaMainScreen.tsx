@@ -499,8 +499,8 @@ export function ProformaMainScreen() {
           <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text style={[styles.piNumber, { color: activeColor }]}>{item.piNumber}</Text>
-              <View style={[styles.docTypePill, { backgroundColor: isQuotation ? "#3B82F620" : "rgba(16, 185, 129, 0.16)" }]}>
-                <Text style={[styles.docTypeText, { color: isQuotation ? "#3B82F6" : activeColor }]}>
+              <View style={[styles.docTypePill, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "#EBF7F3" }]}>
+                <Text style={[styles.docTypeText, { color: activeColor }]}>
                   {isQuotation ? "QUOTATION" : "PROFORMA"}
                 </Text>
               </View>
@@ -889,7 +889,7 @@ export function ProformaMainScreen() {
                 {detailData.shipping_customer && (
                   <View style={{ marginTop: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: border }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <Ionicons name="location-outline" size={14} color="#3B82F6" />
+                      <Ionicons name="location-outline" size={14} color={activeColor} />
                       <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: foreground }}>SHIP TO</Text>
                     </View>
                     <Text style={[styles.detailClientName, { color: foreground, marginTop: 4 }]}>
@@ -931,7 +931,7 @@ export function ProformaMainScreen() {
                             onPress={() => handleOpenPriceChange(it)}
                             style={[styles.itemPriceTagBtn, { borderColor: border }]}
                           >
-                            <Ionicons name="pricetag-outline" size={11} color="#0284C7" />
+                            <Ionicons name="pricetag-outline" size={11} color="#F59E0B" />
                             <Text style={styles.itemPriceTagText}>Request Price</Text>
                           </TouchableOpacity>
                         )}
@@ -1038,11 +1038,11 @@ export function ProformaMainScreen() {
                 {/* 2. Request Price Change */}
                 {detailData.can_request_price_change && (
                   <TouchableOpacity
-                    style={[styles.priceRequestBtn, { borderColor: "#0284C7", backgroundColor: isDark ? "rgba(2, 132, 199, 0.12)" : "#F0F9FF" }]}
+                    style={[styles.priceRequestBtn, { borderColor: "#F59E0B", backgroundColor: isDark ? "rgba(245, 158, 11, 0.12)" : "#FEF3C7" }]}
                     onPress={() => handleOpenPriceChange()}
                   >
-                    <Ionicons name="pricetag-outline" size={18} color="#0284C7" />
-                    <Text style={[styles.priceRequestBtnText, { color: "#0284C7" }]}>Request Price Change</Text>
+                    <Ionicons name="pricetag-outline" size={18} color="#D97706" />
+                    <Text style={[styles.priceRequestBtnText, { color: "#D97706" }]}>Request Price Change</Text>
                   </TouchableOpacity>
                 )}
 
@@ -1568,7 +1568,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
   },
-  itemPriceTagText: { fontSize: 10.5, fontFamily: Typography.bold, color: "#0284C7" },
+  itemPriceTagText: { fontSize: 10.5, fontFamily: Typography.bold, color: "#D97706" },
   bankLine: { fontSize: 12, fontFamily: Typography.regular, marginVertical: 2 },
   termItem: { fontSize: 11.5, fontFamily: Typography.regular, marginVertical: 2, lineHeight: 17 },
   signatoryRow: { marginTop: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row" },

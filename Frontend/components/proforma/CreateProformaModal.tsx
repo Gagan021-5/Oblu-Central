@@ -59,6 +59,9 @@ export function CreateProformaModal({
   const [customersLoading, setCustomersLoading] = useState(false);
   const [selectedBilling, setSelectedBilling] = useState<ProformaCustomerLookup | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ProformaCustomerLookup | null>(null);
+  const [sameAsBilling, setSameAsBilling] = useState(true);
+
+  // Picker Modal State
   const [customerModalVisible, setCustomerModalVisible] = useState(false);
   const [activePickerTarget, setActivePickerTarget] = useState<"billing" | "shipping">("billing");
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
@@ -79,13 +82,18 @@ export function CreateProformaModal({
 
   const [submitting, setSubmitting] = useState(false);
 
-  // Theme tokens
-  const bg = isDark ? "#0C0E15" : "#FFFFFF";
-  const cardBg = isDark ? "#12151E" : "#F8FAFC";
+  // Theme tokens - True Oblu Emerald / Mint palette
+  const bg = isDark ? "#090B10" : "#F4F6FA";
+  const cardBg = isDark ? "#12151E" : "#FFFFFF";
+  const surfaceAlt = isDark ? "#1A1E2B" : "#F1F5F9";
   const border = isDark ? "rgba(255, 255, 255, 0.08)" : "#E2E8F0";
   const foreground = isDark ? "#F8FAFC" : "#101513";
   const muted = isDark ? "#94A3B8" : "#64748B";
-  const activeColor = "#10B981";
+  const emeraldPrimary = "#10B981";
+  const emeraldDark = "#159A7C";
+  const mintSurface = isDark ? "rgba(16, 185, 129, 0.12)" : "#EBF7F3";
+  const mintBorder = isDark ? "#2D493F" : "#D1EBE2";
+  const amberAccent = "#F59E0B";
 
   // Preload customers on modal open
   useEffect(() => {
@@ -157,13 +165,12 @@ export function CreateProformaModal({
     });
   }, [catalogProducts, catalogSearch]);
 
-  // Calculations
+  // Live Calculations
   const calculations = useMemo(() => {
     let subtotal = 0;
     let gst = 0;
 
     items.forEach((item) => {
-      // Find tier price if available
       let tierPrice = item.product.base_price;
       if (item.product.tiers && item.product.tiers.length > 0) {
         for (const t of item.product.tiers) {
@@ -180,7 +187,6 @@ export function CreateProformaModal({
       gst += lineTotal * (taxRate / 100);
     });
 
-    // Approximate courier calculation
     const courierCost = courierMode === "air" ? 450 : 200;
     const courierGst = courierCost * 0.18;
     const grandTotal = subtotal + courierCost;
@@ -241,9 +247,11 @@ export function CreateProformaModal({
     setItems(copy);
   };
 
-  const handleUseBillingForShipping = () => {
-    triggerLightHaptic();
-    setSelectedShipping(selectedBilling);
+  const handleOpenPicker = (target: "billing" | "shipping") => {
+    triggerSelectionHaptic();
+    setActivePickerTarget(target);
+    setCustomerSearchQuery("");
+    setCustomerModalVisible(true);
   };
 
   const handleSubmit = async () => {
@@ -252,16 +260,17 @@ export function CreateProformaModal({
       return;
     }
     if (items.length === 0) {
-      Alert.alert("No Items", "Please add at least one product item.");
+      Alert.alert("No Line Items", "Please add at least one product item.");
       return;
     }
 
     setSubmitting(true);
     try {
+      const shippingCust = sameAsBilling ? selectedBilling : (selectedShipping || selectedBilling);
       const payload = {
         doc_type: currentDocType,
         customer_id: selectedBilling.id,
-        shipping_customer_id: selectedShipping?.id || selectedBilling.id,
+        shipping_customer_id: shippingCust.id,
         courier_mode: courierMode,
         requested_courier_charge: requestedCourierCharge.trim() ? requestedCourierCharge.trim() : undefined,
         request_reason: requestReason.trim(),
@@ -301,22 +310,22 @@ export function CreateProformaModal({
           </TouchableOpacity>
           <View style={{ alignItems: "center" }}>
             <Text style={[styles.title, { color: foreground }]}>
-              {currentDocType === "quotation" ? "QUOTATION MAKER" : "PROFORMA INVOICE MAKER"}
+              {currentDocType === "quotation" ? "Create Quotation" : "Create Proforma Invoice"}
             </Text>
-            <Text style={[styles.subtitle, { color: muted }]}>Create official document with live tax & tiers</Text>
+            <Text style={[styles.subtitle, { color: muted }]}>Customer billing, shipping & products</Text>
           </View>
           <View style={{ width: 40 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
-          {/* Document Type Selector Segment */}
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border, marginBottom: 14 }]}>
+          {/* Document Type Switcher */}
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
             <Text style={[styles.label, { color: muted }]}>DOCUMENT TYPE</Text>
             <View style={styles.segmentedRow}>
               <TouchableOpacity
                 style={[
                   styles.segmentBtn,
-                  currentDocType === "quotation" && { backgroundColor: activeColor },
+                  currentDocType === "quotation" && { backgroundColor: emeraldPrimary },
                 ]}
                 onPress={() => {
                   triggerSelectionHaptic();
@@ -341,7 +350,7 @@ export function CreateProformaModal({
               <TouchableOpacity
                 style={[
                   styles.segmentBtn,
-                  currentDocType === "proforma" && { backgroundColor: activeColor },
+                  currentDocType === "proforma" && { backgroundColor: emeraldPrimary },
                 ]}
                 onPress={() => {
                   triggerSelectionHaptic();
@@ -365,55 +374,18 @@ export function CreateProformaModal({
             </View>
           </View>
 
-          {/* ── 1. CUSTOMER & SHIPPING SECTION (Web Parity) ── */}
+          {/* ── 1. CUSTOMER & SHIPPING CARDS (Mobile Theme) ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <Text style={[styles.label, { color: muted, marginBottom: 0 }]}>CUSTOMER & SHIPPING</Text>
-              {selectedBilling && !selectedShipping && (
-                <TouchableOpacity onPress={handleUseBillingForShipping} style={styles.copyBtn}>
-                  <Ionicons name="copy-outline" size={13} color={activeColor} />
-                  <Text style={[styles.copyBtnText, { color: activeColor }]}>Same for Shipping</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <Text style={[styles.label, { color: muted }]}>CUSTOMER & SHIPPING</Text>
 
-            {/* Select Customer & Shipping Main Button */}
-            <TouchableOpacity
-              style={[styles.selectCustomerBigBtn, { backgroundColor: isDark ? "#1E293B" : "#0F172A" }]}
-              onPress={() => {
-                triggerSelectionHaptic();
-                setActivePickerTarget("billing");
-                setCustomerSearchQuery("");
-                setCustomerModalVisible(true);
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="people" size={18} color="#FFFFFF" />
-              <Text style={styles.selectCustomerBigBtnText}>Select Customer & Shipping</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </TouchableOpacity>
-
-            {/* Selected Billing Box */}
-            <View style={[styles.partyBox, { borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}>
-              <View style={styles.partyHeaderRow}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Ionicons name="card-outline" size={15} color={activeColor} />
-                  <Text style={[styles.partyHeaderTitle, { color: foreground }]}>Selected Billing:</Text>
-                </View>
-                {selectedBilling && (
-                  <TouchableOpacity onPress={() => setSelectedBilling(null)} style={styles.removePartyBtn}>
-                    <Ionicons name="close-circle" size={16} color="#EF4444" />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {selectedBilling ? (
-                <View style={{ marginTop: 4 }}>
+            {/* Billing Customer Row */}
+            <Text style={[styles.inputSubLabel, { color: muted }]}>BILLING CUSTOMER *</Text>
+            {selectedBilling ? (
+              <View style={[styles.partyCard, { backgroundColor: mintSurface, borderColor: mintBorder }]}>
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.partyName, { color: foreground }]}>{selectedBilling.name}</Text>
                   {selectedBilling.address ? (
-                    <Text style={[styles.partyDetail, { color: muted }]}>
-                      Addr: {selectedBilling.address}
-                    </Text>
+                    <Text style={[styles.partyDetail, { color: muted }]}>Addr: {selectedBilling.address}</Text>
                   ) : null}
                   <Text style={[styles.partyDetail, { color: muted }]}>
                     Phone: {selectedBilling.phone || "N/A"} {selectedBilling.city ? `• ${selectedBilling.city}` : ""}
@@ -423,87 +395,132 @@ export function CreateProformaModal({
                   ) : null}
                   {selectedBilling.has_overdue && (
                     <View style={styles.overdueAlert}>
-                      <Ionicons name="warning-outline" size={13} color="#F59E0B" />
+                      <Ionicons name="warning-outline" size={13} color={amberAccent} />
                       <Text style={styles.overdueText}>Customer has overdue invoices in Tally</Text>
                     </View>
                   )}
                 </View>
-              ) : (
-                <Text style={[styles.partyPlaceholder, { color: muted }]}>None selected (tap above to choose)</Text>
-              )}
-            </View>
-
-            {/* Selected Shipping Box */}
-            <View style={[styles.partyBox, { borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF", marginTop: 10 }]}>
-              <View style={styles.partyHeaderRow}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Ionicons name="location-outline" size={15} color="#3B82F6" />
-                  <Text style={[styles.partyHeaderTitle, { color: foreground }]}>Selected Shipping:</Text>
+                <TouchableOpacity onPress={() => handleOpenPicker("billing")} style={styles.changeActionBtn}>
+                  <Text style={[styles.changeActionText, { color: emeraldDark }]}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.partyPickerEmptyBtn, { borderColor: mintBorder, backgroundColor: mintSurface }]}
+                onPress={() => handleOpenPicker("billing")}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.iconCircle, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#D1EBE2" }]}>
+                  <Ionicons name="card-outline" size={18} color={emeraldDark} />
                 </View>
-                {selectedShipping ? (
-                  <TouchableOpacity onPress={() => setSelectedShipping(null)} style={styles.removePartyBtn}>
-                    <Ionicons name="close-circle" size={16} color="#EF4444" />
+                <Text style={[styles.partyPickerEmptyText, { color: emeraldDark }]}>Select Billing Customer...</Text>
+                <Ionicons name="chevron-forward" size={16} color={emeraldDark} />
+              </TouchableOpacity>
+            )}
+
+            {/* Shipping Customer Row */}
+            <View style={{ marginTop: 14 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <Text style={[styles.inputSubLabel, { color: muted, marginBottom: 0 }]}>SHIPPING DESTINATION</Text>
+                {selectedBilling && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      triggerLightHaptic();
+                      setSameAsBilling(!sameAsBilling);
+                      if (!sameAsBilling) {
+                        setSelectedShipping(selectedBilling);
+                      }
+                    }}
+                    style={[
+                      styles.togglePill,
+                      {
+                        backgroundColor: sameAsBilling ? mintSurface : surfaceAlt,
+                        borderColor: sameAsBilling ? mintBorder : border,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={sameAsBilling ? "checkbox" : "square-outline"}
+                      size={14}
+                      color={sameAsBilling ? emeraldDark : muted}
+                    />
+                    <Text style={[styles.togglePillText, { color: sameAsBilling ? emeraldDark : muted }]}>
+                      Same as Billing
+                    </Text>
                   </TouchableOpacity>
-                ) : selectedBilling ? (
-                  <TouchableOpacity onPress={handleUseBillingForShipping}>
-                    <Text style={{ fontSize: 11, color: activeColor, fontFamily: Typography.bold }}>Copy Billing</Text>
-                  </TouchableOpacity>
-                ) : null}
+                )}
               </View>
 
-              {selectedShipping ? (
-                <View style={{ marginTop: 4 }}>
-                  <Text style={[styles.partyName, { color: foreground }]}>{selectedShipping.name}</Text>
-                  {selectedShipping.address ? (
+              {sameAsBilling && selectedBilling ? (
+                <View style={[styles.partyCard, { backgroundColor: surfaceAlt, borderColor: border }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.partyName, { color: foreground }]}>{selectedBilling.name}</Text>
                     <Text style={[styles.partyDetail, { color: muted }]}>
-                      Addr: {selectedShipping.address}
+                      Using primary billing address for shipping & courier dispatch.
                     </Text>
-                  ) : null}
-                  <Text style={[styles.partyDetail, { color: muted }]}>
-                    Phone: {selectedShipping.phone || "N/A"} {selectedShipping.city ? `• ${selectedShipping.city}` : ""}
-                  </Text>
-                  {selectedShipping.gstin ? (
-                    <Text style={[styles.partyDetail, { color: muted }]}>GSTIN: {selectedShipping.gstin}</Text>
-                  ) : null}
+                  </View>
+                  <Ionicons name="checkmark-circle" size={18} color={emeraldPrimary} />
+                </View>
+              ) : selectedShipping ? (
+                <View style={[styles.partyCard, { backgroundColor: mintSurface, borderColor: mintBorder }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.partyName, { color: foreground }]}>{selectedShipping.name}</Text>
+                    {selectedShipping.address ? (
+                      <Text style={[styles.partyDetail, { color: muted }]}>Addr: {selectedShipping.address}</Text>
+                    ) : null}
+                    <Text style={[styles.partyDetail, { color: muted }]}>
+                      Phone: {selectedShipping.phone || "N/A"} {selectedShipping.city ? `• ${selectedShipping.city}` : ""}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => handleOpenPicker("shipping")} style={styles.changeActionBtn}>
+                    <Text style={[styles.changeActionText, { color: emeraldDark }]}>Change</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
-                <Text style={[styles.partyPlaceholder, { color: muted }]}>
-                  {selectedBilling ? "Same as Billing (Default)" : "None"}
-                </Text>
+                <TouchableOpacity
+                  style={[styles.partyPickerEmptyBtn, { borderColor: border, backgroundColor: surfaceAlt }]}
+                  onPress={() => handleOpenPicker("shipping")}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.iconCircle, { backgroundColor: isDark ? "#242938" : "#E2E8F0" }]}>
+                    <Ionicons name="location-outline" size={18} color={muted} />
+                  </View>
+                  <Text style={[styles.partyPickerEmptyText, { color: muted }]}>Select Shipping Destination...</Text>
+                  <Ionicons name="chevron-forward" size={16} color={muted} />
+                </TouchableOpacity>
               )}
             </View>
           </View>
 
-          {/* ── 2. ITEMS SECTION (Web Parity: Product, Qty, Stock, System Price, Requested Price) ── */}
+          {/* ── 2. LINE ITEMS (Mobile Theme) ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.label, { color: muted }]}>
+              <Text style={[styles.label, { color: muted, marginBottom: 0 }]}>
                 {currentDocType === "quotation" ? "QUOTATION ITEMS" : "INVOICE ITEMS"} ({items.length})
               </Text>
               <TouchableOpacity
                 onPress={() => setProductPickerOpen(true)}
-                style={[styles.addItemsBtn, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.16)" : "#DDF4EA" }]}
+                style={[styles.addItemsPill, { backgroundColor: mintSurface, borderColor: mintBorder }]}
               >
-                <Ionicons name="add" size={16} color={activeColor} />
-                <Text style={[styles.addItemsText, { color: activeColor }]}>Add Product</Text>
+                <Ionicons name="add" size={16} color={emeraldDark} />
+                <Text style={[styles.addItemsPillText, { color: emeraldDark }]}>Add Product</Text>
               </TouchableOpacity>
             </View>
 
             {items.length === 0 ? (
               <View style={styles.emptyItemsBox}>
                 <Ionicons name="cart-outline" size={32} color={muted} />
-                <Text style={[styles.emptyItemsText, { color: muted }]}>No items added yet. Tap below to add products.</Text>
+                <Text style={[styles.emptyItemsText, { color: muted }]}>No products added yet.</Text>
                 <TouchableOpacity
-                  style={[styles.addFirstItemBtn, { backgroundColor: isDark ? "#1E293B" : "#0F172A" }]}
+                  style={[styles.addFirstBtn, { backgroundColor: emeraldPrimary }]}
                   onPress={() => setProductPickerOpen(true)}
                 >
-                  <Ionicons name="add-circle-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.addFirstItemText}>Add First Product</Text>
+                  <Ionicons name="add-circle" size={16} color="#06281E" />
+                  <Text style={styles.addFirstBtnText}>Add Product</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               items.map((item, idx) => {
-                // Tier pricing check
                 let tierPrice = item.product.base_price;
                 if (item.product.tiers && item.product.tiers.length > 0) {
                   for (const t of item.product.tiers) {
@@ -514,13 +531,12 @@ export function CreateProformaModal({
                   }
                 }
                 const effectivePrice = item.requestedPrice !== undefined ? item.requestedPrice : tierPrice;
-                const isPriceAltered = item.requestedPrice !== undefined && item.requestedPrice !== tierPrice;
+                const isCustomPrice = item.requestedPrice !== undefined && item.requestedPrice !== tierPrice;
                 const inStock = item.product.stock > 0;
 
                 return (
-                  <View key={`${item.product.id}-${idx}`} style={[styles.itemCard, { borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}>
-                    {/* Item Top: Name, Category, Remove Button */}
-                    <View style={styles.itemCardTop}>
+                  <View key={`${item.product.id}-${idx}`} style={[styles.itemCard, { borderColor: border, backgroundColor: surfaceAlt }]}>
+                    <View style={styles.itemTopRow}>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.itemName, { color: foreground }]}>{item.product.name}</Text>
                         <Text style={[styles.itemSku, { color: muted }]}>
@@ -528,29 +544,28 @@ export function CreateProformaModal({
                         </Text>
                       </View>
                       <TouchableOpacity onPress={() => handleRemoveItem(idx)} style={styles.trashBtn}>
-                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        <Ionicons name="trash-outline" size={17} color="#EF4444" />
                       </TouchableOpacity>
                     </View>
 
-                    {/* Stock & Tier badges */}
-                    <View style={styles.stockRow}>
-                      <View style={[styles.stockBadge, { backgroundColor: inStock ? (isDark ? "rgba(16, 185, 129, 0.15)" : "#ECFDF5") : (isDark ? "rgba(239, 68, 68, 0.15)" : "#FEF2F2") }]}>
-                        <Ionicons name={inStock ? "checkmark-circle" : "alert-circle"} size={13} color={inStock ? activeColor : "#EF4444"} />
-                        <Text style={[styles.stockBadgeText, { color: inStock ? activeColor : "#EF4444" }]}>
+                    {/* Stock & System Price Status */}
+                    <View style={styles.itemMetaRow}>
+                      <View style={[styles.stockPill, { backgroundColor: inStock ? mintSurface : "rgba(239, 68, 68, 0.12)" }]}>
+                        <Ionicons name={inStock ? "checkmark-circle" : "alert-circle"} size={12} color={inStock ? emeraldDark : "#EF4444"} />
+                        <Text style={[styles.stockPillText, { color: inStock ? emeraldDark : "#EF4444" }]}>
                           {item.product.stock} in inventory
                         </Text>
                       </View>
                       <Text style={[styles.systemPriceText, { color: muted }]}>
-                        System: ₹{intFormat(tierPrice)} (Tiers)
+                        Tier Price: ₹{intFormat(tierPrice)}
                       </Text>
                     </View>
 
-                    {/* Quantity Stepper & Inputs */}
-                    <View style={styles.itemInputsRow}>
-                      {/* Order Qty */}
+                    {/* Qty Stepper & Requested Price */}
+                    <View style={styles.inputsRow}>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.inputSubLabel, { color: muted }]}>ORDER QTY</Text>
-                        <View style={[styles.stepperContainer, { borderColor: border }]}>
+                        <View style={[styles.stepperContainer, { borderColor: border, backgroundColor: cardBg }]}>
                           <TouchableOpacity onPress={() => handleUpdateQty(idx, -1)} style={styles.stepperBtn}>
                             <Ionicons name="remove" size={14} color={foreground} />
                           </TouchableOpacity>
@@ -566,16 +581,15 @@ export function CreateProformaModal({
                         </View>
                       </View>
 
-                      {/* Requested Price */}
-                      <View style={{ flex: 1.2, marginLeft: 12 }}>
+                      <View style={{ flex: 1.2, marginLeft: 10 }}>
                         <Text style={[styles.inputSubLabel, { color: muted }]}>REQUESTED PRICE</Text>
                         <TextInput
                           style={[
-                            styles.requestedPriceInput,
+                            styles.priceInputBox,
                             {
                               color: foreground,
-                              borderColor: isPriceAltered ? "#F59E0B" : border,
-                              backgroundColor: isDark ? "#12151E" : "#F8FAFC",
+                              borderColor: isCustomPrice ? amberAccent : border,
+                              backgroundColor: cardBg,
                             },
                           ]}
                           keyboardType="numeric"
@@ -589,8 +603,8 @@ export function CreateProformaModal({
 
                     {/* Line Total */}
                     <View style={[styles.lineTotalRow, { borderTopColor: border }]}>
-                      <Text style={[styles.lineTotalLabel, { color: muted }]}>Line Total ({item.quantity} × ₹{intFormat(effectivePrice)}):</Text>
-                      <Text style={[styles.lineTotalValue, { color: activeColor }]}>
+                      <Text style={[styles.lineTotalLabel, { color: muted }]}>Total ({item.quantity} × ₹{intFormat(effectivePrice)}):</Text>
+                      <Text style={[styles.lineTotalValue, { color: emeraldPrimary }]}>
                         ₹{intFormat(effectivePrice * item.quantity)}
                       </Text>
                     </View>
@@ -602,24 +616,24 @@ export function CreateProformaModal({
             {items.length > 0 && (
               <TouchableOpacity
                 onPress={() => setProductPickerOpen(true)}
-                style={[styles.addAnotherProductBtn, { borderColor: border }]}
+                style={[styles.addAnotherBtn, { borderColor: mintBorder, backgroundColor: mintSurface }]}
               >
-                <Ionicons name="add-circle-outline" size={18} color={activeColor} />
-                <Text style={[styles.addAnotherProductText, { color: activeColor }]}>
+                <Ionicons name="add-circle-outline" size={18} color={emeraldDark} />
+                <Text style={[styles.addAnotherBtnText, { color: emeraldDark }]}>
                   Add Another Product
                 </Text>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* ── 3. COURIER SECTION (Surface vs Air) ── */}
+          {/* ── 3. COURIER MODE (Mobile Theme) ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
             <Text style={[styles.label, { color: muted }]}>COURIER MODE</Text>
             <View style={styles.segmentedRow}>
               <TouchableOpacity
                 style={[
                   styles.segmentBtn,
-                  courierMode === "surface" && { backgroundColor: activeColor },
+                  courierMode === "surface" && { backgroundColor: emeraldPrimary },
                 ]}
                 onPress={() => {
                   triggerSelectionHaptic();
@@ -640,7 +654,7 @@ export function CreateProformaModal({
               <TouchableOpacity
                 style={[
                   styles.segmentBtn,
-                  courierMode === "air" && { backgroundColor: activeColor },
+                  courierMode === "air" && { backgroundColor: emeraldPrimary },
                 ]}
                 onPress={() => {
                   triggerSelectionHaptic();
@@ -660,13 +674,13 @@ export function CreateProformaModal({
             </View>
           </View>
 
-          {/* ── 4. PRICE & COURIER REQUEST (OPTIONAL REMARKS) ── */}
+          {/* ── 4. PRICE & COURIER REQUEST (REMARKS) ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
             <Text style={[styles.label, { color: muted }]}>PRICE & COURIER REQUEST (OPTIONAL)</Text>
 
-            <View style={styles.courierEstimateRow}>
-              <Text style={[styles.courierEstimateLabel, { color: muted }]}>Approximate Courier:</Text>
-              <Text style={[styles.courierEstimateValue, { color: activeColor }]}>
+            <View style={styles.courierRow}>
+              <Text style={[styles.courierRowLabel, { color: muted }]}>Approximate Courier:</Text>
+              <Text style={[styles.courierRowVal, { color: emeraldPrimary }]}>
                 ₹{intFormat(calculations.courier)}
               </Text>
             </View>
@@ -674,7 +688,7 @@ export function CreateProformaModal({
             <View style={{ marginTop: 10 }}>
               <Text style={[styles.inputSubLabel, { color: muted }]}>REQUESTED COURIER CHARGE (₹)</Text>
               <TextInput
-                style={[styles.inputBox, { color: foreground, borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}
+                style={[styles.inputField, { color: foreground, borderColor: border, backgroundColor: surfaceAlt }]}
                 keyboardType="numeric"
                 placeholder="Leave empty for Actual"
                 placeholderTextColor={muted}
@@ -686,10 +700,10 @@ export function CreateProformaModal({
             <View style={{ marginTop: 10 }}>
               <Text style={[styles.inputSubLabel, { color: muted }]}>REASON FOR PRICE / COURIER CHANGE</Text>
               <TextInput
-                style={[styles.textAreaBox, { color: foreground, borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}
+                style={[styles.textAreaField, { color: foreground, borderColor: border, backgroundColor: surfaceAlt }]}
                 multiline
                 numberOfLines={3}
-                placeholder="Explain changes (volume match, client agreement, discount justification)..."
+                placeholder="Explain discount, volume deal, client agreement..."
                 placeholderTextColor={muted}
                 value={requestReason}
                 onChangeText={setRequestReason}
@@ -697,9 +711,9 @@ export function CreateProformaModal({
             </View>
           </View>
 
-          {/* ── 5. ORDER TOTALS ── */}
+          {/* ── 5. ORDER SUMMARY ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
-            <Text style={[styles.label, { color: muted }]}>ORDER TOTALS</Text>
+            <Text style={[styles.label, { color: muted }]}>ORDER SUMMARY</Text>
 
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: muted }]}>Taxable Subtotal</Text>
@@ -719,15 +733,15 @@ export function CreateProformaModal({
 
             <View style={styles.summaryRow}>
               <Text style={[styles.grandLabel, { color: foreground }]}>Grand Total</Text>
-              <Text style={[styles.grandVal, { color: activeColor }]}>₹{intFormat(calculations.grandTotal)}</Text>
+              <Text style={[styles.grandVal, { color: emeraldPrimary }]}>₹{intFormat(calculations.grandTotal)}</Text>
             </View>
           </View>
         </ScrollView>
 
-        {/* Submit Footer Bar */}
+        {/* Floating Submit Footer */}
         <View style={[styles.footerBar, { borderTopColor: border, paddingBottom: Math.max(insets.bottom, 14) }]}>
           <TouchableOpacity
-            style={[styles.submitBtn, { backgroundColor: activeColor }]}
+            style={[styles.submitActionBtn, { backgroundColor: emeraldPrimary }]}
             onPress={handleSubmit}
             disabled={submitting}
             activeOpacity={0.8}
@@ -737,7 +751,7 @@ export function CreateProformaModal({
             ) : (
               <>
                 <Ionicons name="checkmark-done" size={20} color="#06281E" />
-                <Text style={styles.submitBtnText}>
+                <Text style={styles.submitActionBtnText}>
                   {currentDocType === "quotation" ? "Save Quotation" : "Save Proforma Invoice"}
                 </Text>
               </>
@@ -745,101 +759,79 @@ export function CreateProformaModal({
           </TouchableOpacity>
         </View>
 
-        {/* ── CUSTOMER & SHIPPING PICKER MODAL (WEB PARITY) ── */}
+        {/* ── CUSTOMER PICKER MODAL (Mobile Theme) ── */}
         <Modal visible={customerModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCustomerModalVisible(false)}>
           <View style={[styles.pickerModal, { backgroundColor: bg, paddingTop: Math.max(insets.top, 16) }]}>
-            {/* Modal Header */}
             <View style={[styles.header, { borderBottomColor: border }]}>
               <TouchableOpacity onPress={() => setCustomerModalVisible(false)} style={styles.closeBtn}>
                 <Ionicons name="close" size={24} color={muted} />
               </TouchableOpacity>
               <View style={{ alignItems: "center" }}>
-                <Text style={[styles.title, { color: foreground }]}>Select Customer</Text>
-                <Text style={[styles.subtitle, { color: muted }]}>Billing and Shipping accounts</Text>
+                <Text style={[styles.title, { color: foreground }]}>
+                  {activePickerTarget === "billing" ? "Select Billing Customer" : "Select Shipping Destination"}
+                </Text>
+                <Text style={[styles.subtitle, { color: muted }]}>Choose from CRM account directory</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setCustomerModalVisible(false)}
                 style={{ paddingHorizontal: 8, paddingVertical: 4 }}
               >
-                <Text style={{ fontSize: 13, fontFamily: Typography.bold, color: activeColor }}>Done</Text>
+                <Text style={{ fontSize: 13, fontFamily: Typography.bold, color: emeraldDark }}>Done</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Target Tab Switcher (Billing vs Shipping) */}
+            {/* Target Tab Switcher */}
             <View style={[styles.modalTabRow, { borderBottomColor: border }]}>
               <TouchableOpacity
                 style={[
                   styles.modalTabBtn,
-                  activePickerTarget === "billing" && { borderBottomColor: activeColor, borderBottomWidth: 2 },
+                  activePickerTarget === "billing" && { borderBottomColor: emeraldDark, borderBottomWidth: 2 },
                 ]}
                 onPress={() => {
                   triggerSelectionHaptic();
                   setActivePickerTarget("billing");
                 }}
               >
-                <Ionicons name="card-outline" size={16} color={activePickerTarget === "billing" ? activeColor : muted} />
+                <Ionicons name="card-outline" size={15} color={activePickerTarget === "billing" ? emeraldDark : muted} />
                 <Text
                   style={[
                     styles.modalTabText,
-                    { color: activePickerTarget === "billing" ? activeColor : muted, fontFamily: Typography.bold },
+                    { color: activePickerTarget === "billing" ? emeraldDark : muted, fontFamily: Typography.bold },
                   ]}
                 >
-                  Billing: {selectedBilling ? selectedBilling.name.slice(0, 16) : "None"}
+                  Billing: {selectedBilling ? selectedBilling.name.slice(0, 14) : "None"}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.modalTabBtn,
-                  activePickerTarget === "shipping" && { borderBottomColor: "#3B82F6", borderBottomWidth: 2 },
+                  activePickerTarget === "shipping" && { borderBottomColor: emeraldDark, borderBottomWidth: 2 },
                 ]}
                 onPress={() => {
                   triggerSelectionHaptic();
                   setActivePickerTarget("shipping");
                 }}
               >
-                <Ionicons name="location-outline" size={16} color={activePickerTarget === "shipping" ? "#3B82F6" : muted} />
+                <Ionicons name="location-outline" size={15} color={activePickerTarget === "shipping" ? emeraldDark : muted} />
                 <Text
                   style={[
                     styles.modalTabText,
-                    { color: activePickerTarget === "shipping" ? "#3B82F6" : muted, fontFamily: Typography.bold },
+                    { color: activePickerTarget === "shipping" ? emeraldDark : muted, fontFamily: Typography.bold },
                   ]}
                 >
-                  Shipping: {selectedShipping ? selectedShipping.name.slice(0, 16) : "None"}
+                  Shipping: {selectedShipping ? selectedShipping.name.slice(0, 14) : "None"}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Quick Helper if on Shipping */}
-            {activePickerTarget === "shipping" && selectedBilling && (
-              <View style={[styles.quickHelperBar, { backgroundColor: isDark ? "#12151E" : "#F1F5F9" }]}>
-                <Text style={[styles.quickHelperText, { color: muted }]}>
-                  Copy from billing account?
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    triggerLightHaptic();
-                    setSelectedShipping(selectedBilling);
-                  }}
-                  style={[styles.quickHelperBtn, { backgroundColor: activeColor }]}
-                >
-                  <Ionicons name="copy-outline" size={13} color="#06281E" />
-                  <Text style={styles.quickHelperBtnText}>Use {selectedBilling.name.slice(0, 15)}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Search Bar */}
+            {/* Search Box */}
             <View style={styles.searchBarBox}>
-              <View style={[styles.searchBarInner, { backgroundColor: cardBg, borderColor: border }]}>
+              <View style={[styles.searchBarInner, { backgroundColor: surfaceAlt, borderColor: border }]}>
                 <Ionicons name="search-outline" size={18} color={muted} />
                 <TextInput
                   style={[styles.searchInput, { color: foreground }]}
-                  placeholder={
-                    activePickerTarget === "billing"
-                      ? "Search billing (name, phone, city, ID)..."
-                      : "Search shipping (name, phone, city, ID)..."
-                  }
+                  placeholder="Search by name, phone, city, ID..."
                   placeholderTextColor={muted}
                   value={customerSearchQuery}
                   onChangeText={setCustomerSearchQuery}
@@ -854,9 +846,9 @@ export function CreateProformaModal({
               </View>
             </View>
 
-            {/* Customer List */}
+            {/* List */}
             {customersLoading && allCustomers.length === 0 ? (
-              <ActivityIndicator style={{ marginTop: 40 }} color={activeColor} />
+              <ActivityIndicator style={{ marginTop: 40 }} color={emeraldPrimary} />
             ) : filteredCustomers.length === 0 ? (
               <View style={styles.emptyItemsBox}>
                 <Ionicons name="search" size={32} color={muted} />
@@ -879,18 +871,19 @@ export function CreateProformaModal({
                         styles.customerPickItem,
                         {
                           borderBottomColor: border,
-                          backgroundColor: isSelected ? (isDark ? "rgba(16, 185, 129, 0.12)" : "#ECFDF5") : "transparent",
+                          backgroundColor: isSelected ? mintSurface : "transparent",
                         },
                       ]}
                       onPress={() => {
                         triggerSelectionHaptic();
                         if (activePickerTarget === "billing") {
                           setSelectedBilling(c);
-                          if (!selectedShipping) {
+                          if (sameAsBilling || !selectedShipping) {
                             setSelectedShipping(c);
                           }
                         } else {
                           setSelectedShipping(c);
+                          setSameAsBilling(false);
                         }
                       }}
                     >
@@ -908,7 +901,7 @@ export function CreateProformaModal({
                       <Ionicons
                         name={isSelected ? "checkmark-circle" : "ellipse-outline"}
                         size={22}
-                        color={isSelected ? activeColor : muted}
+                        color={isSelected ? emeraldPrimary : muted}
                       />
                     </TouchableOpacity>
                   );
@@ -916,19 +909,18 @@ export function CreateProformaModal({
               </ScrollView>
             )}
 
-            {/* Footer Confirm */}
             <View style={[styles.modalFooterConfirm, { borderTopColor: border }]}>
               <TouchableOpacity
-                style={[styles.confirmCustomerBtn, { backgroundColor: isDark ? "#1E293B" : "#0F172A" }]}
+                style={[styles.confirmCustomerBtn, { backgroundColor: emeraldPrimary }]}
                 onPress={() => setCustomerModalVisible(false)}
               >
-                <Text style={styles.confirmCustomerText}>Confirm Selection</Text>
+                <Text style={styles.confirmCustomerText}>Confirm Customer Selection</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
 
-        {/* ── PRODUCT CATALOG PICKER MODAL ── */}
+        {/* ── PRODUCT CATALOG PICKER MODAL (Mobile Theme) ── */}
         <Modal visible={productPickerOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setProductPickerOpen(false)}>
           <View style={[styles.pickerModal, { backgroundColor: bg, paddingTop: Math.max(insets.top, 16) }]}>
             <View style={[styles.header, { borderBottomColor: border }]}>
@@ -940,7 +932,7 @@ export function CreateProformaModal({
             </View>
 
             <View style={styles.searchBarBox}>
-              <View style={[styles.searchBarInner, { backgroundColor: cardBg, borderColor: border }]}>
+              <View style={[styles.searchBarInner, { backgroundColor: surfaceAlt, borderColor: border }]}>
                 <Ionicons name="search-outline" size={18} color={muted} />
                 <TextInput
                   style={[styles.searchInput, { color: foreground }]}
@@ -953,7 +945,7 @@ export function CreateProformaModal({
             </View>
 
             {catalogLoading ? (
-              <ActivityIndicator style={{ marginTop: 40 }} color={activeColor} />
+              <ActivityIndicator style={{ marginTop: 40 }} color={emeraldPrimary} />
             ) : visibleCatalogProducts.length === 0 ? (
               <View style={styles.emptyItemsBox}>
                 <Ionicons name="cube-outline" size={32} color={muted} />
@@ -974,15 +966,15 @@ export function CreateProformaModal({
                         <Text style={[styles.itemSku, { color: muted }]}>
                           {p.category} • SKU: {p.sku || "N/A"}
                         </Text>
-                        <Text style={{ fontSize: 11, color: inStock ? activeColor : "#EF4444", marginTop: 2, fontFamily: Typography.bold }}>
+                        <Text style={{ fontSize: 11, color: inStock ? emeraldDark : "#EF4444", marginTop: 2, fontFamily: Typography.bold }}>
                           Stock: {p.stock} In Inventory
                         </Text>
                       </View>
                       <View style={{ alignItems: "flex-end", marginRight: 10 }}>
-                        <Text style={[styles.catalogPrice, { color: activeColor }]}>₹{intFormat(p.base_price)}</Text>
+                        <Text style={[styles.catalogPrice, { color: emeraldDark }]}>₹{intFormat(p.base_price)}</Text>
                         <Text style={[styles.catalogGst, { color: muted }]}>+18% GST</Text>
                       </View>
-                      <Ionicons name="add-circle" size={24} color={activeColor} />
+                      <Ionicons name="add-circle" size={24} color={emeraldPrimary} />
                     </TouchableOpacity>
                   );
                 })}
@@ -1034,66 +1026,59 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     gap: 6,
-    backgroundColor: "rgba(128, 128, 128, 0.1)",
+    backgroundColor: "rgba(128, 128, 128, 0.08)",
   },
   segmentText: { fontSize: 11, fontFamily: Typography.semiBold },
-  selectCustomerBigBtn: {
+  inputSubLabel: {
+    fontSize: 10,
+    fontFamily: Typography.bold,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  partyCard: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    gap: 8,
-    marginBottom: 12,
-  },
-  selectCustomerBigBtnText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontFamily: Typography.bold,
-  },
-  partyBox: {
+    justifyContent: "space-between",
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
   },
-  partyHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  partyName: { fontSize: 14, fontFamily: Typography.bold },
+  partyDetail: { fontSize: 11, fontFamily: Typography.regular, marginTop: 2 },
+  changeActionBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
-  partyHeaderTitle: {
-    fontSize: 12,
-    fontFamily: Typography.bold,
-  },
-  partyName: {
-    fontSize: 14,
-    fontFamily: Typography.bold,
-    marginTop: 2,
-  },
-  partyDetail: {
-    fontSize: 11,
-    fontFamily: Typography.regular,
-    marginTop: 2,
-  },
-  partyPlaceholder: {
-    fontSize: 12,
-    fontFamily: Typography.regular,
-    fontStyle: "italic",
-    marginTop: 4,
-  },
-  removePartyBtn: {
-    padding: 2,
-  },
-  copyBtn: {
+  changeActionText: { fontSize: 12, fontFamily: Typography.bold },
+  partyPickerEmptyBtn: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    gap: 10,
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  partyPickerEmptyText: { flex: 1, fontSize: 13, fontFamily: Typography.medium },
+  togglePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
     gap: 4,
   },
-  copyBtnText: {
-    fontSize: 11,
-    fontFamily: Typography.bold,
-  },
+  togglePillText: { fontSize: 11, fontFamily: Typography.bold },
   overdueAlert: {
     flexDirection: "row",
     alignItems: "center",
@@ -1107,15 +1092,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  addItemsBtn: {
+  addItemsPill: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
+    borderWidth: 1,
     gap: 4,
   },
-  addItemsText: { fontSize: 12, fontFamily: Typography.bold },
+  addItemsPillText: { fontSize: 12, fontFamily: Typography.bold },
   emptyItemsBox: {
     alignItems: "center",
     justifyContent: "center",
@@ -1123,7 +1109,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyItemsText: { fontSize: 12, fontFamily: Typography.regular, textAlign: "center" },
-  addFirstItemBtn: {
+  addFirstBtn: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
@@ -1132,8 +1118,8 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 4,
   },
-  addFirstItemText: {
-    color: "#FFFFFF",
+  addFirstBtnText: {
+    color: "#06281E",
     fontSize: 12,
     fontFamily: Typography.bold,
   },
@@ -1143,20 +1129,20 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
   },
-  itemCardTop: {
+  itemTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
   itemName: { fontSize: 13, fontFamily: Typography.bold },
   itemSku: { fontSize: 11, fontFamily: Typography.regular, marginTop: 2 },
-  stockRow: {
+  itemMetaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 8,
   },
-  stockBadge: {
+  stockPill: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 6,
@@ -1164,18 +1150,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     gap: 4,
   },
-  stockBadgeText: { fontSize: 10, fontFamily: Typography.bold },
+  stockPillText: { fontSize: 10, fontFamily: Typography.bold },
   systemPriceText: { fontSize: 11, fontFamily: Typography.medium },
-  itemInputsRow: {
+  inputsRow: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 10,
-  },
-  inputSubLabel: {
-    fontSize: 10,
-    fontFamily: Typography.bold,
-    letterSpacing: 0.5,
-    marginBottom: 4,
   },
   stepperContainer: {
     flexDirection: "row",
@@ -1196,7 +1176,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: Typography.bold,
   },
-  requestedPriceInput: {
+  priceInputBox: {
     borderWidth: 1,
     borderRadius: 8,
     height: 38,
@@ -1215,7 +1195,7 @@ const styles = StyleSheet.create({
   lineTotalLabel: { fontSize: 11, fontFamily: Typography.regular },
   lineTotalValue: { fontSize: 13, fontFamily: Typography.bold },
   trashBtn: { padding: 4 },
-  addAnotherProductBtn: {
+  addAnotherBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1226,16 +1206,16 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 4,
   },
-  addAnotherProductText: { fontSize: 13, fontFamily: Typography.bold },
-  courierEstimateRow: {
+  addAnotherBtnText: { fontSize: 13, fontFamily: Typography.bold },
+  courierRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 4,
   },
-  courierEstimateLabel: { fontSize: 12, fontFamily: Typography.bold },
-  courierEstimateValue: { fontSize: 14, fontFamily: Typography.bold },
-  inputBox: {
+  courierRowLabel: { fontSize: 12, fontFamily: Typography.bold },
+  courierRowVal: { fontSize: 14, fontFamily: Typography.bold },
+  inputField: {
     borderWidth: 1,
     borderRadius: 10,
     height: 42,
@@ -1243,10 +1223,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: Typography.regular,
   },
-  textAreaBox: {
+  textAreaField: {
     borderWidth: 1,
     borderRadius: 10,
-    minHeight: 70,
+    minHeight: 65,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
@@ -1272,7 +1252,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderTopWidth: 1,
   },
-  submitBtn: {
+  submitActionBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1280,7 +1260,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 8,
   },
-  submitBtnText: {
+  submitActionBtnText: {
     fontSize: 14,
     fontFamily: Typography.bold,
     color: "#06281E",
@@ -1298,30 +1278,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 6,
   },
-  modalTabText: {
-    fontSize: 12,
-  },
-  quickHelperBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  quickHelperText: { fontSize: 11, fontFamily: Typography.regular },
-  quickHelperBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
-  },
-  quickHelperBtnText: {
-    fontSize: 11,
-    fontFamily: Typography.bold,
-    color: "#06281E",
-  },
+  modalTabText: { fontSize: 12 },
   searchBarBox: { paddingHorizontal: 16, paddingVertical: 10 },
   searchBarInner: {
     flexDirection: "row",
@@ -1341,8 +1298,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
     borderBottomWidth: 1,
   },
   customerName: { fontSize: 14, fontFamily: Typography.bold },
@@ -1358,7 +1315,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   confirmCustomerText: {
-    color: "#FFFFFF",
+    color: "#06281E",
     fontSize: 14,
     fontFamily: Typography.bold,
   },
