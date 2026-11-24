@@ -85,6 +85,16 @@ export interface ProformaDetail {
   price_requests: ProformaPriceRequest[];
   can_approve_price: boolean;
   can_convert_to_pi: boolean;
+  is_converted_to_proforma?: boolean;
+  can_request_dispatch?: boolean;
+  can_request_price_change?: boolean;
+  bank_details?: {
+    account_holder: string;
+    bank: string;
+    account_no: string;
+    ifsc: string;
+    branch: string;
+  };
   web_url: string;
 }
 
@@ -270,6 +280,29 @@ export async function convertQuotationToPIApi(
 ): Promise<{ success: boolean; proforma_id: number; proforma_number: string; message: string }> {
   const numericId = String(quotationId).replace(/[^0-9]/g, "") || String(quotationId);
   const res = await api.post(`/proforma/quotations/${numericId}/convert/`);
+  return res.data;
+}
+
+export async function requestDispatchApi(
+  invoiceId: number | string
+): Promise<{ success: boolean; message: string; dispatch_status: string }> {
+  const numericId = String(invoiceId).replace(/[^0-9]/g, "") || String(invoiceId);
+  const res = await api.post(`/proforma/${numericId}/request-dispatch/`);
+  return res.data;
+}
+
+export async function createPriceChangeRequestApi(payload: {
+  doc_id: number | string;
+  doc_type: "proforma" | "quotation";
+  product_id: number;
+  requested_price: number;
+  reason?: string;
+}): Promise<{ success: boolean; id: number; message: string }> {
+  const numericDocId = Number(String(payload.doc_id).replace(/[^0-9]/g, "")) || payload.doc_id;
+  const res = await api.post("/proforma/price-requests/", {
+    ...payload,
+    doc_id: numericDocId,
+  });
   return res.data;
 }
 

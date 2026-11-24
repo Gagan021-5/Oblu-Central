@@ -13,6 +13,7 @@ import {
   Linking,
   TextInput,
   Image,
+  Share,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -32,6 +33,7 @@ import {
   ProformaItem,
   ProformaStats,
   ProformaDetail,
+  ProformaDetailItem,
   DispatchInfo,
   PhotoAsset,
   ProformaHubData,
@@ -39,6 +41,8 @@ import {
   fetchProformaDetailApi,
   handlePriceRequestActionApi,
   convertQuotationToPIApi,
+  requestDispatchApi,
+  createPriceChangeRequestApi,
   fetchDispatchDetailApi,
   submitPackingPhotosApi,
   approvePackingApi,
@@ -91,6 +95,13 @@ export function ProformaMainScreen() {
   const [detailData, setDetailData] = useState<ProformaDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Price Change Request Modal State
+  const [priceChangeModalOpen, setPriceChangeModalOpen] = useState(false);
+  const [selectedProductForPriceChange, setSelectedProductForPriceChange] = useState<ProformaDetailItem | null>(null);
+  const [requestedPriceInput, setRequestedPriceInput] = useState("");
+  const [priceChangeReason, setPriceChangeReason] = useState("");
+  const [priceChangeSubmitting, setPriceChangeSubmitting] = useState(false);
 
   // Dispatch Hub Modal State
   const [dispatchModalVisible, setDispatchModalVisible] = useState(false);
@@ -215,10 +226,32 @@ export function ProformaMainScreen() {
               const res = await convertQuotationToPIApi(qId);
               if (res && res.success) {
                 triggerSelectionHaptic();
-                Alert.alert("Success", `Created Proforma Invoice ${res.proforma_number}!`);
-                setSelectedItem(null);
-                setDetailData(null);
-                loadDocuments(true);
+                Alert.alert(
+                  "Quotation Converted!",
+                  `Successfully converted to Proforma Invoice ${res.proforma_number}!`,
+                  [
+                    {
+                      text: "View Proforma Invoice",
+                      onPress: () => {
+                        setActiveTab("overview");
+                        loadDocuments(true);
+                        handleOpenDetail({
+                          id: String(res.proforma_id),
+                          doc_type: "proforma",
+                          piNumber: res.proforma_number,
+                        } as any);
+                      },
+                    },
+                    {
+                      text: "Done",
+                      onPress: () => {
+                        setSelectedItem(null);
+                        setDetailData(null);
+                        loadDocuments(true);
+                      },
+                    },
+                  ]
+                );
               } else {
                 Alert.alert("Error", res?.message || "Failed to convert quotation.");
               }
@@ -231,6 +264,140 @@ export function ProformaMainScreen() {
         },
       ]
     );
+  };
+
+  // Open Price Change Modal for an item
+  const handleOpenPriceChange = (item?: ProformaDetailItem) => {
+    if (!detailData || detailData.items.length === 0) return;
+    triggerLightHaptic();
+    const targetItem = item || detailData.items[0];
+    setSelectedProductForPriceChange(targetItem);
+    setRequestedPriceInput(String(targetItem.unit_price_num || ""));
+    setPriceChangeReason("");
+    setPriceChangeModalOpen(true);
+  };
+
+  // Submit Price Change Request
+  const handleSubmitPriceChange = async () => {
+    if (!detailData || !selectedProductForPriceChange) return;
+    const priceNum = parseFloat(requestedPriceInput);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      Alert.alert("Invalid Price", "Please enter a valid requested price per unit.");
+      return;
+    }
+    const targetProductId = selectedProductForPriceChange.product_id ?? selectedProductForPriceChange.id;
+    if (!targetProductId) {
+      Alert.alert("Invalid Product", "Selected product does not have a valid ID.");
+      return;
+    }
+    setPriceChangeSubmitting(true);
+    try {
+      const res = await createPriceChangeRequestApi({
+        doc_id: detailData.id,
+        doc_type: detailData.doc_type,
+        product_id: targetProductId,
+        requested_price: priceNum,
+        reason: priceChangeReason.trim(),
+      });
+      if (res && res.success) {
+        triggerSelectionHaptic();
+        Alert.alert("Request Submitted", "Price change request has been submitted for review.");
+        setPriceChangeModalOpen(false);
+        const updated = await fetchProformaDetailApi(detailData.id, detailData.doc_type);
+        setDetailData(updated);
+        loadDocuments(true);
+      } else {
+        Alert.alert("Error", res?.message || "Failed to submit price change request.");
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err?.response?.data?.error || err?.message || "Failed to submit price change request.");
+    } finally {
+      setPriceChangeSubmitting(false);
+    }
+  };
+
+  // Request Dispatch
+  const handleRequestDispatch = async (invoiceId: number) => {
+    triggerLightHaptic();
+    Alert.alert(
+      "Request Dispatch",
+      "Raise a dispatch request for Accounts & Logistics teams?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Request Dispatch",
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              const res = await requestDispatchApi(invoiceId);
+              if (res && res.success) {
+                triggerSelectionHaptic();
+                Alert.alert("Dispatch Requested", res.message);
+                const updated = await fetchProformaDetailApi(invoiceId, "proforma");
+                setDetailData(updated);
+                loadDocuments(true);
+              } else {
+                Alert.alert("Error", res?.message || "Failed to request dispatch.");
+              }
+            } catch (err: any) {
+              Alert.alert("Error", err?.response?.data?.error || err?.message || "Could not request dispatch.");
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Share / Export Document
+  const handleShareDocument = async () => {
+    if (!detailData) return;
+    triggerLightHaptic();
+    try {
+      const isQuotation = detailData.doc_type === "quotation";
+      const docTitle = isQuotation ? "Quotation" : "Proforma Invoice";
+      const lines = [
+        `*${docTitle.toUpperCase()} - OBLU HEALTHCARE LLP*`,
+        `Doc Number: ${detailData.number}`,
+        `Date: ${detailData.date}`,
+        `Customer: ${detailData.customer.name}`,
+        `Phone: ${detailData.customer.phone || "N/A"}`,
+        `City/State: ${detailData.customer.city || "India"}`,
+        detailData.customer.gstin ? `GSTIN: ${detailData.customer.gstin}` : "",
+        `----------------------------------------`,
+        `*ORDERED ITEMS:*`,
+        ...detailData.items.map(
+          (it, idx) =>
+            `${idx + 1}. ${it.product_name} (${it.category})\n   Qty: ${it.quantity} × ${it.unit_price} = ${it.total_price}`
+        ),
+        `----------------------------------------`,
+        `Taxable Total: ${detailData.totals.taxable_total}`,
+        `Courier (${detailData.courier_mode.toUpperCase()}): ${detailData.totals.courier_charge}`,
+        `*Grand Total: ${detailData.totals.grand_total}*`,
+        `----------------------------------------`,
+        `*BANK DETAILS:*`,
+        `A/c Holder: ${detailData.bank_details?.account_holder || "OBLU HEALTHCARE LLP"}`,
+        `Bank: ${detailData.bank_details?.bank || "Axis Bank Limited"}`,
+        `A/c No: ${detailData.bank_details?.account_no || "926030003897014"}`,
+        `IFSC: ${detailData.bank_details?.ifsc || "UTIB0000588"}`,
+        `Branch: ${detailData.bank_details?.branch || "Lok Vihar, New Delhi"}`,
+        `----------------------------------------`,
+        `*TERMS & CONDITIONS:*`,
+        `1. Prices inclusive of GST.`,
+        `2. 100% advance payment required.`,
+        `3. Delivery within 2-3 weeks from confirmed order.`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      await Share.share({
+        title: `${docTitle} #${detailData.number}`,
+        message: lines,
+      });
+    } catch (err: any) {
+      console.warn("Share failed:", err);
+    }
   };
 
   // Handle Photo Capture for Dispatch
@@ -488,6 +655,59 @@ export function ProformaMainScreen() {
       {/* ── Tab Content Rendering ── */}
       {activeTab === "overview" || activeTab === "quotations" ? (
         <View style={{ flex: 1 }}>
+          {/* Document Type Switcher (All Documents vs Quotations) */}
+          <View style={[styles.docTypeSegmentRow, { backgroundColor: isDark ? "#12151E" : "#EFF6F3", borderColor: border }]}>
+            <TouchableOpacity
+              style={[
+                styles.docTypeSegmentBtn,
+                activeTab === "overview" && { backgroundColor: activeColor },
+              ]}
+              onPress={() => {
+                triggerSelectionHaptic();
+                setActiveTab("overview");
+              }}
+            >
+              <Ionicons
+                name="albums-outline"
+                size={14}
+                color={activeTab === "overview" ? "#06281E" : muted}
+              />
+              <Text
+                style={[
+                  styles.docTypeSegmentText,
+                  { color: activeTab === "overview" ? "#06281E" : foreground, fontFamily: Typography.bold },
+                ]}
+              >
+                All Documents
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.docTypeSegmentBtn,
+                activeTab === "quotations" && { backgroundColor: activeColor },
+              ]}
+              onPress={() => {
+                triggerSelectionHaptic();
+                setActiveTab("quotations");
+              }}
+            >
+              <Ionicons
+                name="receipt-outline"
+                size={14}
+                color={activeTab === "quotations" ? "#06281E" : muted}
+              />
+              <Text
+                style={[
+                  styles.docTypeSegmentText,
+                  { color: activeTab === "quotations" ? "#06281E" : foreground, fontFamily: Typography.bold },
+                ]}
+              >
+                Quotations ({hubData?.stats.total_quotations ?? "•"})
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Status Quick Filter Bar */}
           <View style={styles.filterPillsRow}>
             {["all", "approved", "pending", "billed"].map((st) => (
@@ -591,9 +811,21 @@ export function ProformaMainScreen() {
         visible={createModalOpen}
         docType={createDocType}
         onClose={() => setCreateModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(created) => {
           loadHub();
           loadDocuments(true);
+          if (created) {
+            if (created.doc_type === "quotation") {
+              setActiveTab("quotations");
+            } else {
+              setActiveTab("overview");
+            }
+            handleOpenDetail({
+              id: String(created.id),
+              doc_type: created.doc_type,
+              piNumber: created.number || (created.doc_type === "quotation" ? `QT-${created.id}` : `PI-${created.id}`),
+            } as any);
+          }
         }}
       />
 
@@ -618,6 +850,17 @@ export function ProformaMainScreen() {
             <ActivityIndicator style={{ marginTop: 60 }} color={activeColor} />
           ) : detailData ? (
             <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
+              {/* Converted to PI Banner */}
+              {detailData.doc_type === "quotation" && detailData.is_converted_to_proforma && (
+                <View style={[styles.convertedBanner, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.16)" : "#ECFDF5", borderColor: "#10B981" }]}>
+                  <Ionicons name="checkmark-done-circle" size={22} color="#10B981" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.convertedBannerTitle, { color: foreground }]}>Converted to Proforma Invoice</Text>
+                    <Text style={[styles.convertedBannerSub, { color: muted }]}>This quotation has been officially converted to a Proforma Invoice.</Text>
+                  </View>
+                </View>
+              )}
+
               {/* Customer Box */}
               <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
                 <Text style={[styles.detailCardLabel, { color: muted }]}>CLIENT INFORMATION</Text>
@@ -640,14 +883,42 @@ export function ProformaMainScreen() {
                       <Text style={[styles.detailItemSku, { color: muted }]}>
                         {it.category} • SKU: {it.sku || "N/A"}
                       </Text>
-                      <Text style={[styles.detailItemQty, { color: activeColor }]}>
-                        {it.quantity} × {it.unit_price}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+                        <Text style={[styles.detailItemQty, { color: activeColor }]}>
+                          {it.quantity} × {it.unit_price}
+                        </Text>
+                        {detailData.can_request_price_change && (
+                          <TouchableOpacity
+                            onPress={() => handleOpenPriceChange(it)}
+                            style={[styles.itemPriceTagBtn, { borderColor: border }]}
+                          >
+                            <Ionicons name="pricetag-outline" size={11} color="#0284C7" />
+                            <Text style={styles.itemPriceTagText}>Request Price</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                     <Text style={[styles.detailItemTotal, { color: foreground }]}>{it.total_price}</Text>
                   </View>
                 ))}
               </View>
+
+              {/* Active Price Requests Banner */}
+              {detailData.price_requests && detailData.price_requests.length > 0 && (
+                <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: "#F59E0B" }]}>
+                  <Text style={[styles.detailCardLabel, { color: "#F59E0B" }]}>PRICE APPROVAL REQUESTS ({detailData.price_requests.length})</Text>
+                  {detailData.price_requests.map((pr) => (
+                    <View key={pr.id} style={{ paddingVertical: 4 }}>
+                      <Text style={[styles.bankLine, { color: foreground }]}>
+                        {pr.product_name}: Requested ₹{pr.requested_price} (Status: <Text style={{ fontFamily: Typography.bold, color: pr.status === "approved" ? activeColor : pr.status === "pending" ? "#F59E0B" : "#EF4444" }}>{pr.status.toUpperCase()}</Text>)
+                      </Text>
+                      {Boolean(pr.reason) && (
+                        <Text style={{ fontSize: 11, color: muted, fontStyle: "italic" }}>Reason: {pr.reason}</Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
 
               {/* Pricing Totals */}
               <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
@@ -669,9 +940,52 @@ export function ProformaMainScreen() {
                 </View>
               </View>
 
+              {/* Bank Details Box */}
+              {detailData.bank_details && (
+                <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <Ionicons name="card-outline" size={15} color={activeColor} />
+                    <Text style={[styles.detailCardLabel, { color: muted, marginBottom: 0 }]}>BANK DETAILS</Text>
+                  </View>
+                  <Text style={[styles.bankLine, { color: foreground }]}>
+                    A/c Holder: <Text style={{ fontFamily: Typography.bold }}>{detailData.bank_details.account_holder}</Text>
+                  </Text>
+                  <Text style={[styles.bankLine, { color: foreground }]}>
+                    Bank: <Text style={{ fontFamily: Typography.semiBold }}>{detailData.bank_details.bank}</Text>
+                  </Text>
+                  <Text style={[styles.bankLine, { color: foreground }]}>
+                    A/c No: <Text style={{ fontFamily: Typography.bold }}>{detailData.bank_details.account_no}</Text>
+                  </Text>
+                  <Text style={[styles.bankLine, { color: foreground }]}>
+                    IFSC: <Text style={{ fontFamily: Typography.bold }}>{detailData.bank_details.ifsc}</Text> • Branch: {detailData.bank_details.branch}
+                  </Text>
+                </View>
+              )}
+
+              {/* Terms and Conditions */}
+              <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <Ionicons name="document-text-outline" size={15} color={activeColor} />
+                  <Text style={[styles.detailCardLabel, { color: muted, marginBottom: 0 }]}>TERMS & CONDITIONS</Text>
+                </View>
+                <Text style={[styles.termItem, { color: muted }]}>1. Prices: Quoted on F.O.R Destination and inclusive of GST.</Text>
+                <Text style={[styles.termItem, { color: muted }]}>2. Payment: 100% advance payment in our favor.</Text>
+                <Text style={[styles.termItem, { color: muted }]}>3. Delivery: 2-3 weeks from receipt of confirmed order.</Text>
+                <Text style={[styles.termItem, { color: muted }]}>4. Validity: 30 days from date of issuance.</Text>
+
+                <View style={[styles.signatoryRow, { borderTopColor: border }]}>
+                  <View style={{ flex: 1 }} />
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={[styles.signatoryLabel, { color: muted }]}>Authorized Signatory</Text>
+                    <Text style={[styles.signatoryOrg, { color: foreground }]}>OBLU HEALTHCARE LLP</Text>
+                  </View>
+                </View>
+              </View>
+
               {/* Action Buttons */}
               <View style={styles.detailActionCol}>
-                {detailData.doc_type === "quotation" && detailData.can_convert_to_pi && (
+                {/* 1. Convert to PI (Quotations only, if not converted) */}
+                {detailData.doc_type === "quotation" && !detailData.is_converted_to_proforma && (
                   <TouchableOpacity
                     style={[styles.convertBtn, { backgroundColor: activeColor }]}
                     onPress={() => handleConvertQuotation(detailData.id)}
@@ -682,7 +996,31 @@ export function ProformaMainScreen() {
                   </TouchableOpacity>
                 )}
 
-                {detailData.doc_type === "proforma" && (
+                {/* 2. Request Price Change */}
+                {detailData.can_request_price_change && (
+                  <TouchableOpacity
+                    style={[styles.priceRequestBtn, { borderColor: "#0284C7", backgroundColor: isDark ? "rgba(2, 132, 199, 0.12)" : "#F0F9FF" }]}
+                    onPress={() => handleOpenPriceChange()}
+                  >
+                    <Ionicons name="pricetag-outline" size={18} color="#0284C7" />
+                    <Text style={[styles.priceRequestBtnText, { color: "#0284C7" }]}>Request Price Change</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* 3. Request Dispatch (Proforma Invoices in processing) */}
+                {detailData.doc_type === "proforma" && detailData.can_request_dispatch && (
+                  <TouchableOpacity
+                    style={[styles.requestDispatchBtn, { backgroundColor: activeColor }]}
+                    onPress={() => handleRequestDispatch(detailData.id)}
+                    disabled={actionLoading}
+                  >
+                    <Ionicons name="paper-plane-outline" size={18} color="#06281E" />
+                    <Text style={styles.requestDispatchBtnText}>Request Dispatch</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* 4. Open Dispatch Camera & Logistics Hub (Proforma Invoices) */}
+                {detailData.doc_type === "proforma" && !detailData.can_request_dispatch && (
                   <TouchableOpacity
                     style={[styles.dispatchHubBtn, { borderColor: activeColor }]}
                     onPress={() => handleOpenDispatch(detailData.id)}
@@ -693,9 +1031,113 @@ export function ProformaMainScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
+
+                {/* 5. Share / Export Document */}
+                <TouchableOpacity
+                  style={[styles.shareBtn, { borderColor: border }]}
+                  onPress={handleShareDocument}
+                >
+                  <Ionicons name="share-social-outline" size={18} color={foreground} />
+                  <Text style={[styles.shareBtnText, { color: foreground }]}>
+                    Share / Export {detailData.doc_type === "quotation" ? "Quotation" : "Invoice"}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
           ) : null}
+        </View>
+      </Modal>
+
+      {/* ── Price Change Request Modal ── */}
+      <Modal visible={priceChangeModalOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPriceChangeModalOpen(false)}>
+        <View style={[styles.detailModalFrame, { backgroundColor: bg, paddingTop: Math.max(insets.top, 16) }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: border }]}>
+            <TouchableOpacity onPress={() => setPriceChangeModalOpen(false)} style={styles.closeBtn}>
+              <Ionicons name="close" size={24} color={muted} />
+            </TouchableOpacity>
+            <View style={{ alignItems: "center" }}>
+              <Text style={[styles.modalTitle, { color: foreground }]}>Request Price Change</Text>
+              <Text style={[styles.modalSub, { color: muted }]}>{detailData?.number || ""}</Text>
+            </View>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
+            {/* Select Product Item */}
+            <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
+              <Text style={[styles.detailCardLabel, { color: muted }]}>SELECT ITEM *</Text>
+              {detailData?.items.map((it) => {
+                const isSelected = selectedProductForPriceChange?.id === it.id;
+                return (
+                  <TouchableOpacity
+                    key={it.id}
+                    onPress={() => {
+                      triggerSelectionHaptic();
+                      setSelectedProductForPriceChange(it);
+                      setRequestedPriceInput(String(it.unit_price_num || ""));
+                    }}
+                    style={[
+                      styles.productOptionRow,
+                      { borderColor: isSelected ? activeColor : border, backgroundColor: isSelected ? (isDark ? "rgba(16, 185, 129, 0.12)" : "#ECFDF5") : "transparent" },
+                    ]}
+                  >
+                    <Ionicons
+                      name={isSelected ? "radio-button-on" : "radio-button-off"}
+                      size={18}
+                      color={isSelected ? activeColor : muted}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.productOptionName, { color: foreground }]}>{it.product_name}</Text>
+                      <Text style={[styles.productOptionSub, { color: muted }]}>Current Price: {it.unit_price} • Qty: {it.quantity}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Requested Price Input */}
+            <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
+              <Text style={[styles.detailCardLabel, { color: muted }]}>NEW REQUESTED PRICE PER UNIT (₹) *</Text>
+              <TextInput
+                style={[styles.textInput, { color: foreground, borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}
+                keyboardType="numeric"
+                value={requestedPriceInput}
+                onChangeText={setRequestedPriceInput}
+                placeholder="Enter requested price..."
+                placeholderTextColor={muted}
+              />
+            </View>
+
+            {/* Reason */}
+            <View style={[styles.detailCard, { backgroundColor: cardBg, borderColor: border }]}>
+              <Text style={[styles.detailCardLabel, { color: muted }]}>REASON FOR PRICE CHANGE</Text>
+              <TextInput
+                style={[styles.textArea, { color: foreground, borderColor: border, backgroundColor: isDark ? "#090B10" : "#FFFFFF" }]}
+                multiline
+                numberOfLines={3}
+                value={priceChangeReason}
+                onChangeText={setPriceChangeReason}
+                placeholder="Client discount justification, competitive match, volume deal..."
+                placeholderTextColor={muted}
+              />
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[styles.submitPriceRequestBtn, { backgroundColor: activeColor, opacity: priceChangeSubmitting ? 0.6 : 1 }]}
+              onPress={handleSubmitPriceChange}
+              disabled={priceChangeSubmitting}
+            >
+              {priceChangeSubmitting ? (
+                <ActivityIndicator color="#06281E" />
+              ) : (
+                <>
+                  <Ionicons name="send" size={16} color="#06281E" />
+                  <Text style={styles.submitPriceRequestText}>Submit Price Request</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -1048,4 +1490,117 @@ const styles = StyleSheet.create({
   docketNumDisplay: { fontSize: 14, fontFamily: Typography.bold },
   docketDateDisplay: { fontSize: 11, fontFamily: Typography.regular, marginTop: 2 },
   noDocketText: { fontSize: 12, fontFamily: Typography.regular },
+  docTypeSegmentRow: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+  },
+  docTypeSegmentBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 7,
+    borderRadius: 9,
+    gap: 6,
+  },
+  docTypeSegmentText: { fontSize: 12 },
+  convertedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+  },
+  convertedBannerTitle: { fontFamily: Typography.bold, fontSize: 13 },
+  convertedBannerSub: { fontFamily: Typography.regular, fontSize: 11, marginTop: 2 },
+  itemPriceTagBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  itemPriceTagText: { fontSize: 10.5, fontFamily: Typography.bold, color: "#0284C7" },
+  bankLine: { fontSize: 12, fontFamily: Typography.regular, marginVertical: 2 },
+  termItem: { fontSize: 11.5, fontFamily: Typography.regular, marginVertical: 2, lineHeight: 17 },
+  signatoryRow: { marginTop: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row" },
+  signatoryLabel: { fontSize: 10, fontFamily: Typography.regular },
+  signatoryOrg: { fontSize: 12, fontFamily: Typography.bold, marginTop: 2 },
+  priceRequestBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  priceRequestBtnText: { fontFamily: Typography.bold, fontSize: 13 },
+  requestDispatchBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  requestDispatchBtnText: { color: "#06281E", fontFamily: Typography.bold, fontSize: 13 },
+  shareBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  shareBtnText: { fontFamily: Typography.bold, fontSize: 13 },
+  productOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginVertical: 4,
+  },
+  productOptionName: { fontSize: 13, fontFamily: Typography.bold },
+  productOptionSub: { fontSize: 11, fontFamily: Typography.regular, marginTop: 2 },
+  textInput: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: Typography.semiBold,
+  },
+  textArea: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    fontFamily: Typography.regular,
+    minHeight: 70,
+    textAlignVertical: "top",
+  },
+  submitPriceRequestBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+    marginTop: 10,
+  },
+  submitPriceRequestText: { color: "#06281E", fontFamily: Typography.bold, fontSize: 13 },
 });

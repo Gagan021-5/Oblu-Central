@@ -237,6 +237,65 @@ class PriceChangeRequestsListAPIView(APIView):
 
         return Response({"success": True, "results": results})
 
+    def post(self, request):
+        user = request.user
+        data = request.data
+        doc_type = data.get("doc_type", "proforma").strip().lower()
+        doc_id = data.get("doc_id")
+        product_id = data.get("product_id")
+        requested_price = data.get("requested_price")
+        reason = data.get("reason", "").strip()
+
+        if not doc_id or not product_id or requested_price is None:
+            return Response({"error": "doc_id, product_id, and requested_price are required."}, status=400)
+
+        try:
+            req_price = Decimal(str(requested_price))
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid requested_price."}, status=400)
+
+        if doc_type == "quotation":
+            parent_obj = get_object_or_404(QuotationMaker, pk=doc_id)
+            item = get_object_or_404(QuotationMakerItem, quotation=parent_obj, product_id=product_id)
+            existing = ProformaPriceChangeRequest.objects.filter(quotation=parent_obj, product_id=product_id, status="pending").first()
+        else:
+            parent_obj = get_object_or_404(ProformaInvoice, pk=doc_id)
+            item = get_object_or_404(ProformaInvoiceItem, invoice=parent_obj, product_id=product_id)
+            existing = ProformaPriceChangeRequest.objects.filter(invoice=parent_obj, product_id=product_id, status="pending").first()
+
+        if not (user.is_superuser or is_admin(user) or is_finance(user) or can(user, "proforma.view", parent_obj)):
+            raise PermissionDenied("You do not have permission to request price changes on this document.")
+
+        if existing:
+            return Response({"error": "A pending price change request already exists for this item."}, status=400)
+
+        product = item.product
+        current_price = getattr(getattr(product, "proforma_price", None), "price", Decimal("0.00")) or Decimal("0.00")
+
+        pr_kwargs = {
+            "is_product_request": True,
+            "customer": parent_obj.customer,
+            "product": product,
+            "requested_by": user,
+            "requested_price": req_price,
+            "recommended_price": current_price,
+            "msrp_snapshot": current_price,
+            "quantity": item.quantity,
+            "reason": reason,
+            "status": "pending",
+        }
+        if doc_type == "quotation":
+            pr_kwargs["quotation"] = parent_obj
+        else:
+            pr_kwargs["invoice"] = parent_obj
+
+        pr = ProformaPriceChangeRequest.objects.create(**pr_kwargs)
+        return Response({
+            "success": True,
+            "id": pr.id,
+            "message": "Price change request submitted successfully."
+        }, status=201)
+
 
 class StockShortageRequestsListAPIView(APIView):
     """

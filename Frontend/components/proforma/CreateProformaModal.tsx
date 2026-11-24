@@ -25,9 +25,9 @@ import {
 
 interface CreateProformaModalProps {
   visible: boolean;
-  docType: "proforma" | "quotation";
+  docType?: "proforma" | "quotation";
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (createdDoc?: { id: number; doc_type: "proforma" | "quotation"; number?: string }) => void;
 }
 
 interface DraftLineItem {
@@ -50,6 +50,13 @@ export function CreateProformaModal({
   const [customers, setCustomers] = useState<ProformaCustomerLookup[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<ProformaCustomerLookup | null>(null);
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [currentDocType, setCurrentDocType] = useState<"proforma" | "quotation">(docType || "proforma");
+
+  useEffect(() => {
+    if (visible && docType) {
+      setCurrentDocType(docType);
+    }
+  }, [visible, docType]);
 
   const [courierMode, setCourierMode] = useState<"surface" | "air">("surface");
   const [items, setItems] = useState<DraftLineItem[]>([]);
@@ -176,7 +183,7 @@ export function CreateProformaModal({
     setSubmitting(true);
     try {
       const payload = {
-        doc_type: docType,
+        doc_type: currentDocType,
         customer_id: selectedCustomer.id,
         courier_mode: courierMode,
         items: items.map((it) => ({
@@ -189,14 +196,12 @@ export function CreateProformaModal({
       const res = await createProformaApi(payload);
       if (res && res.success) {
         triggerLightHaptic();
-        Alert.alert(
-          "Success",
-          `${docType === "quotation" ? "Quotation" : "Proforma"} ${res.number} generated successfully!`,
-          [{ text: "OK", onPress: () => {
-            onClose();
-            onSuccess();
-          }}]
-        );
+        onClose();
+        onSuccess({
+          id: res.id,
+          doc_type: currentDocType,
+          number: res.number,
+        });
       } else {
         Alert.alert("Creation Failed", res?.message || "Could not generate document.");
       }
@@ -217,7 +222,7 @@ export function CreateProformaModal({
           </TouchableOpacity>
           <View style={{ alignItems: "center" }}>
             <Text style={[styles.title, { color: foreground }]}>
-              {docType === "quotation" ? "Create New Quotation" : "Create New Proforma"}
+              {currentDocType === "quotation" ? "Create New Quotation" : "Create New Proforma"}
             </Text>
             <Text style={[styles.subtitle, { color: muted }]}>Draft invoice with tax & courier</Text>
           </View>
@@ -225,6 +230,62 @@ export function CreateProformaModal({
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
+          {/* Document Type Selector Segment */}
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: border, marginBottom: 12 }]}>
+            <Text style={[styles.label, { color: muted }]}>DOCUMENT TYPE</Text>
+            <View style={styles.segmentedRow}>
+              <TouchableOpacity
+                style={[
+                  styles.segmentBtn,
+                  currentDocType === "quotation" && { backgroundColor: activeColor },
+                ]}
+                onPress={() => {
+                  triggerSelectionHaptic();
+                  setCurrentDocType("quotation");
+                }}
+              >
+                <Ionicons
+                  name="receipt-outline"
+                  size={16}
+                  color={currentDocType === "quotation" ? "#06281E" : muted}
+                />
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: currentDocType === "quotation" ? "#06281E" : foreground, fontFamily: Typography.bold },
+                  ]}
+                >
+                  Quotation
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.segmentBtn,
+                  currentDocType === "proforma" && { backgroundColor: activeColor },
+                ]}
+                onPress={() => {
+                  triggerSelectionHaptic();
+                  setCurrentDocType("proforma");
+                }}
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={16}
+                  color={currentDocType === "proforma" ? "#06281E" : muted}
+                />
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: currentDocType === "proforma" ? "#06281E" : foreground, fontFamily: Typography.bold },
+                  ]}
+                >
+                  Proforma Invoice
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Customer Selection Card */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
             <Text style={[styles.label, { color: muted }]}>CLIENT / CUSTOMER *</Text>

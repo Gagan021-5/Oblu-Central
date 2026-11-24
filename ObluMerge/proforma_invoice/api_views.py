@@ -639,6 +639,16 @@ class ProformaDetailAPIView(APIView):
             "price_requests": price_requests_list,
             "can_approve_price": can_approve,
             "can_convert_to_pi": can_convert,
+            "is_converted_to_proforma": bool(getattr(doc, "is_converted_to_proforma", False)),
+            "can_request_dispatch": bool(doc_type == "proforma" and getattr(doc, "dispatch_status", "") == "processing"),
+            "can_request_price_change": bool((doc_type == "quotation" and not getattr(doc, "is_converted_to_proforma", False)) or (doc_type == "proforma" and getattr(doc, "dispatch_status", "") != "dispatched")),
+            "bank_details": {
+                "account_holder": "OBLU HEALTHCARE LLP",
+                "bank": "Axis Bank Limited",
+                "account_no": "926030003897014",
+                "ifsc": "UTIB0000588",
+                "branch": "Lok Vihar, New Delhi",
+            },
             "web_url": web_url,
         })
 
@@ -724,6 +734,38 @@ class ConvertQuotationToPIAPIView(APIView):
             "proforma_id": pi.id,
             "proforma_number": f"PI-{pi.date_created.strftime('%Y')}-{str(pi.id).zfill(4)}",
             "message": "Quotation converted to Proforma Invoice successfully.",
+        })
+
+
+class ProformaRequestDispatchAPIView(APIView):
+    """
+    POST /api/proforma/<int:pk>/request-dispatch/
+    Raises a dispatch request for Accounts & Warehouse dispatch teams.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        user = request.user
+        invoice = get_object_or_404(ProformaInvoice, pk=pk)
+
+        if not (user.is_superuser or is_admin(user) or is_finance(user) or can(user, "proforma.view", invoice)):
+            raise PermissionDenied("You do not have permission to request dispatch for this invoice.")
+
+        if invoice.dispatch_status != "processing":
+            return Response({
+                "success": True,
+                "message": f"Dispatch request is already '{invoice.dispatch_status}'.",
+                "dispatch_status": invoice.dispatch_status
+            })
+
+        invoice.dispatch_status = "requested"
+        invoice.dispatch_requested_at = timezone.now()
+        invoice.save(update_fields=["dispatch_status", "dispatch_requested_at"])
+
+        return Response({
+            "success": True,
+            "message": "Dispatch requested successfully. Accounts & Logistics have been notified.",
+            "dispatch_status": "requested"
         })
 
 

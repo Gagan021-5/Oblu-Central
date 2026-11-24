@@ -7,6 +7,7 @@ from django.urls import path
 from .api_views import (
     ProformaListCreateAPIView,
     ProformaDetailAPIView,
+    ProformaRequestDispatchAPIView,
     PriceChangeRequestActionAPIView,
     ConvertQuotationToPIAPIView,
     ProformaProductsLookupAPIView,
@@ -34,6 +35,7 @@ urlpatterns = [
     # ── Proforma & Quotation Document APIs ──
     path("", ProformaListCreateAPIView.as_view(), name="mobile-proforma-list"),
     path("<int:pk>/", ProformaDetailAPIView.as_view(), name="mobile-proforma-detail"),
+    path("<int:pk>/request-dispatch/", ProformaRequestDispatchAPIView.as_view(), name="mobile-proforma-request-dispatch"),
     path("quotations/<int:pk>/convert/", ConvertQuotationToPIAPIView.as_view(), name="mobile-quotation-convert"),
     path("products/", ProformaProductsLookupAPIView.as_view(), name="mobile-proforma-products"),
     path("catalog/", ProformaCatalogAPIView.as_view(), name="mobile-proforma-catalog"),
