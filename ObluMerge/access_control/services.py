@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from access_control.models import RolePermission, RoleAssignment
 from access_control.hierarchy import get_accessible_user_ids
+from access_control.roles import is_admin
 from customer_dashboard.models import SalesPerson
 
 User = get_user_model()

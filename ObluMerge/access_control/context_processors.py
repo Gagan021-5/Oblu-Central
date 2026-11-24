@@ -1,6 +1,7 @@
 # access_control/context_processors.py
 from customer_dashboard.models import SalesPerson
-from access_control.services import get_user_effective_permissions, is_admin
+from access_control.roles import is_admin
+from access_control.services import get_user_effective_permissions
 
 def rbac_context(request):
     if not request.user.is_authenticated:
