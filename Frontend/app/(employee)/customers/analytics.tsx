@@ -273,7 +273,7 @@ export default function CustomerAnalyticsScreen() {
 
             <View style={styles.chartLegendRow}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#3B82F6" }]} />
+                <View style={[styles.legendDot, { backgroundColor: "#0D9488" }]} />
                 <Text style={[styles.legendText, { color: muted }]}>Total Customers</Text>
               </View>
               <View style={styles.legendItem}>
@@ -290,7 +290,7 @@ export default function CustomerAnalyticsScreen() {
                   total={x.customers}
                   active={x.active}
                   max={maxSales}
-                  totalColor="#3B82F6"
+                  totalColor="#0D9488"
                   activeColor="#10B981"
                 />
               ))}

@@ -395,7 +395,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
         <View style={[styles.chartSection, { backgroundColor: cardBg, borderColor: t.border }]}>
           <View style={styles.sectionHeader}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-              <Ionicons name="person-circle-outline" size={20} color="#3B82F6" />
+              <Ionicons name="person-circle-outline" size={20} color="#159A7C" />
               <Text style={[styles.chartTitle, { color: text }]}>Customers per Salesperson</Text>
             </View>
             <Text style={[styles.chartSubtitle, { color: muted }]}>
@@ -424,7 +424,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
               {/* Legend Row: Total vs Active */}
               <View style={styles.chartLegendRow}>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: "#3B82F6" }]} />
+                  <View style={[styles.legendDot, { backgroundColor: "#0D9488" }]} />
                   <Text style={[styles.legendText, { color: muted }]}>Total Customers</Text>
                 </View>
                 <View style={styles.legendItem}>
@@ -442,7 +442,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
                     total={x.customers}
                     active={x.active}
                     max={maxSales}
-                    totalColor="#3B82F6"
+                    totalColor="#0D9488"
                     activeColor="#10B981"
                   />
                 ))}
@@ -455,12 +455,12 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
                     styles.toggleButton,
                     {
                       borderColor: t.border,
-                      backgroundColor: isDark ? "rgba(59, 130, 246, 0.1)" : "#EFF6FF",
+                      backgroundColor: isDark ? "rgba(21, 154, 124, 0.1)" : "#EBF7F3",
                     },
                   ]}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.toggleButtonText, { color: "#3B82F6" }]}>
+                  <Text style={[styles.toggleButtonText, { color: "#159A7C" }]}>
                     {showAllSalespersons
                       ? "Show Top 8"
                       : `Show All (${chartsData?.salespersonDistribution?.length}) Salespersons`}
@@ -468,7 +468,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
                   <Ionicons
                     name={showAllSalespersons ? "chevron-up" : "chevron-down"}
                     size={14}
-                    color="#3B82F6"
+                    color="#159A7C"
                   />
                 </TouchableOpacity>
               )}

@@ -1847,7 +1847,7 @@ export default function EmployeeHomeScreen() {
                           pi.status === "Approved"
                             ? isDark ? "rgba(53, 214, 160, 0.15)" : "#DDF4EA"
                             : pi.status === "Dispatched"
-                            ? isDark ? "rgba(59, 130, 246, 0.15)" : "#DBEAFE"
+                            ? isDark ? "rgba(13, 148, 136, 0.15)" : "#CCFBF1"
                             : isDark ? "rgba(245, 158, 11, 0.15)" : "#FEF3C7",
                       }}
                     >
@@ -1859,7 +1859,7 @@ export default function EmployeeHomeScreen() {
                             pi.status === "Approved"
                               ? isDark ? "#35D6A0" : "#00A879"
                               : pi.status === "Dispatched"
-                              ? "#3B82F6"
+                              ? "#0D9488"
                               : "#D97706",
                         }}
                       >

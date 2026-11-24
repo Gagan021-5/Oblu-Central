@@ -1087,8 +1087,8 @@ export default function CustomerToolScreen() {
                 onPress={() => setAddToUnitModal({ customerId, customerName })}
                 style={[styles.portfolioAction, { borderColor: card.borderColor }]}
               >
-                <Ionicons name="arrow-forward-circle-outline" size={13} color="#2563EB" />
-                <Text style={[styles.portfolioActionText, { color: "#2563EB" }]}>Add to Unit</Text>
+                <Ionicons name="arrow-forward-circle-outline" size={13} color="#159A7C" />
+                <Text style={[styles.portfolioActionText, { color: "#159A7C" }]}>Add to Unit</Text>
               </TouchableOpacity>
             </>
           )}
@@ -1275,7 +1275,7 @@ export default function CustomerToolScreen() {
         {/* Credit Status Reference Banner */}
         {!!creditStatus && (
           <View style={[styles.pfCreditBanner, { backgroundColor: isDark ? "#121A16" : "#F1F5F9" }]}>
-            <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: "#2563EB" }}>
+            <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: muted }}>
               credit period : {row.credit_period || 30}
             </Text>
             <Text style={{ fontFamily: Typography.semiBold, fontSize: 11, color: isOverdue ? "#DC2626" : "#059669" }}>
@@ -1284,16 +1284,16 @@ export default function CustomerToolScreen() {
           </View>
         )}
 
-        {/* Expected Date Reference Badge (Blue) */}
+        {/* Expected Date Reference Badge */}
         {!!row.latest_expected_date && (
-          <View style={[styles.pfExpBadge, { backgroundColor: isDark ? "#0F2038" : "#EFF6FF", borderColor: isDark ? "#1E3A5F" : "#BFDBFE" }]}>
-            <Ionicons name="calendar" size={14} color="#2563EB" />
+          <View style={[styles.pfExpBadge, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.12)" : "#EBF7F3", borderColor: isDark ? "rgba(21, 154, 124, 0.25)" : "rgba(21, 154, 124, 0.18)" }]}>
+            <Ionicons name="calendar-outline" size={14} color="#159A7C" />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: Typography.semiBold, fontSize: 11.5, color: "#1D4ED8" }}>
+              <Text style={{ fontFamily: Typography.semiBold, fontSize: 11.5, color: "#159A7C" }}>
                 Exp: {row.latest_expected_date}
               </Text>
               {!!row.latest_expected_user && (
-                <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: isDark ? "#93C5FD" : "#3B82F6" }}>
+                <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }}>
                   Set by {row.latest_expected_user}
                 </Text>
               )}
@@ -1358,7 +1358,7 @@ export default function CustomerToolScreen() {
             }}
             style={[styles.pfActionBtn, { borderColor: card.borderColor }]}
           >
-            <Ionicons name="calendar-outline" size={13} color="#2563EB" />
+            <Ionicons name="calendar-outline" size={13} color="#159A7C" />
             <Text style={[styles.pfActionText, { color: foreground }]}>
               {row.latest_expected_date ? "Update Date" : "Set Date"}
             </Text>
@@ -1470,7 +1470,7 @@ export default function CustomerToolScreen() {
                   {/* 2. CUSTOMER / VOUCHER */}
                   <View style={styles.pfColCustVoucher}>
                     <TouchableOpacity onPress={() => openCustomerDetail(row.customer_id)}>
-                      <Text style={{ fontFamily: Typography.bold, fontSize: 13, color: "#1D4ED8" }} numberOfLines={1}>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 13, color: foreground }} numberOfLines={1}>
                         {custName}
                       </Text>
                     </TouchableOpacity>
@@ -1479,10 +1479,10 @@ export default function CustomerToolScreen() {
                         {row.state}
                       </Text>
                     )}
-                    <Text style={{ fontFamily: Typography.semiBold, fontSize: 11.5, color: isDark ? "#60A5FA" : "#2563EB" }} numberOfLines={1}>
+                    <Text style={{ fontFamily: Typography.semiBold, fontSize: 11.5, color: muted }} numberOfLines={1}>
                       {invoiceNum}
                     </Text>
-                    <Text style={{ fontFamily: Typography.bold, fontSize: 10, color: isDark ? "#93C5FD" : "#1E40AF" }}>
+                    <Text style={{ fontFamily: Typography.bold, fontSize: 10, color: muted }}>
                       SP: {String(row.salesperson || row.sp || "Unassigned").toUpperCase()}
                     </Text>
                   </View>
@@ -1496,7 +1496,7 @@ export default function CustomerToolScreen() {
 
                   {/* 4. CREDIT STATUS */}
                   <View style={styles.pfColCredit}>
-                    <Text style={{ fontFamily: Typography.semiBold, fontSize: 11, color: "#2563EB" }}>
+                    <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: muted }}>
                       credit period : {row.credit_period || 30}
                     </Text>
                     <Text
@@ -1558,11 +1558,11 @@ export default function CustomerToolScreen() {
                   {/* 8. EXPECTED DATE */}
                   <View style={styles.pfColExpected}>
                     {row.latest_expected_date ? (
-                      <View style={[styles.tableBadgeBlue, { backgroundColor: isDark ? "#0F2038" : "#EFF6FF", borderColor: isDark ? "#1E3A5F" : "#BFDBFE" }]}>
-                        <Text style={{ fontFamily: Typography.semiBold, fontSize: 11, color: "#1D4ED8" }}>
+                      <View style={[styles.tableBadgeGreen, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.12)" : "#EBF7F3", borderColor: isDark ? "rgba(21, 154, 124, 0.25)" : "rgba(21, 154, 124, 0.18)" }]}>
+                        <Text style={{ fontFamily: Typography.semiBold, fontSize: 11, color: "#159A7C" }}>
                           Exp: {row.latest_expected_date}
                         </Text>
-                        <Text style={{ fontFamily: Typography.regular, fontSize: 9.5, color: isDark ? "#93C5FD" : "#3B82F6", marginTop: 1 }}>
+                        <Text style={{ fontFamily: Typography.regular, fontSize: 9.5, color: muted, marginTop: 1 }}>
                           Set by {row.latest_expected_user || "system"}
                         </Text>
                       </View>
@@ -1576,10 +1576,10 @@ export default function CustomerToolScreen() {
                         });
                         setExpectedDateInput(row.latest_expected_date || "");
                       }}
-                      style={[styles.tableInlineBtn, { borderColor: "#3B82F6", backgroundColor: isDark ? "#0C1B2E" : "#EFF6FF", marginTop: row.latest_expected_date ? 4 : 0 }]}
+                      style={[styles.tableInlineBtn, { borderColor: card.borderColor, backgroundColor: isDark ? "#121A16" : "#F8FAFC", marginTop: row.latest_expected_date ? 4 : 0 }]}
                     >
-                      <Ionicons name="calendar-outline" size={12} color="#2563EB" />
-                      <Text style={{ fontFamily: Typography.semiBold, fontSize: 10.5, color: "#2563EB" }}>
+                      <Ionicons name="calendar-outline" size={12} color="#159A7C" />
+                      <Text style={{ fontFamily: Typography.semiBold, fontSize: 10.5, color: "#159A7C" }}>
                         {row.latest_expected_date ? "Update Date" : "Set Date"}
                       </Text>
                     </TouchableOpacity>
@@ -1612,9 +1612,9 @@ export default function CustomerToolScreen() {
                         expected_dates: row.expected_dates || [],
                         ticket_status: ticketStatus,
                       })}
-                      style={[styles.tableHistoryBtn, { borderColor: "#3B82F6" }]}
+                      style={[styles.tableHistoryBtn, { borderColor: card.borderColor }]}
                     >
-                      <Text style={{ fontFamily: Typography.bold, fontSize: 11, color: "#2563EB" }}>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 11, color: "#159A7C" }}>
                         VIEW
                       </Text>
                     </TouchableOpacity>
@@ -4156,7 +4156,7 @@ export default function CustomerToolScreen() {
               <TouchableOpacity
                 onPress={() => void handleAddToUnit()}
                 disabled={unitActionLoading || !selectedUnitIdForAdd}
-                style={[styles.modalSave, { backgroundColor: "#2563EB", opacity: (!selectedUnitIdForAdd || unitActionLoading) ? 0.5 : 1 }]}
+                style={[styles.modalSave, { backgroundColor: "#159A7C", opacity: (!selectedUnitIdForAdd || unitActionLoading) ? 0.5 : 1 }]}
               >
                 {unitActionLoading ? (
                   <ActivityIndicator size="small" color="white" />
@@ -4204,12 +4204,12 @@ export default function CustomerToolScreen() {
                     style={[
                       styles.quickDateChip,
                       {
-                        backgroundColor: isSelected ? (isDark ? "#0C2742" : "#DBEAFE") : (isDark ? "#121A16" : "#F1F5F9"),
-                        borderColor: isSelected ? "#2563EB" : card.borderColor,
+                        backgroundColor: isSelected ? (isDark ? "rgba(21, 154, 124, 0.18)" : "#EBF7F3") : (isDark ? "#121A16" : "#F1F5F9"),
+                        borderColor: isSelected ? "#159A7C" : card.borderColor,
                       },
                     ]}
                   >
-                    <Text style={{ fontFamily: isSelected ? Typography.bold : Typography.medium, fontSize: 11, color: isSelected ? "#1D4ED8" : foreground }}>
+                    <Text style={{ fontFamily: isSelected ? Typography.bold : Typography.medium, fontSize: 11, color: isSelected ? "#159A7C" : foreground }}>
                       {chip.label}
                     </Text>
                   </TouchableOpacity>
@@ -4236,7 +4236,7 @@ export default function CustomerToolScreen() {
               <TouchableOpacity
                 onPress={() => void handleSaveExpectedDate()}
                 disabled={actionInProgress || !expectedDateInput.trim()}
-                style={[styles.modalSave, { backgroundColor: "#2563EB", opacity: (!expectedDateInput.trim() || actionInProgress) ? 0.5 : 1 }]}
+                style={[styles.modalSave, { backgroundColor: "#159A7C", opacity: (!expectedDateInput.trim() || actionInProgress) ? 0.5 : 1 }]}
               >
                 {actionInProgress ? (
                   <ActivityIndicator size="small" color="white" />
