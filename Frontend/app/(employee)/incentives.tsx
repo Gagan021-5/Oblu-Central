@@ -27,6 +27,7 @@ import { Typography, FontSizes } from "@/constants/theme";
 import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { triggerLightHaptic, triggerSelectionHaptic } from "@/utils/haptics";
 import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
+import { isSalespersonActive } from "@/constants/salespeople";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -203,21 +204,25 @@ const TactileSummaryCard: React.FC<TactileSummaryCardProps> = ({
           {
             backgroundColor: t.surface,
             borderColor: t.border,
-            borderLeftColor: color,
-            borderLeftWidth: 4,
-            borderTopColor: isDark ? "rgba(255, 255, 255, 0.14)" : "rgba(255, 255, 255, 0.98)",
             shadowColor: isDark ? "#000000" : "#0D2B20",
           },
         ]}
       >
         <View style={styles.cardHeaderRow}>
-          <Text style={[styles.cardHeaderLabel, { color }]}>{label}</Text>
-          <Ionicons name={icon} size={18} color={color} />
+          <View style={[styles.cardIconBadge, { backgroundColor: isDark ? `${color}28` : `${color}18` }]}>
+            <Ionicons name={icon} size={17} color={color} />
+          </View>
+          <View style={[styles.cardTagPill, { backgroundColor: isDark ? `${color}24` : `${color}14` }]}>
+            <Text style={[styles.cardTagText, { color }]}>{label.split(" ")[0]}</Text>
+          </View>
         </View>
-        <Text style={[styles.cardMainValue, { color: valueColor || (t.text) }]}>
-          {value}
-        </Text>
-        <Text style={[styles.cardSubText, { color: t.textSecondary }]}>{sub}</Text>
+        <View style={{ marginVertical: 4 }}>
+          <Text style={[styles.cardMainValue, { color: valueColor || (t.text) }]}>
+            {value}
+          </Text>
+          <Text style={[styles.cardHeaderLabel, { color: t.textSecondary }]}>{label}</Text>
+        </View>
+        <Text style={[styles.cardSubText, { color: t.textSecondary }]} numberOfLines={1}>{sub}</Text>
       </AnimatedPressable>
     </Animated.View>
   );
@@ -235,20 +240,39 @@ export default function IncentivesScreen() {
   const [rows, setRows] = useState<IncentiveRow[]>([]);
   const [products, setProducts] = useState<ProductTotal[]>([]);
   const [summary, setSummary] = useState<IncentiveSummary | null>(null);
+  const [salespersons, setSalespersons] = useState<{ id: number | string; name: string }[]>([]);
+  const [selectedSalesperson, setSelectedSalesperson] = useState<string | null>(null);
+  const [spMenuOpen, setSpMenuOpen] = useState(false);
+  const [arrears, setArrears] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+
+  const roleText = ((user?.role || "") + " " + ((user as any)?.roles || []).map((r: any) => r.key || r.name).join(" ")).toLowerCase();
+  const isAdminOrSuper = (user as any)?.is_superuser || roleText.includes("admin");
+  const isRsm = isAdminOrSuper || roleText.includes("rsm") || roleText.includes("manager");
+  const isSalesHead = isAdminOrSuper || roleText.includes("sales_head") || roleText.includes("head") || (user?.username || "").toLowerCase().includes("bhavya") || (user?.username || "").toLowerCase().includes("vibhuti");
 
   const load = useCallback(async () => {
     setError("");
     try {
       const res = await api.get("/customers/workspace/my-incentives/", {
-        params: { month_picker: monthKey },
+        params: {
+          month_picker: monthKey,
+          ...(selectedSalesperson ? { salesperson: selectedSalesperson } : {}),
+        },
       });
       const data = res?.data || {};
       setRows(Array.isArray(data.rows) ? data.rows : []);
       setProducts(Array.isArray(data.products) ? data.products : []);
       setSummary(data.summary || null);
+      if (Array.isArray(data.salespersons)) {
+        setSalespersons(data.salespersons.filter((s: any) => isSalespersonActive(s?.name)));
+      }
+      if (data.selected_salesperson?.id && !selectedSalesperson) {
+        setSelectedSalesperson(String(data.selected_salesperson.id));
+      }
+      setArrears(Array.isArray(data.arrears) ? data.arrears : []);
     } catch (e: any) {
       const status = e?.response?.status;
       setError(
@@ -263,7 +287,7 @@ export default function IncentivesScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [monthKey]);
+  }, [monthKey, selectedSalesperson]);
 
   useEffect(() => {
     void load();
@@ -303,6 +327,73 @@ export default function IncentivesScreen() {
         </View>
         <SubAppHomeButton size={38} />
       </View>
+
+      {/* Role Navigation Tabs if RSM or Sales Head */}
+      {(isRsm || isSalesHead) && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+          <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: "#159A7C" }}>
+            <Text style={{ fontFamily: Typography.bold, fontSize: 12, color: "#FFFFFF" }}>My Paid</Text>
+          </View>
+          {isRsm && (
+            <TouchableOpacity
+              onPress={() => router.push("/(employee)/customers/tool/rsm-incentives" as any)}
+              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB", borderWidth: 1, borderColor: t.border }}
+            >
+              <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>RSM Team</Text>
+            </TouchableOpacity>
+          )}
+          {isSalesHead && (
+            <TouchableOpacity
+              onPress={() => router.push("/(employee)/customers/tool/sales-head-incentives" as any)}
+              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB", borderWidth: 1, borderColor: t.border }}
+            >
+              <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>Sales Head</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => router.push("/(employee)/customers/tool/cross-selling" as any)}
+            style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB", borderWidth: 1, borderColor: t.border }}
+          >
+            <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>Cross-Selling</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
+      {/* Switch Salesperson for Admin/Sales Head */}
+      {salespersons.length > 1 && (
+        <View style={[{ padding: 12, borderRadius: 14, borderWidth: 1 }, card]}>
+          <Text style={{ fontFamily: Typography.bold, fontSize: 10, color: muted, marginBottom: 6, letterSpacing: 0.5 }}>SWITCH SALESPERSON</Text>
+          <TouchableOpacity
+            onPress={() => setSpMenuOpen(!spMenuOpen)}
+            style={{ minHeight: 40, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, borderColor: t.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: isDark ? "#0A100E" : "#F9FAFB" }}
+          >
+            <Text style={{ fontFamily: Typography.medium, fontSize: 13, color: foreground }}>
+              {salespersons.find((s) => String(s.id) === selectedSalesperson)?.name || "Select Salesperson"}
+            </Text>
+            <Ionicons name={spMenuOpen ? "chevron-up" : "chevron-down"} size={16} color={muted} />
+          </TouchableOpacity>
+          {spMenuOpen && (
+            <View style={{ marginTop: 6, borderWidth: 1, borderColor: t.border, borderRadius: 10, overflow: "hidden" }}>
+              <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
+                {salespersons.map((sp) => (
+                  <TouchableOpacity
+                    key={sp.id}
+                    onPress={() => {
+                      setSelectedSalesperson(String(sp.id));
+                      setSpMenuOpen(false);
+                    }}
+                    style={{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: t.border }}
+                  >
+                    <Text style={{ fontFamily: Typography.regular, fontSize: 13, color: foreground, fontWeight: selectedSalesperson === String(sp.id) ? "bold" : "normal" }}>
+                      {sp.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Month Navigator */}
       <View style={[styles.monthNav, card]}>
@@ -472,10 +563,13 @@ const styles = StyleSheet.create({
   monthText: { fontFamily: Typography.semiBold, fontSize: 14 },
   summaryGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 10 },
   summaryCardWrapper: { width: "48%" },
-  summaryCard: { width: "100%", borderWidth: 1.2, borderRadius: 16, padding: 12, minHeight: 104, justifyContent: "space-between", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
-  cardHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  cardHeaderLabel: { fontFamily: Typography.bold, fontSize: 9.5, letterSpacing: 0.5 },
-  cardMainValue: { fontFamily: Typography.heading, fontSize: 18, marginVertical: 4 },
+  summaryCard: { width: "100%", borderWidth: 1.2, borderRadius: 20, padding: 13, minHeight: 112, justifyContent: "space-between", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  cardHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 2 },
+  cardIconBadge: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  cardTagPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  cardTagText: { fontFamily: Typography.bold, fontSize: 9.5, letterSpacing: 0.5 },
+  cardHeaderLabel: { fontFamily: Typography.bold, fontSize: 9.5, letterSpacing: 0.4, marginTop: 2 },
+  cardMainValue: { fontFamily: Typography.heading, fontSize: 18.5, letterSpacing: -0.3 },
   cardSubText: { fontFamily: Typography.regular, fontSize: 10, lineHeight: 14 },
   milestoneCard: {
     borderRadius: 18,

@@ -142,6 +142,26 @@ export default function CustomerToolScreen() {
   const [summary, setSummary] = useState("");
   const [drawerVisible, setDrawerVisible] = useState(false);
 
+  // Incentive states
+  const [incentiveSummary, setIncentiveSummary] = useState<any>(null);
+  const [incentiveSalespersons, setIncentiveSalespersons] = useState<{ id: number | string; name: string }[]>([]);
+  const [selectedIncentiveSp, setSelectedIncentiveSp] = useState<string | null>(null);
+  const [arrearsRows, setArrearsRows] = useState<any[]>([]);
+  const [incentiveCats, setIncentiveCats] = useState<Record<string, number>>({});
+
+  // RSM specific state
+  const [rsmSummary, setRsmSummary] = useState<any>(null);
+  const [rsmTeamReport, setRsmTeamReport] = useState<any[]>([]);
+  const [teamCategorySummary, setTeamCategorySummary] = useState<Record<string, number>>({});
+  const [expandedAsmNames, setExpandedAsmNames] = useState<Record<string, boolean>>({});
+
+  // Sales Head specific state
+  const [salesHeadSummary, setSalesHeadSummary] = useState<any>(null);
+  const [salesHeadReport, setSalesHeadReport] = useState<any[]>([]);
+  const [salesHeadCats, setSalesHeadCats] = useState<Record<string, number>>({});
+  const [salesHeadName, setSalesHeadName] = useState<string>("Sales Head");
+  const [expandedRepNames, setExpandedRepNames] = useState<Record<string, boolean>>({});
+
   // Filters State
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerSalesperson, setCustomerSalesperson] = useState("All Salespeople");
@@ -256,9 +276,17 @@ export default function CustomerToolScreen() {
         if (csScore !== "All Scores") params.score = Number.parseInt(csScore, 10) || 0;
         result = await api.get(`/customers/workspace/${tool}/`, { params });
       } else {
-        const reportParams = tool === "monthly-sales" ? { month: monthKey } : isMonthlyReport ? { month_picker: monthKey } : {};
+        const reportParams = tool === "monthly-sales"
+          ? { month: monthKey }
+          : isMonthlyReport
+          ? {
+              month_picker: monthKey,
+              ...(tool === "rsm-incentives" && selectedRsm ? { rsm: selectedRsm } : {}),
+              ...(tool === "my-incentives" && selectedIncentiveSp ? { salesperson: selectedIncentiveSp } : {}),
+            }
+          : {};
         result = await api.get(`/customers/workspace/${tool}/`, {
-          params: { ...reportParams, ...(tool === "rsm-incentives" && selectedRsm ? { rsm: selectedRsm } : {}) },
+          params: reportParams,
         });
       }
 
@@ -325,12 +353,37 @@ export default function CustomerToolScreen() {
       }
 
       setProductRows(tool === "my-incentives" && Array.isArray(data?.products) ? data.products : []);
+      if (tool === "my-incentives") {
+        setIncentiveSummary(data?.summary || null);
+        if (Array.isArray(data?.salespersons)) {
+          const activeSps = data.salespersons.filter((s: any) => isSalespersonActive(s?.name));
+          setIncentiveSalespersons(activeSps);
+          if (data?.selected_salesperson?.id != null && selectedIncentiveSp !== String(data.selected_salesperson.id)) {
+            setSelectedIncentiveSp(String(data.selected_salesperson.id));
+          } else if (!selectedIncentiveSp && activeSps.length > 0) {
+            setSelectedIncentiveSp(String(activeSps[0].id));
+          }
+        }
+        setArrearsRows(Array.isArray(data?.arrears) ? data.arrears : []);
+        setIncentiveCats(data?.category_summary || {});
+      }
       if (tool === "rsm-incentives") {
-        const options = Array.isArray(data?.rsms) ? data.rsms : [];
+        const options = Array.isArray(data?.rsms) ? data.rsms.filter((r: any) => isSalespersonActive(r?.name)) : [];
         setRsmOptions(options);
         if (data?.rsm_id != null && selectedRsm !== String(data.rsm_id)) {
           setSelectedRsm(String(data.rsm_id));
+        } else if (!selectedRsm && options.length > 0) {
+          setSelectedRsm(String(options[0].id));
         }
+        setRsmSummary(data?.summary || null);
+        setRsmTeamReport(Array.isArray(data?.team_report) ? data.team_report : []);
+        setTeamCategorySummary(data?.team_category_summary || {});
+      }
+      if (tool === "sales-head-incentives") {
+        setSalesHeadSummary(data?.summary || null);
+        setSalesHeadReport(Array.isArray(data?.report) ? data.report : []);
+        setSalesHeadCats(data?.cats || {});
+        setSalesHeadName(data?.sh_name || "Sales Head");
       }
 
       if (tool === "monthly-sales") {
@@ -366,7 +419,7 @@ export default function CustomerToolScreen() {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [canOpen, customerSalesperson, csMissingCat, csScore, debouncedCustomerSearch, isMonthlyReport, monthKey, selectedRsm, tool]);
+  }, [canOpen, customerSalesperson, csMissingCat, csScore, debouncedCustomerSearch, isMonthlyReport, monthKey, selectedRsm, selectedIncentiveSp, tool]);
 
   useEffect(() => {
     crossSellingRequestSequence.current += 1;
@@ -1885,6 +1938,770 @@ export default function CustomerToolScreen() {
     );
   };
 
+  const renderMyIncentivesView = () => {
+    const payable = Number(incentiveSummary?.payable || 0);
+    const potential = Number(incentiveSummary?.potential || 0);
+    const pending = Number(incentiveSummary?.pending || 0);
+    const totalSales = Number(incentiveSummary?.total_sales || 0);
+    const arrearsTotal = Number(incentiveSummary?.arrears_total || 0);
+    const grandPayable = Number(incentiveSummary?.grand_payable || payable);
+    const pct = potential > 0 ? Math.min(Math.round((payable / potential) * 100), 100) : 0;
+    const remaining = Math.max(potential - payable, 0);
+
+    return (
+      <View style={{ gap: 14 }}>
+        {/* Salesperson Selector for privileged accounts */}
+        {incentiveSalespersons.length > 1 && (
+          <View style={[styles.filterSelectorCard, card]}>
+            <View style={styles.filterSelectorHeader}>
+              <View style={styles.filterSelectorTitleRow}>
+                <View style={[styles.filterIconBadge, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.16)" : "rgba(21, 154, 124, 0.1)" }]}>
+                  <Ionicons name="person-circle-outline" size={18} color="#159A7C" />
+                </View>
+                <Text style={[styles.filterSelectorLabel, { color: muted }]}>SALESPERSON</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setFilterMenu((m) => (m === "salesperson" ? null : "salesperson"))}
+                style={[styles.filterPillButton, { backgroundColor: isDark ? "#14251F" : "#EBF7F3", borderColor: isDark ? "rgba(21, 154, 124, 0.3)" : "rgba(21, 154, 124, 0.2)" }]}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.filterPillButtonText, { color: "#159A7C" }]} numberOfLines={1}>
+                  {incentiveSalespersons.find((s) => String(s.id) === selectedIncentiveSp)?.name || "Select Salesperson"}
+                </Text>
+                <Ionicons name={filterMenu === "salesperson" ? "chevron-up" : "chevron-down"} size={14} color="#159A7C" />
+              </TouchableOpacity>
+            </View>
+            {filterMenu === "salesperson" && (
+              <View style={[styles.filterDropdownList, { borderColor: card.borderColor }]}>
+                <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                  {incentiveSalespersons.map((sp) => {
+                    const isSelected = selectedIncentiveSp === String(sp.id);
+                    return (
+                      <TouchableOpacity
+                        key={sp.id}
+                        onPress={() => {
+                          setSelectedIncentiveSp(String(sp.id));
+                          setFilterMenu(null);
+                        }}
+                        style={[
+                          styles.filterDropdownItem,
+                          isSelected && { backgroundColor: isDark ? "rgba(21, 154, 124, 0.12)" : "#EDF8F4" },
+                        ]}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                          <View style={[styles.spAvatarMini, { backgroundColor: isSelected ? "#159A7C" : isDark ? "rgba(255,255,255,0.08)" : "#E2E8F0" }]}>
+                            <Text style={{ fontFamily: Typography.bold, fontSize: 10, color: isSelected ? "#FFFFFF" : muted }}>
+                              {sp.name.slice(0, 2).toUpperCase()}
+                            </Text>
+                          </View>
+                          <Text style={[styles.filterOptionText, { color: foreground, fontFamily: isSelected ? Typography.bold : Typography.regular }]}>
+                            {sp.name}
+                          </Text>
+                        </View>
+                        {isSelected && <Ionicons name="checkmark-circle" size={16} color="#159A7C" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* 4-Card Tactile Mobile Summary Grid */}
+        <View style={styles.incentiveOverviewGrid}>
+          {/* READY TO RECEIVE */}
+          <View style={[styles.incentiveCard, card]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBadge, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.18)" : "rgba(21, 154, 124, 0.12)" }]}>
+                <Ionicons name="wallet-outline" size={18} color="#159A7C" />
+              </View>
+              <View style={[styles.cardTagPill, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.16)" : "#E8F8F2" }]}>
+                <Text style={[styles.cardTagText, { color: "#159A7C" }]}>EARNED</Text>
+              </View>
+            </View>
+            <View style={{ marginVertical: 6 }}>
+              <Text style={[styles.incentiveCardVal, { color: "#159A7C" }]}>
+                ₹{payable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+              <Text style={[styles.incentiveCardLabel, { color: muted }]}>READY TO RECEIVE</Text>
+            </View>
+            <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }} numberOfLines={1}>
+              Customer-paid invoices
+            </Text>
+          </View>
+
+          {/* TOTAL POTENTIAL */}
+          <View style={[styles.incentiveCard, card]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBadge, { backgroundColor: isDark ? "rgba(14, 165, 233, 0.18)" : "rgba(14, 165, 233, 0.12)" }]}>
+                <Ionicons name="trending-up-outline" size={18} color="#0EA5E9" />
+              </View>
+              <View style={[styles.cardTagPill, { backgroundColor: isDark ? "rgba(14, 165, 233, 0.16)" : "#E0F2FE" }]}>
+                <Text style={[styles.cardTagText, { color: "#0EA5E9" }]}>MAX</Text>
+              </View>
+            </View>
+            <View style={{ marginVertical: 6 }}>
+              <Text style={[styles.incentiveCardVal, { color: foreground }]}>
+                ₹{potential.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+              <Text style={[styles.incentiveCardLabel, { color: muted }]}>TOTAL POTENTIAL</Text>
+            </View>
+            <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }} numberOfLines={1}>
+              Gross calculated volume
+            </Text>
+          </View>
+
+          {/* PENDING COLLECTION */}
+          <View style={[styles.incentiveCard, card]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBadge, { backgroundColor: isDark ? "rgba(227, 75, 89, 0.18)" : "rgba(227, 75, 89, 0.12)" }]}>
+                <Ionicons name="time-outline" size={18} color="#E34B59" />
+              </View>
+              <View style={[styles.cardTagPill, { backgroundColor: isDark ? "rgba(227, 75, 89, 0.16)" : "#FEE2E2" }]}>
+                <Text style={[styles.cardTagText, { color: "#E34B59" }]}>LOCKED</Text>
+              </View>
+            </View>
+            <View style={{ marginVertical: 6 }}>
+              <Text style={[styles.incentiveCardVal, { color: "#E34B59" }]}>
+                ₹{pending.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+              <Text style={[styles.incentiveCardLabel, { color: muted }]}>PENDING COLLECTION</Text>
+            </View>
+            <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }} numberOfLines={1}>
+              Awaiting payment
+            </Text>
+          </View>
+
+          {/* TOTAL SALES */}
+          <View style={[styles.incentiveCard, card]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBadge, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.18)" : "rgba(245, 158, 11, 0.12)" }]}>
+                <Ionicons name="bar-chart-outline" size={18} color="#F59E0B" />
+              </View>
+              <View style={[styles.cardTagPill, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.16)" : "#FEF3C7" }]}>
+                <Text style={[styles.cardTagText, { color: "#D97706" }]}>VOLUME</Text>
+              </View>
+            </View>
+            <View style={{ marginVertical: 6 }}>
+              <Text style={[styles.incentiveCardVal, { color: foreground }]}>
+                ₹{totalSales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+              <Text style={[styles.incentiveCardLabel, { color: muted }]}>TOTAL SALES</Text>
+            </View>
+            <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }} numberOfLines={1}>
+              Gross monthly revenue
+            </Text>
+          </View>
+        </View>
+
+        {/* Cleared Arrears Banner if exists */}
+        {arrearsTotal > 0 && (
+          <View style={[styles.arrearsBannerMobile, { backgroundColor: isDark ? "#173024" : "#E8F8F2", borderColor: "#159A7C" }]}>
+            <View style={styles.arrearsIconCircle}>
+              <Ionicons name="gift-outline" size={22} color="#159A7C" />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.bannerTitle, { color: isDark ? "#34D399" : "#0D6D56" }]}>
+                Cleared Prior Arrears: ₹{arrearsTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </Text>
+              <Text style={[styles.bannerSub, { color: isDark ? "#A7F3D0" : "#2D5A4C" }]}>
+                Grand Total Payable this cycle: ₹{grandPayable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Milestone Unlock Bar (Native Mobile Theme) */}
+        <View style={[styles.milestoneBox, card]}>
+          <View style={styles.milestoneTopRow}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={[styles.flameIconCircle, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.2)" : "#DDF4EA" }]}>
+                <Ionicons name="flame" size={16} color="#159A7C" />
+              </View>
+              <Text style={[styles.milestoneHeading, { color: foreground }]}>
+                MILESTONE UNLOCK SLAB
+              </Text>
+            </View>
+            <View style={[styles.milestonePctBadge, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.2)" : "#DDF4EA" }]}>
+              <Text style={[styles.milestonePctText, { color: "#159A7C" }]}>{pct}% Unlocked</Text>
+            </View>
+          </View>
+
+          {/* Smooth rounded progress track */}
+          <View style={[styles.milestoneTrackBar, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E4ECE8" }]}>
+            <View style={[styles.milestoneFillBar, { width: `${pct}%`, backgroundColor: "#159A7C" }]} />
+          </View>
+
+          <View style={styles.milestoneFooter}>
+            <Text style={[styles.milestoneSubtext, { color: muted }]} numberOfLines={1}>
+              {remaining > 0
+                ? `₹${remaining.toLocaleString("en-IN", { maximumFractionDigits: 0 })} more to unlock 100% potential payout`
+                : potential > 0
+                ? "All eligible customer-paid incentives unlocked!"
+                : "No eligible sales recorded for this period."}
+            </Text>
+            <Text style={[styles.milestoneTierLabel, { color: "#159A7C" }]}>
+              {pct >= 80 ? "Top Performer" : pct > 0 ? "Active Cycle" : "Base Tier"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Products Breakdown Card */}
+        {productRows.length > 0 && (
+          <View style={[styles.productsBox, card]}>
+            <View style={styles.productsBoxHeader}>
+              <View style={[styles.flameIconCircle, { backgroundColor: isDark ? "rgba(14, 165, 233, 0.2)" : "#E0F2FE" }]}>
+                <Ionicons name="pricetags-outline" size={16} color="#0EA5E9" />
+              </View>
+              <Text style={[styles.productsBoxTitle, { color: foreground }]}>
+                Incentive by Product ({productRows.length})
+              </Text>
+            </View>
+            {productRows.map((p, idx) => (
+              <View key={`prod-${idx}`} style={[styles.productItemRow, { borderTopWidth: idx > 0 ? 1 : 0, borderColor: card.borderColor }]}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={[styles.productItemName, { color: foreground }]}>{p.name}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
+                    <View style={[styles.productMiniTag, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }]}>
+                      <Text style={[styles.productMiniTagText, { color: muted }]}>Qty: {p.quantity}</Text>
+                    </View>
+                    <View style={[styles.productMiniTag, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }]}>
+                      <Text style={[styles.productMiniTagText, { color: muted }]}>Rate: ₹{p.rate}</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={[styles.productItemPayable, { color: "#159A7C" }]}>
+                    ₹{Number(p.payable || 0).toLocaleString("en-IN")}
+                  </Text>
+                  <Text style={[styles.productItemPotential, { color: muted }]}>
+                    Pot: ₹{Number(p.potential || 0).toLocaleString("en-IN")}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Voucher Transactions List */}
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginHorizontal: 2 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={[styles.flameIconCircle, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.18)" : "#EBF7F3" }]}>
+                <Ionicons name="receipt-outline" size={15} color="#159A7C" />
+              </View>
+              <Text style={[styles.sectionHeading, { color: foreground }]}>
+                Voucher Transactions ({visibleRows.length})
+              </Text>
+            </View>
+          </View>
+
+          {visibleRows.length === 0 ? (
+            <View style={[styles.cleanEmptyCard, card]}>
+              <View style={[styles.cleanEmptyIconBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F1F5F9" }]}>
+                <Ionicons name="receipt-outline" size={28} color={muted} />
+              </View>
+              <Text style={[styles.cleanEmptyTitle, { color: foreground }]}>No Invoices This Month</Text>
+              <Text style={[styles.cleanEmptySub, { color: muted }]}>
+                No eligible incentive transactions recorded for this period.
+              </Text>
+            </View>
+          ) : (
+            visibleRows.map((row, idx) => (
+              <View key={String(row.id || idx)} style={[styles.transactionCard, card]}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={[styles.txCustomerName, { color: foreground }]} numberOfLines={1}>
+                      {row.customer || "Customer"}
+                    </Text>
+                    <Text style={[styles.txDateVoucher, { color: muted }]}>
+                      {row.date} · #{row.voucher}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <View style={[styles.txPill, { backgroundColor: row.paid ? (isDark ? "rgba(21, 154, 124, 0.2)" : "#E6F7F2") : (isDark ? "rgba(227, 75, 89, 0.2)" : "#FEE2E2") }]}>
+                      <Text style={[styles.txPillText, { color: row.paid ? "#159A7C" : "#E34B59" }]}>
+                        {row.paid ? "PAID" : "UNPAID"}
+                      </Text>
+                    </View>
+                    {!row.is_trigger_on && (
+                      <View style={[styles.txPill, { backgroundColor: isDark ? "rgba(227, 75, 89, 0.2)" : "#FEE2E2" }]}>
+                        <Text style={[styles.txPillText, { color: "#E34B59" }]}>TRIGGER OFF</Text>
+                      </View>
+                    )}
+                    {!row.is_above_msp && (
+                      <View style={[styles.txPill, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.2)" : "#FEF3C7" }]}>
+                        <Text style={[styles.txPillText, { color: "#D97706" }]}>BELOW MSP</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                <View style={[styles.txProductRow, { backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#F8FAF9" }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.txProductName, { color: row.has_incentive ? "#159A7C" : foreground }]}>
+                      {row.product}
+                    </Text>
+                    <Text style={[styles.txProductQty, { color: muted }]}>Qty: {row.quantity}</Text>
+                  </View>
+                  <Text style={[styles.txAmount, { color: foreground }]}>
+                    ₹{Number(row.amount || 0).toLocaleString("en-IN")}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderRsmIncentivesView = () => {
+    const potential = Number(rsmSummary?.potential || 0);
+    const payable = Number(rsmSummary?.payable || 0);
+    const pending = Number(rsmSummary?.pending || 0);
+    const blocked = Number(rsmSummary?.blocked || 0);
+    const selectedRsmName = rsmOptions.find((r) => String(r.id) === selectedRsm)?.name || rsmSummary?.rsm || "RSM";
+
+    return (
+      <View style={{ gap: 14 }}>
+        {/* RSM Selector Dropdown */}
+        {rsmOptions.length > 1 && (
+          <View style={[styles.filterSelectorCard, card]}>
+            <View style={styles.filterSelectorHeader}>
+              <View style={styles.filterSelectorTitleRow}>
+                <View style={[styles.filterIconBadge, { backgroundColor: isDark ? "rgba(14, 165, 233, 0.16)" : "rgba(14, 165, 233, 0.1)" }]}>
+                  <Ionicons name="people-circle-outline" size={18} color="#0EA5E9" />
+                </View>
+                <Text style={[styles.filterSelectorLabel, { color: muted }]}>RSM AUDIT</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setRsmPickerOpen(!rsmPickerOpen)}
+                style={[styles.filterPillButton, { backgroundColor: isDark ? "#10232E" : "#E0F2FE", borderColor: isDark ? "rgba(14, 165, 233, 0.3)" : "rgba(14, 165, 233, 0.2)" }]}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.filterPillButtonText, { color: "#0EA5E9" }]} numberOfLines={1}>
+                  {selectedRsmName}
+                </Text>
+                <Ionicons name={rsmPickerOpen ? "chevron-up" : "chevron-down"} size={14} color="#0EA5E9" />
+              </TouchableOpacity>
+            </View>
+            {rsmPickerOpen && (
+              <View style={[styles.filterDropdownList, { borderColor: card.borderColor }]}>
+                <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                  {rsmOptions.map((r) => {
+                    const isSelected = selectedRsm === String(r.id);
+                    return (
+                      <TouchableOpacity
+                        key={r.id}
+                        onPress={() => {
+                          setSelectedRsm(String(r.id));
+                          setRsmPickerOpen(false);
+                        }}
+                        style={[
+                          styles.filterDropdownItem,
+                          isSelected && { backgroundColor: isDark ? "rgba(14, 165, 233, 0.12)" : "#EDF8FD" },
+                        ]}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                          <View style={[styles.spAvatarMini, { backgroundColor: isSelected ? "#0EA5E9" : isDark ? "rgba(255,255,255,0.08)" : "#E2E8F0" }]}>
+                            <Text style={{ fontFamily: Typography.bold, fontSize: 10, color: isSelected ? "#FFFFFF" : muted }}>
+                              {r.name.slice(0, 2).toUpperCase()}
+                            </Text>
+                          </View>
+                          <Text style={[styles.filterOptionText, { color: foreground, fontFamily: isSelected ? Typography.bold : Typography.regular }]}>
+                            {r.name}
+                          </Text>
+                        </View>
+                        {isSelected && <Ionicons name="checkmark-circle" size={16} color="#0EA5E9" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Grand Potential Summary Hero Card */}
+        <View style={[styles.heroSummaryCard, card]}>
+          <View style={styles.heroSummaryTopRow}>
+            <View style={[styles.heroBadgePill, { backgroundColor: isDark ? "rgba(14, 165, 233, 0.16)" : "#E0F2FE" }]}>
+              <Ionicons name="people-outline" size={13} color="#0EA5E9" />
+              <Text style={[styles.heroBadgeText, { color: "#0EA5E9" }]}>REGIONAL SALES MANAGER</Text>
+            </View>
+            <Text style={[styles.heroSubtitle, { color: muted }]}>{selectedRsmName}</Text>
+          </View>
+
+          <View style={{ marginVertical: 8 }}>
+            <Text style={[styles.heroAmount, { color: foreground }]}>
+              ₹{potential.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+            <Text style={[styles.heroLabel, { color: muted }]}>Grand Potential Incentive</Text>
+          </View>
+
+          {/* 3 Horizontal Metric Chips */}
+          <View style={styles.heroChipsGrid}>
+            <View style={[styles.heroChip, { backgroundColor: isDark ? "rgba(21, 154, 124, 0.12)" : "#EBF7F3", borderColor: isDark ? "rgba(21, 154, 124, 0.25)" : "rgba(21, 154, 124, 0.18)" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="checkmark-circle-outline" size={13} color="#159A7C" />
+                <Text style={[styles.heroChipLabel, { color: "#159A7C" }]}>PAYABLE</Text>
+              </View>
+              <Text style={[styles.heroChipVal, { color: "#159A7C" }]}>
+                ₹{payable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+
+            <View style={[styles.heroChip, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.12)" : "#FEF3C7", borderColor: isDark ? "rgba(245, 158, 11, 0.25)" : "rgba(245, 158, 11, 0.18)" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="time-outline" size={13} color="#D97706" />
+                <Text style={[styles.heroChipLabel, { color: "#D97706" }]}>PENDING</Text>
+              </View>
+              <Text style={[styles.heroChipVal, { color: "#D97706" }]}>
+                ₹{pending.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+
+            <View style={[styles.heroChip, { backgroundColor: isDark ? "rgba(227, 75, 89, 0.12)" : "#FEE2E2", borderColor: isDark ? "rgba(227, 75, 89, 0.25)" : "rgba(227, 75, 89, 0.18)" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="alert-circle-outline" size={13} color="#E34B59" />
+                <Text style={[styles.heroChipLabel, { color: "#E34B59" }]}>BLOCKED</Text>
+              </View>
+              <Text style={[styles.heroChipVal, { color: "#E34B59" }]}>
+                ₹{blocked.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Team Category Summary */}
+        {Object.keys(teamCategorySummary).length > 0 && (
+          <View style={[styles.productsBox, card]}>
+            <View style={styles.productsBoxHeader}>
+              <View style={[styles.flameIconCircle, { backgroundColor: isDark ? "rgba(14, 165, 233, 0.2)" : "#E0F2FE" }]}>
+                <Ionicons name="layers-outline" size={16} color="#0EA5E9" />
+              </View>
+              <Text style={[styles.productsBoxTitle, { color: foreground }]}>
+                Team-wide Category Summary
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+              {Object.entries(teamCategorySummary).map(([cat, qty]) => (
+                <View key={cat} style={[styles.productMiniTag, { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#EEF2F6" }]}>
+                  <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: foreground }}>
+                    {cat}: <Text style={{ fontFamily: Typography.bold, color: "#159A7C" }}>{Number(qty).toLocaleString("en-IN")} Items</Text>
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Per-ASM Team Cards */}
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 2 }}>
+            <View style={[styles.flameIconCircle, { backgroundColor: isDark ? "rgba(14, 165, 233, 0.18)" : "#E0F2FE" }]}>
+              <Ionicons name="people-outline" size={15} color="#0EA5E9" />
+            </View>
+            <Text style={[styles.sectionHeading, { color: foreground }]}>
+              ASM Team Members ({rsmTeamReport.length})
+            </Text>
+          </View>
+
+          {rsmTeamReport.length === 0 ? (
+            <View style={[styles.cleanEmptyCard, card]}>
+              <View style={[styles.cleanEmptyIconBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F1F5F9" }]}>
+                <Ionicons name="people-outline" size={28} color={muted} />
+              </View>
+              <Text style={[styles.cleanEmptyTitle, { color: foreground }]}>No Team Members Found</Text>
+              <Text style={[styles.cleanEmptySub, { color: muted }]}>
+                No active team activity recorded for this period.
+              </Text>
+            </View>
+          ) : (
+            rsmTeamReport.map((asm, idx) => {
+              const isExpanded = expandedAsmNames[asm.asm_name] ?? false;
+              return (
+                <View key={`asm-${idx}`} style={[styles.asmCard, card]}>
+                  <TouchableOpacity
+                    onPress={() => setExpandedAsmNames((prev) => ({ ...prev, [asm.asm_name]: !isExpanded }))}
+                    activeOpacity={0.8}
+                    style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+                      <View style={[styles.asmAvatar, { backgroundColor: isDark ? "rgba(14, 165, 233, 0.16)" : "#E0F2FE" }]}>
+                        <Text style={{ fontFamily: Typography.bold, fontSize: 13, color: "#0EA5E9" }}>
+                          {asm.asm_name.slice(0, 2).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.asmNameText, { color: "#0EA5E9" }]}>
+                          {asm.asm_name}
+                        </Text>
+                        <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: muted, marginTop: 1 }}>
+                          Total Volume: {Number(asm.total_sheets || 0).toLocaleString("en-IN")} Sheets
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color={muted} />
+                  </TouchableOpacity>
+
+                  {/* ASM Category Pills */}
+                  {asm.asm_categories && Object.keys(asm.asm_categories).length > 0 && (
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                      {Object.entries(asm.asm_categories).map(([c, q]) => (
+                        <View key={c} style={[styles.productMiniTag, { backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#F1F5F9" }]}>
+                          <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }}>
+                            {c}: <Text style={{ fontFamily: Typography.bold, color: foreground }}>{Number(q)}</Text>
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Payout Breakdown */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#F8FAF9", padding: 10, borderRadius: 12 }}>
+                    <View>
+                      <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }}>RSM Paid</Text>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 12.5, color: "#159A7C" }}>₹{Number(asm.rsm_paid || 0).toFixed(2)}</Text>
+                    </View>
+                    <View>
+                      <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }}>RSM Pending</Text>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 12.5, color: "#D97706" }}>₹{Number(asm.rsm_pending || 0).toFixed(2)}</Text>
+                    </View>
+                    <View>
+                      <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }}>RSM Blocked</Text>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 12.5, color: "#E34B59" }}>₹{Number(asm.rsm_triggered_off || 0).toFixed(2)}</Text>
+                    </View>
+                    <View>
+                      <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }}>ASM Earned</Text>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 12.5, color: foreground }}>₹{Number(asm.asm_paid || 0).toFixed(2)}</Text>
+                    </View>
+                  </View>
+
+                  {/* Expanded Itemized List */}
+                  {isExpanded && Array.isArray(asm.items) && (
+                    <View style={{ borderTopWidth: 1, borderColor: card.borderColor, paddingTop: 10, gap: 6 }}>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 11, color: muted, textTransform: "uppercase" }}>
+                        Product Line Items ({asm.items.length})
+                      </Text>
+                      {asm.items.map((it: any, iIdx: number) => (
+                        <View key={`it-${iIdx}`} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6, borderBottomWidth: iIdx < asm.items.length - 1 ? 1 : 0, borderColor: card.borderColor }}>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={{ fontFamily: Typography.semiBold, fontSize: 12, color: foreground }}>{it.name}</Text>
+                            <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }}>
+                              Qty: {it.quantity || it.qty} · ASM: ₹{Number(it.asm_incentive || 0).toFixed(2)}
+                            </Text>
+                          </View>
+                          <View style={{ alignItems: "flex-end", gap: 2 }}>
+                            <Text style={{ fontFamily: Typography.bold, fontSize: 12, color: it.paid ? "#159A7C" : "#D97706" }}>
+                              RSM: ₹{Number(it.rsm_incentive || 0).toFixed(2)}
+                            </Text>
+                            <View style={[styles.productMiniTag, { backgroundColor: it.paid ? (isDark ? "rgba(21, 154, 124, 0.16)" : "#E6F7F2") : (isDark ? "rgba(245, 158, 11, 0.16)" : "#FEF3C7") }]}>
+                              <Text style={{ fontFamily: Typography.bold, fontSize: 9, color: it.paid ? "#159A7C" : "#D97706" }}>
+                                {it.paid ? "PAID" : "PENDING"}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderSalesHeadIncentivesView = () => {
+    const potential = Number(salesHeadSummary?.potential || 0);
+    const payable = Number(salesHeadSummary?.payable || 0);
+    const pending = Number(salesHeadSummary?.pending || 0);
+    const blocked = Number(salesHeadSummary?.blocked || 0);
+
+    return (
+      <View style={{ gap: 14 }}>
+        {/* Executive Summary Hero Card */}
+        <View style={[styles.heroSummaryCard, card]}>
+          <View style={styles.heroSummaryTopRow}>
+            <View style={[styles.heroBadgePill, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.16)" : "#D1FAE5" }]}>
+              <Ionicons name="shield-checkmark-outline" size={13} color="#10B981" />
+              <Text style={[styles.heroBadgeText, { color: "#10B981" }]}>EXECUTIVE COMMAND</Text>
+            </View>
+            <Text style={[styles.heroSubtitle, { color: muted }]}>{salesHeadName}</Text>
+          </View>
+
+          <View style={{ marginVertical: 8 }}>
+            <Text style={[styles.heroAmount, { color: foreground }]}>
+              ₹{potential.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+            <Text style={[styles.heroLabel, { color: muted }]}>Executive Command Summary</Text>
+          </View>
+
+          {/* 3 Horizontal Metric Chips */}
+          <View style={styles.heroChipsGrid}>
+            <View style={[styles.heroChip, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.12)" : "#ECFDF5", borderColor: isDark ? "rgba(16, 185, 129, 0.25)" : "rgba(16, 185, 129, 0.18)" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="checkmark-circle-outline" size={13} color="#10B981" />
+                <Text style={[styles.heroChipLabel, { color: "#10B981" }]}>PAYABLE</Text>
+              </View>
+              <Text style={[styles.heroChipVal, { color: "#10B981" }]}>
+                ₹{payable.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+
+            <View style={[styles.heroChip, { backgroundColor: isDark ? "rgba(245, 158, 11, 0.12)" : "#FEF3C7", borderColor: isDark ? "rgba(245, 158, 11, 0.25)" : "rgba(245, 158, 11, 0.18)" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="time-outline" size={13} color="#D97706" />
+                <Text style={[styles.heroChipLabel, { color: "#D97706" }]}>PENDING</Text>
+              </View>
+              <Text style={[styles.heroChipVal, { color: "#D97706" }]}>
+                ₹{pending.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+
+            <View style={[styles.heroChip, { backgroundColor: isDark ? "rgba(239, 68, 68, 0.12)" : "#FEE2E2", borderColor: isDark ? "rgba(239, 68, 68, 0.25)" : "rgba(239, 68, 68, 0.18)" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="alert-circle-outline" size={13} color="#EF4444" />
+                <Text style={[styles.heroChipLabel, { color: "#EF4444" }]}>BLOCKED</Text>
+              </View>
+              <Text style={[styles.heroChipVal, { color: "#EF4444" }]}>
+                ₹{blocked.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Company Category Volume */}
+        {Object.keys(salesHeadCats).length > 0 && (
+          <View style={[styles.productsBox, card]}>
+            <View style={styles.productsBoxHeader}>
+              <View style={[styles.flameIconCircle, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.2)" : "#D1FAE5" }]}>
+                <Ionicons name="stats-chart-outline" size={16} color="#10B981" />
+              </View>
+              <Text style={[styles.productsBoxTitle, { color: foreground }]}>
+                Company-Wide Category Volume
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+              {Object.entries(salesHeadCats).map(([c, count]) => (
+                <View key={c} style={[styles.productMiniTag, { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#EEF2F6" }]}>
+                  <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: foreground }}>
+                    {c}: <Text style={{ fontFamily: Typography.bold, color: "#10B981" }}>{Number(count).toLocaleString("en-IN")}</Text>
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Sales Representatives & Hierarchy Performance */}
+        <View style={{ gap: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 2 }}>
+            <View style={[styles.flameIconCircle, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.18)" : "#D1FAE5" }]}>
+              <Ionicons name="git-network-outline" size={15} color="#10B981" />
+            </View>
+            <Text style={[styles.sectionHeading, { color: foreground }]}>
+              Salesforce Performance & Overrides ({salesHeadReport.length})
+            </Text>
+          </View>
+
+          {salesHeadReport.length === 0 ? (
+            <View style={[styles.cleanEmptyCard, card]}>
+              <View style={[styles.cleanEmptyIconBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "#F1F5F9" }]}>
+                <Ionicons name="git-network-outline" size={28} color={muted} />
+              </View>
+              <Text style={[styles.cleanEmptyTitle, { color: foreground }]}>No Reports Found</Text>
+              <Text style={[styles.cleanEmptySub, { color: muted }]}>
+                No sales hierarchy performance recorded for this month.
+              </Text>
+            </View>
+          ) : (
+            salesHeadReport.map((sp, idx) => {
+              const isExpanded = expandedRepNames[sp.name] ?? false;
+              const rev = Number(sp.rev || 0);
+              const target = Number(sp.target || 0);
+              const progressPct = target > 0 ? Math.min(Math.round((rev / target) * 100), 100) : 100;
+              const combinedOverride = Number(sp.paid || 0) + Number(sp.pending || 0);
+
+              return (
+                <View key={`sh-sp-${idx}`} style={[styles.asmCard, card]}>
+                  <TouchableOpacity
+                    onPress={() => setExpandedRepNames((prev) => ({ ...prev, [sp.name]: !isExpanded }))}
+                    activeOpacity={0.8}
+                    style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}
+                  >
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={{ fontFamily: Typography.heading, fontSize: 16, color: foreground }}>
+                          {sp.name}
+                        </Text>
+                        <View style={[styles.productMiniTag, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E2E8F0" }]}>
+                          <Text style={{ fontFamily: Typography.bold, fontSize: 9.5, color: muted }}>{sp.role || "REP"}</Text>
+                        </View>
+                      </View>
+
+                      {/* Revenue vs Target */}
+                      <Text style={{ fontFamily: Typography.semiBold, fontSize: 12, color: rev >= target ? "#10B981" : "#EF4444", marginTop: 4 }}>
+                        ₹{rev.toLocaleString("en-IN")} <Text style={{ fontFamily: Typography.regular, fontSize: 11, color: muted }}>/ Target ₹{target.toLocaleString("en-IN")}</Text>
+                      </Text>
+                      <View style={{ height: 6, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E2E8F0", borderRadius: 3, marginTop: 4, overflow: "hidden" }}>
+                        <View style={{ width: `${progressPct}%`, height: "100%", backgroundColor: rev >= target ? "#10B981" : "#F59E0B", borderRadius: 3 }} />
+                      </View>
+                    </View>
+
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={{ fontFamily: Typography.bold, fontSize: 15, color: "#10B981" }}>
+                        ₹{combinedOverride.toFixed(2)}
+                      </Text>
+                      <Text style={{ fontFamily: Typography.regular, fontSize: 9.5, color: muted }}>Override</Text>
+                      <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={18} color={muted} style={{ marginTop: 4 }} />
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Override Buckets */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#F8FAF9", padding: 10, borderRadius: 12 }}>
+                    <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: "#10B981" }}>Paid: ₹{Number(sp.paid || 0).toFixed(2)}</Text>
+                    <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: "#F59E0B" }}>Pending: ₹{Number(sp.pending || 0).toFixed(2)}</Text>
+                    <Text style={{ fontFamily: Typography.medium, fontSize: 11, color: muted }}>ASM: ₹{Number(sp.asm_earned || 0).toFixed(2)}</Text>
+                  </View>
+
+                  {/* Itemized Table if expanded */}
+                  {isExpanded && Array.isArray(sp.items) && (
+                    <View style={{ borderTopWidth: 1, borderColor: card.borderColor, paddingTop: 8, gap: 6 }}>
+                      {sp.items.map((item: any, iIdx: number) => (
+                        <View key={`sh-item-${iIdx}`} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 5, borderBottomWidth: iIdx < sp.items.length - 1 ? 1 : 0, borderColor: card.borderColor }}>
+                          <View style={{ flex: 1, paddingRight: 6 }}>
+                            <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>{item.product}</Text>
+                            <Text style={{ fontFamily: Typography.regular, fontSize: 10, color: muted }}>
+                              {item.customer} · Qty {item.quantity || item.qty}
+                            </Text>
+                          </View>
+                          <View style={{ alignItems: "flex-end" }}>
+                            <Text style={{ fontFamily: Typography.bold, fontSize: 12, color: item.status === "payable" ? "#10B981" : item.status === "pending" ? "#F59E0B" : "#EF4444" }}>
+                              ₹{Number(item.amount || item.head || 0).toFixed(2)}
+                            </Text>
+                            <Text style={{ fontFamily: Typography.regular, fontSize: 9.5, color: muted, textTransform: "capitalize" }}>
+                              {item.status}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
@@ -1915,6 +2732,127 @@ export default function CustomerToolScreen() {
             <Text style={{ color: foreground, fontFamily: Typography.regular }}>{error} Tap to retry.</Text>
           </TouchableOpacity>
         ) : null}
+
+        {/* Performance & Incentive Suite Navigation Bar */}
+        {["my-incentives", "rsm-incentives", "sales-head-incentives", "cross-selling"].includes(tool) && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingBottom: 6 }}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                if (tool !== "my-incentives") router.replace("/(employee)/customers/tool/my-incentives" as any);
+              }}
+              style={[
+                styles.incentiveNavPill,
+                tool === "my-incentives"
+                  ? { backgroundColor: "#159A7C" }
+                  : [card, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }],
+              ]}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name="wallet-outline"
+                size={14}
+                color={tool === "my-incentives" ? "#FFFFFF" : muted}
+              />
+              <Text
+                style={[
+                  styles.incentiveNavPillText,
+                  { color: tool === "my-incentives" ? "#FFFFFF" : foreground },
+                ]}
+              >
+                My Paid
+              </Text>
+            </TouchableOpacity>
+
+            {Boolean(accessByTool["rsm-incentives"]) && (
+              <TouchableOpacity
+                onPress={() => {
+                  if (tool !== "rsm-incentives") router.replace("/(employee)/customers/tool/rsm-incentives" as any);
+                }}
+                style={[
+                  styles.incentiveNavPill,
+                  tool === "rsm-incentives"
+                    ? { backgroundColor: "#0EA5E9" }
+                    : [card, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }],
+                ]}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name="people-outline"
+                  size={14}
+                  color={tool === "rsm-incentives" ? "#FFFFFF" : muted}
+                />
+                <Text
+                  style={[
+                    styles.incentiveNavPillText,
+                    { color: tool === "rsm-incentives" ? "#FFFFFF" : foreground },
+                  ]}
+                >
+                  RSM Team
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {Boolean(accessByTool["sales-head-incentives"]) && (
+              <TouchableOpacity
+                onPress={() => {
+                  if (tool !== "sales-head-incentives") router.replace("/(employee)/customers/tool/sales-head-incentives" as any);
+                }}
+                style={[
+                  styles.incentiveNavPill,
+                  tool === "sales-head-incentives"
+                    ? { backgroundColor: "#10B981" }
+                    : [card, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }],
+                ]}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name="git-network-outline"
+                  size={14}
+                  color={tool === "sales-head-incentives" ? "#FFFFFF" : muted}
+                />
+                <Text
+                  style={[
+                    styles.incentiveNavPillText,
+                    { color: tool === "sales-head-incentives" ? "#FFFFFF" : foreground },
+                  ]}
+                >
+                  Sales Head
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={() => {
+                if (tool !== "cross-selling") router.replace("/(employee)/customers/tool/cross-selling" as any);
+              }}
+              style={[
+                styles.incentiveNavPill,
+                tool === "cross-selling"
+                  ? { backgroundColor: "#159A7C" }
+                  : [card, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }],
+              ]}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={14}
+                color={tool === "cross-selling" ? "#FFFFFF" : muted}
+              />
+              <Text
+                style={[
+                  styles.incentiveNavPillText,
+                  { color: tool === "cross-selling" ? "#FFFFFF" : foreground },
+                ]}
+              >
+                Cross-Selling
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
 
         {/* Monthly Date Navigator for Monthly Sales & Incentives */}
         {isMonthlyReport && (
@@ -2583,6 +3521,12 @@ export default function CustomerToolScreen() {
           )
         ) : tool === "monthly-sales" ? (
           visibleRows.map((row, idx) => renderMonthlySalesRow(row, idx))
+        ) : tool === "my-incentives" ? (
+          renderMyIncentivesView()
+        ) : tool === "rsm-incentives" ? (
+          renderRsmIncentivesView()
+        ) : tool === "sales-head-incentives" ? (
+          renderSalesHeadIncentivesView()
         ) : (
           visibleRows.map((row, index) => (
             <View key={String(row.id ?? index)} style={[styles.genericRow, card]}>
@@ -2725,7 +3669,7 @@ export default function CustomerToolScreen() {
           </View>
         )}
 
-        {!loading && !error && visibleRows.length === 0 && (
+        {!loading && !error && visibleRows.length === 0 && !["my-incentives", "rsm-incentives", "sales-head-incentives"].includes(tool) && (
           <View style={[styles.emptyCard, card]}>
             <Ionicons name={ICONS[tool] || "document-text-outline"} size={32} color="#159A7C" />
             <Text style={[styles.emptyTitle, { color: foreground }]}>No records match these filters</Text>
@@ -3694,5 +4638,406 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 6,
     marginRight: 6,
+  },
+  incentiveOverviewGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 2,
+  },
+  incentiveCard: {
+    width: "48%",
+    minHeight: 112,
+    borderWidth: 1.2,
+    borderRadius: 20,
+    padding: 13,
+    justifyContent: "space-between",
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    elevation: 2,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  cardIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardTagPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  cardTagText: {
+    fontFamily: Typography.bold,
+    fontSize: 9.5,
+    letterSpacing: 0.5,
+  },
+  incentiveCardVal: {
+    fontFamily: Typography.heading,
+    fontSize: 18.5,
+    letterSpacing: -0.3,
+  },
+  incentiveCardLabel: {
+    fontFamily: Typography.bold,
+    fontSize: 9.5,
+    letterSpacing: 0.4,
+    marginTop: 2,
+  },
+  filterSelectorCard: {
+    borderRadius: 18,
+    borderWidth: 1.2,
+    padding: 12,
+    gap: 8,
+  },
+  filterSelectorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  filterSelectorTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  filterIconBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterSelectorLabel: {
+    fontFamily: Typography.bold,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  filterPillButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterPillButtonText: {
+    fontFamily: Typography.semiBold,
+    fontSize: 12,
+  },
+  filterDropdownList: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  filterDropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  spAvatarMini: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  arrearsBannerMobile: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1.2,
+  },
+  arrearsIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(21, 154, 124, 0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  milestoneBox: {
+    borderRadius: 20,
+    borderWidth: 1.2,
+    padding: 16,
+    gap: 10,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 8,
+    shadowOpacity: 0.05,
+    elevation: 2,
+  },
+  milestoneTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  flameIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  milestoneHeading: {
+    fontFamily: Typography.bold,
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  milestonePctBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  milestonePctText: {
+    fontFamily: Typography.bold,
+    fontSize: 11,
+  },
+  milestoneTrackBar: {
+    height: 9,
+    borderRadius: 5,
+    overflow: "hidden",
+  },
+  milestoneFillBar: {
+    height: "100%",
+    borderRadius: 5,
+  },
+  milestoneFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  milestoneSubtext: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    flex: 1,
+  },
+  milestoneTierLabel: {
+    fontFamily: Typography.semiBold,
+    fontSize: 11,
+  },
+  productsBox: {
+    borderRadius: 20,
+    borderWidth: 1.2,
+    padding: 16,
+    gap: 10,
+  },
+  productsBoxHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  productsBoxTitle: {
+    fontFamily: Typography.bold,
+    fontSize: 14,
+  },
+  productItemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  productItemName: {
+    fontFamily: Typography.semiBold,
+    fontSize: 13,
+  },
+  productMiniTag: {
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  productMiniTagText: {
+    fontFamily: Typography.regular,
+    fontSize: 10.5,
+  },
+  productItemPayable: {
+    fontFamily: Typography.bold,
+    fontSize: 13.5,
+  },
+  productItemPotential: {
+    fontFamily: Typography.regular,
+    fontSize: 10,
+  },
+  cleanEmptyCard: {
+    minHeight: 140,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    padding: 20,
+  },
+  cleanEmptyIconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+  cleanEmptyTitle: {
+    fontFamily: Typography.headingSemi,
+    fontSize: 15,
+  },
+  cleanEmptySub: {
+    fontFamily: Typography.regular,
+    fontSize: 11.5,
+    textAlign: "center",
+    maxWidth: 260,
+  },
+  transactionCard: {
+    borderRadius: 18,
+    borderWidth: 1.2,
+    padding: 14,
+    gap: 10,
+  },
+  txCustomerName: {
+    fontFamily: Typography.bold,
+    fontSize: 13.5,
+  },
+  txDateVoucher: {
+    fontFamily: Typography.regular,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  txPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  txPillText: {
+    fontFamily: Typography.bold,
+    fontSize: 9.5,
+  },
+  txProductRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 10,
+  },
+  txProductName: {
+    fontFamily: Typography.semiBold,
+    fontSize: 12,
+  },
+  txProductQty: {
+    fontFamily: Typography.regular,
+    fontSize: 10.5,
+    marginTop: 1,
+  },
+  txAmount: {
+    fontFamily: Typography.bold,
+    fontSize: 13.5,
+  },
+  heroSummaryCard: {
+    borderRadius: 22,
+    borderWidth: 1.2,
+    padding: 18,
+    gap: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    shadowOpacity: 0.06,
+    elevation: 3,
+  },
+  heroSummaryTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  heroBadgePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  heroBadgeText: {
+    fontFamily: Typography.bold,
+    fontSize: 9.5,
+    letterSpacing: 0.5,
+  },
+  heroSubtitle: {
+    fontFamily: Typography.medium,
+    fontSize: 12,
+  },
+  heroAmount: {
+    fontFamily: Typography.heading,
+    fontSize: 27,
+    letterSpacing: -0.5,
+  },
+  heroLabel: {
+    fontFamily: Typography.regular,
+    fontSize: 11.5,
+    marginTop: 2,
+  },
+  heroChipsGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  heroChip: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 10,
+    gap: 3,
+  },
+  heroChipLabel: {
+    fontFamily: Typography.bold,
+    fontSize: 9,
+    letterSpacing: 0.4,
+  },
+  heroChipVal: {
+    fontFamily: Typography.bold,
+    fontSize: 12.5,
+  },
+  asmCard: {
+    borderRadius: 18,
+    borderWidth: 1.2,
+    padding: 14,
+    gap: 10,
+  },
+  asmAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  asmNameText: {
+    fontFamily: Typography.headingSemi,
+    fontSize: 15,
+  },
+  sectionHeading: {
+    fontFamily: Typography.bold,
+    fontSize: 14.5,
+  },
+  incentiveNavPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  incentiveNavPillText: {
+    fontFamily: Typography.semiBold,
+    fontSize: 12,
   },
 });

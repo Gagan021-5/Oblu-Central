@@ -14,8 +14,9 @@ def get_user_effective_permissions(user):
     if not user.is_authenticated:
         return {}
 
-    # 1. Superuser gets global access
-    if user.is_superuser:
+    from access_control.roles import is_admin
+    # 1. Superuser or Admin gets global access
+    if user.is_superuser or is_admin(user):
         return {"*": {"all"}}
 
     # 2. Fallback for accounts/finance users (ONLY their specific permissions, NO price approval, NO quotation)
@@ -41,6 +42,29 @@ def get_user_effective_permissions(user):
 
     emp = getattr(user, "employee_profile", None)
     if not emp:
+        # Check if user is a salesperson or sales leadership
+        sp = SalesPerson.objects.filter(user=user).first()
+        u_role = getattr(user, "role", "").lower()
+        if sp or any(r in u_role for r in ["sales", "head", "manager", "rsm", "asm", "rep"]) or u_lower in ["bhavya", "vibhuti", "vibhuti_panwar", "aman"]:
+            is_head = any(r in u_role for r in ["head", "director", "gm", "general manager", "business manager"]) or u_lower in ["bhavya", "vibhuti", "vibhuti_panwar"]
+            is_rsm_flag = any(r in u_role for r in ["rsm", "manager"]) or (sp and sp.team_members.exists())
+            sales_scope = "all" if is_head else "team" if is_rsm_flag else "self"
+            perm_dict = {
+                "proforma.view": {sales_scope},
+                "proforma.create": {sales_scope},
+                "customer.view": {sales_scope},
+                "customer.manage": {sales_scope},
+                "lead.view": {sales_scope},
+                "stock.request": {sales_scope},
+                "product_price.view": {"all"},
+                "incentive.view_self": {"self"},
+            }
+            if is_head:
+                perm_dict["incentive.view_all"] = {"all"}
+                perm_dict["incentive.view_team"] = {"all"}
+            elif is_rsm_flag:
+                perm_dict["incentive.view_team"] = {"team"}
+            return perm_dict
         return {}
 
     now = timezone.now()
@@ -92,7 +116,7 @@ def get_object_owner_user_id(obj):
 def can(user, permission_key, obj=None):
     if not user.is_authenticated:
         return False
-    if user.is_superuser:
+    if user.is_superuser or is_admin(user):
         return True
 
     perms = get_user_effective_permissions(user)
@@ -124,7 +148,8 @@ def can(user, permission_key, obj=None):
 def scope_queryset(user, permission_key, queryset):
     if not user.is_authenticated:
         return queryset.none()
-    if user.is_superuser or getattr(user, "is_accountant", False):
+    from access_control.roles import is_admin
+    if user.is_superuser or getattr(user, "is_accountant", False) or is_admin(user):
         return queryset
 
     perms = get_user_effective_permissions(user)

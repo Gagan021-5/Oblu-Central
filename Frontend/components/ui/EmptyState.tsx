@@ -1,16 +1,6 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Pressable, Animated, Easing } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withSpring,
-  interpolate,
-  Easing,
-} from "react-native-reanimated";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes } from "@/constants/theme";
 import { employeeTheme } from "@/constants/employeeTheme";
@@ -35,40 +25,55 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   const { colors, isDark } = useTheme();
   const t = isDark ? employeeTheme.dark : employeeTheme.light;
-  const floatAnim = useSharedValue(-6);
-  const buttonScale = useSharedValue(1);
+  const floatAnim = useRef(new Animated.Value(-6)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    floatAnim.value = withRepeat(
-      withSequence(
-        withTiming(6, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(-6, { duration: 1800, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 6,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: -6,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
     );
+    loop.start();
+    return () => loop.stop();
   }, [floatAnim]);
 
-  const floatStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: floatAnim.value }],
-  }));
+  const floatStyle = {
+    transform: [{ translateY: floatAnim }],
+  };
 
-  const shadowRingStyle = useAnimatedStyle(() => {
-    // When icon is high (-6), shadow is smaller (0.88); when icon is low (+6), shadow expands (1.06)
-    const scale = interpolate(floatAnim.value, [-6, 6], [0.88, 1.06]);
-    const opacity = interpolate(floatAnim.value, [-6, 6], [0.25, 0.6]);
-    return {
-      transform: [{ scaleX: scale }, { scaleY: scale * 0.65 }],
-      opacity,
-    };
+  const shadowScale = floatAnim.interpolate({
+    inputRange: [-6, 6],
+    outputRange: [0.88, 1.06],
   });
 
+  const shadowOpacity = floatAnim.interpolate({
+    inputRange: [-6, 6],
+    outputRange: [0.25, 0.6],
+  });
+
+  const shadowRingStyle = {
+    transform: [{ scaleX: shadowScale }, { scaleY: shadowScale }],
+    opacity: shadowOpacity,
+  };
+
   const handlePressIn = () => {
-    buttonScale.value = withSpring(0.95, { damping: 16, stiffness: 300 });
+    Animated.spring(buttonScale, { toValue: 0.95, friction: 5, tension: 300, useNativeDriver: true }).start();
   };
 
   const handlePressOut = () => {
-    buttonScale.value = withSpring(1.0, { damping: 18, stiffness: 280 });
+    Animated.spring(buttonScale, { toValue: 1.0, friction: 6, tension: 280, useNativeDriver: true }).start();
   };
 
   const handlePress = () => {
@@ -76,9 +81,9 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     onAction?.();
   };
 
-  const buttonAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
+  const buttonAnimStyle = {
+    transform: [{ scale: buttonScale }],
+  };
 
   return (
     <View style={styles.container}>

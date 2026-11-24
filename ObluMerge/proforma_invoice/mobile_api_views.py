@@ -16,6 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 
 from access_control.services import can, scope_queryset
+from access_control.roles import is_admin, is_finance
 from customer_dashboard.models import Customer
 from inventory.models import InventoryItem, Category
 
@@ -56,15 +57,15 @@ class ProformaHubAPIView(APIView):
         user = request.user
 
         # ── 1. Evaluate RBAC Permissions ────────────────────────────────
-        is_super = bool(user.is_superuser)
-        is_acc = is_accounts_user(user)
+        is_super = bool(user.is_superuser) or is_admin(user)
+        is_acc = is_accounts_user(user) or is_finance(user)
         is_wh = is_warehouse_user(user)
 
-        can_create_proforma = is_super or can(user, "proforma.create")
-        can_create_quotation = is_super or can(user, "proforma.create")
-        can_view_proformas = is_super or can(user, "proforma.view") or can_create_proforma
-        can_view_quotations = is_super or can(user, "proforma.view") or can_create_quotation
-        can_view_products = is_super or can(user, "product_price.view") or not is_wh
+        can_create_proforma = is_super or is_acc or can(user, "proforma.create")
+        can_create_quotation = is_super or is_acc or can(user, "proforma.create")
+        can_view_proformas = is_super or is_acc or can(user, "proforma.view") or can_create_proforma
+        can_view_quotations = is_super or is_acc or can(user, "proforma.view") or can_create_quotation
+        can_view_products = is_super or is_acc or can(user, "product_price.view") or not is_wh
         can_approve_price_change = is_super or can(user, "proforma.price_approval") or is_acc
         can_request_stock = is_super or can(user, "stock.request") or is_acc or can_create_proforma
         can_manage_dispatch = is_super or can(user, "dispatch.queue") or is_acc

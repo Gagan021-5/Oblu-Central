@@ -1,11 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Text, View, StyleSheet, Pressable } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-} from "react-native-reanimated";
+import { Text, View, StyleSheet, Pressable, Animated } from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes } from "@/constants/theme";
 import { hapticSelection } from "@/utils/haptics";
@@ -26,25 +20,25 @@ export const FilterChip: React.FC<FilterChipProps> = ({
   onPress,
 }) => {
   const { colors, isDark } = useTheme();
-  const scale = useSharedValue(1);
+  const scale = useRef(new Animated.Value(1)).current;
   const prevActiveRef = useRef(isActive);
 
   useEffect(() => {
     if (!prevActiveRef.current && isActive) {
-      scale.value = withSequence(
-        withSpring(1.05, { damping: 14, stiffness: 300 }),
-        withSpring(1.0, { damping: 16, stiffness: 280 })
-      );
+      Animated.sequence([
+        Animated.spring(scale, { toValue: 1.05, friction: 5, tension: 300, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1.0, friction: 6, tension: 280, useNativeDriver: true }),
+      ]).start();
     }
     prevActiveRef.current = isActive;
-  }, [isActive]);
+  }, [isActive, scale]);
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.93, { damping: 14, stiffness: 300 });
+    Animated.spring(scale, { toValue: 0.93, friction: 5, tension: 300, useNativeDriver: true }).start();
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1.0, { damping: 16, stiffness: 280 });
+    Animated.spring(scale, { toValue: 1.0, friction: 6, tension: 280, useNativeDriver: true }).start();
   };
 
   const handlePress = () => {
@@ -52,9 +46,9 @@ export const FilterChip: React.FC<FilterChipProps> = ({
     onPress();
   };
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const animatedStyle = {
+    transform: [{ scale }],
+  };
 
   return (
     <AnimatedPressable

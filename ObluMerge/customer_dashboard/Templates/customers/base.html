@@ -217,8 +217,8 @@
             <span>My Paid Incentives</span>
         </a>
 
-        <!-- RSM Team Incentives (RSM, Sales Head, Superuser) -->
-        {% if 'rsm' in user_roles or 'sales_head' in user_roles or request.user.is_superuser %}
+        <!-- RSM Team Incentives (RSM, Sales Head, Admin, Executive, Superuser) -->
+        {% if 'rsm' in user_roles or 'sales_head' in user_roles or 'admin' in user_roles or is_executive or request.user.is_superuser or '*' in permissions %}
         <a href="{% url 'incentive_calculator:rsm_team_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'rsm_team_dashboard' %}active{% endif %}">
             <i class="bi bi-people"></i>
             <span>RSM Team Incentives</span>
@@ -236,7 +236,7 @@
         <!-- ========================================================
              4. SALES INTELLIGENCE
         ========================================================= -->
-        {% if '*' in permissions or 'customer.view' in permissions %}
+        {% if '*' in permissions or 'customer.view' in permissions or is_executive or salesperson %}
         <div class="nav-section-title">Sales Intelligence</div>
 
         <a href="{% url 'customers:cross_selling_matrix' %}" class="nav-link {% if request.resolver_match.url_name == 'cross_selling_matrix' %}active{% endif %}">
@@ -254,6 +254,11 @@
         <a href="{% url 'customers:admin_voucher_claim_management' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_voucher_claim_management' %}active{% endif %}">
             <i class="bi bi-check2-square"></i>
             <span>Voucher Approvals</span>
+        </a>
+
+        <a href="{% url 'incentive_calculator:admin_incentive_control' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_incentive_control' %}active{% endif %}">
+            <i class="bi bi-sliders"></i>
+            <span>Admin Incentive Control</span>
         </a>
         {% endif %}
 

@@ -176,6 +176,7 @@ export async function fetchProformasFromApi(params?: {
     });
 
     if (!res || !res.data) {
+      console.warn("[ProformaService] Empty response received from /proforma/");
       return { results: [], stats: defaultStats, count: 0, next_page: null };
     }
 
@@ -194,14 +195,25 @@ export async function fetchProformasFromApi(params?: {
       ? data
       : [];
 
+    console.log("[ProformaService] fetchProformasFromApi SUCCESS:", {
+      resultsCount: resultsList.length,
+      stats: data?.stats,
+      count: data?.count,
+    });
+
     return {
       results: resultsList,
       stats: data?.stats || defaultStats,
       count: Number(data?.count) || resultsList.length,
       next_page: data?.next_page ?? null,
     };
-  } catch (error) {
-    console.warn("[ProformaService] fetchProformasFromApi failed:", error);
+  } catch (error: any) {
+    console.error("[ProformaService] fetchProformasFromApi ERROR:", {
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data,
+      message: error?.message,
+    });
     return {
       results: [],
       stats: defaultStats,

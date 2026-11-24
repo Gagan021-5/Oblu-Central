@@ -1,13 +1,5 @@
-import React, { useEffect, useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  Easing,
-} from "react-native-reanimated";
+import React, { useEffect, useMemo, useRef } from "react";
+import { View, Text, StyleSheet, Animated, Easing } from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, FontSizes, Radius } from "@/constants/theme";
 import { employeeTheme } from "@/constants/employeeTheme";
@@ -59,41 +51,47 @@ export const StatusPill: React.FC<StatusPillProps> = ({
     );
   }, [variant, label]);
 
-  const pulseOpacity = useSharedValue(1);
-  const pulseScale = useSharedValue(1);
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (isPulsing) {
-      pulseOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.4, { duration: 900, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1.0, { duration: 900, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 900,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 0,
+            duration: 900,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
       );
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.25, { duration: 900, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1.0, { duration: 900, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      );
+      loop.start();
+      return () => loop.stop();
     } else {
-      pulseOpacity.value = 1;
-      pulseScale.value = 1;
+      pulseAnim.setValue(0);
     }
-  }, [isPulsing, pulseOpacity, pulseScale]);
+  }, [isPulsing, pulseAnim]);
 
-  const dotAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: pulseOpacity.value,
-  }));
+  const dotOpacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.4],
+  });
 
-  const haloAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: pulseOpacity.value * 0.45,
-    transform: [{ scale: pulseScale.value }],
-  }));
+  const haloScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.25],
+  });
+
+  const haloOpacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.45, 0.18],
+  });
 
   const getStyleForVariant = () => {
     switch (variant) {
@@ -163,16 +161,21 @@ export const StatusPill: React.FC<StatusPillProps> = ({
             <Animated.View
               style={[
                 styles.dotHalo,
-                { backgroundColor: current.dot },
-                haloAnimatedStyle,
+                {
+                  backgroundColor: current.dot,
+                  opacity: haloOpacity,
+                  transform: [{ scale: haloScale }],
+                },
               ]}
             />
           )}
           <Animated.View
             style={[
               styles.dot,
-              { backgroundColor: current.dot },
-              isPulsing ? dotAnimatedStyle : undefined,
+              {
+                backgroundColor: current.dot,
+                opacity: isPulsing ? dotOpacity : 1,
+              },
             ]}
           />
         </View>

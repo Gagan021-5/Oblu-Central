@@ -1442,14 +1442,15 @@ class CustomerWorkspaceToolsView(APIView):
                 website_view.setup(website_request)
                 return website_view.get_context_data()
 
-            allowed = is_admin(request.user) or request.user.is_staff or request.user.is_superuser or self._has_role(request.user, "sales_head", "business", "admin")
+            allowed = is_admin(request.user) or request.user.is_staff or request.user.is_superuser or self._has_role(request.user, "sales_head", "business", "admin") or can(request.user, "*") or can(request.user, "incentive.view_all")
             if tool == "my-incentives":
                 # Use the website calculator as the source of truth. It applies
                 # the same employee identity, month, product rules and payment
                 # logic without requiring pre-created payout ledger rows.
-                from incentive_calculator.views import ASMIncentiveCalculatorPaidOnlyView5
+                from incentive_calculator.views import ASMIncentiveCalculatorPaidOnlyView
 
-                context = website_context(ASMIncentiveCalculatorPaidOnlyView5)
+                requested_sp = request.query_params.get("salesperson")
+                context = website_context(ASMIncentiveCalculatorPaidOnlyView, **({"salesperson": requested_sp} if requested_sp else {}))
                 rows = [{
                     "id": f"{row.get('voucher_id')}-{index}",
                     "date": row["date"].isoformat() if hasattr(row.get("date"), "isoformat") else str(row.get("date", "")),
@@ -1460,16 +1461,32 @@ class CustomerWorkspaceToolsView(APIView):
                     "amount": str(row.get("amount", 0)),
                     "paid": bool(row.get("is_fully_paid")),
                     "has_incentive": bool(row.get("has_incentive")),
+                    "is_trigger_on": bool(row.get("is_trigger_on", True)),
+                    "is_above_msp": bool(row.get("is_above_msp", True)),
                 } for index, row in enumerate(context.get("rows", []))]
                 product_totals = context.get("product_totals", {})
+                salespersons_list = context.get("salespersons") or []
+                selected_sp = context.get("selected_salesperson")
+                arrears_list = context.get("historical_arrears_list") or []
+
                 return Response({
                     "rows": rows,
                     "month": month,
+                    "selected_salesperson": {
+                        "id": getattr(selected_sp, "id", None),
+                        "name": getattr(selected_sp, "name", ""),
+                    } if selected_sp else None,
+                    "salespersons": [
+                        {"id": sp.id, "name": sp.name}
+                        for sp in salespersons_list
+                    ],
                     "summary": {
                         "potential": str(context.get("grand_total_incentive", 0)),
                         "payable": str(context.get("payable_incentive", 0)),
                         "pending": str(context.get("unpayable_incentive", 0)),
                         "total_sales": str(context.get("total_sales", 0)),
+                        "arrears_total": str(context.get("total_arrears_amount", 0)),
+                        "grand_payable": str(context.get("grand_payable_including_arrears", context.get("payable_incentive", 0))),
                     },
                     "products": [{
                         "name": name,
@@ -1478,9 +1495,27 @@ class CustomerWorkspaceToolsView(APIView):
                         "potential": str(values.get("potential_payout", 0)),
                         "payable": str(values.get("ready_payout", 0)),
                     } for name, values in product_totals.items()],
+                    "arrears": [{
+                        "voucher": arr.get("voucher_no", ""),
+                        "date": arr["date"].isoformat() if hasattr(arr.get("date"), "isoformat") else str(arr.get("date", "")),
+                        "customer": arr.get("customer", ""),
+                        "product": arr.get("product", ""),
+                        "quantity": str(arr.get("quantity", 0)),
+                        "amount": str(arr.get("earning", 0)),
+                    } for arr in arrears_list],
+                    "category_summary": context.get("category_summary", {}),
                 })
             elif tool == "rsm-incentives":
-                if not (request.user.is_superuser or getattr(request.user, "is_accountant", False) or request.user.groups.filter(name="Accountant").exists() or self._has_role(request.user, "rsm", "sales_head", "admin")):
+                can_rsm = (
+                    request.user.is_superuser
+                    or is_admin(request.user)
+                    or can(request.user, "incentive.view_all")
+                    or can(request.user, "incentive.view_team")
+                    or getattr(request.user, "is_accountant", False)
+                    or request.user.groups.filter(name="Accountant").exists()
+                    or self._has_role(request.user, "rsm", "sales_head", "admin")
+                )
+                if not can_rsm:
                     return Response({"error": "Team incentive access is not available for this account."}, status=403)
                 from incentive_calculator.views import RSMTeamIncentiveDashboardView
                 from customer_dashboard.models import SalesPerson as DashboardSalesPerson
@@ -1492,8 +1527,19 @@ class CustomerWorkspaceToolsView(APIView):
                 context = website_context(RSMTeamIncentiveDashboardView, **({"rsm": requested_rsm} if requested_rsm else {}))
                 allowed_rsms = context.get("rsms")
                 team_rows = []
+                team_report_data = []
                 for asm in context.get("team_report", []):
+                    asm_items = []
                     for item in asm.get("items", []):
+                        item_obj = {
+                            "name": item.get("name", ""),
+                            "quantity": str(item.get("qty", 0)),
+                            "asm_incentive": str(item.get("asm_incentive", 0)),
+                            "rsm_incentive": str(item.get("rsm_incentive", 0)),
+                            "paid": bool(item.get("is_paid")),
+                            "trigger_on": bool(item.get("is_trigger_on")),
+                        }
+                        asm_items.append(item_obj)
                         team_rows.append({
                             "id": f"{asm['asm_name']}-{len(team_rows)}",
                             "employee": asm["asm_name"],
@@ -1504,6 +1550,19 @@ class CustomerWorkspaceToolsView(APIView):
                             "paid": bool(item.get("is_paid")),
                             "trigger_on": bool(item.get("is_trigger_on")),
                         })
+                    team_report_data.append({
+                        "asm_name": asm.get("asm_name", ""),
+                        "total_sheets": str(asm.get("total_sheets", 0)),
+                        "asm_categories": asm.get("asm_categories", {}),
+                        "asm_paid": str(asm.get("asm_paid", 0)),
+                        "asm_pending": str(asm.get("asm_pending", 0)),
+                        "asm_triggered_off": str(asm.get("asm_triggered_off", 0)),
+                        "rsm_paid": str(asm.get("rsm_paid", 0)),
+                        "rsm_pending": str(asm.get("rsm_pending", 0)),
+                        "rsm_triggered_off": str(asm.get("rsm_triggered_off", 0)),
+                        "items": asm_items,
+                    })
+
                 return Response({
                     "rows": team_rows,
                     "month": month,
@@ -1516,41 +1575,76 @@ class CustomerWorkspaceToolsView(APIView):
                         "pending": str(context.get("grand_rsm_pending", 0)),
                         "blocked": str(context.get("grand_rsm_triggered_off", 0)),
                     },
+                    "team_report": team_report_data,
+                    "team_category_summary": context.get("team_category_summary", {}),
                 })
 
             elif tool == "sales-head-incentives":
-                if not allowed or (not self._has_role(request.user, "sales_head", "business", "admin") and not (request.user.is_staff or request.user.is_superuser or is_admin(request.user) or can(request.user, "*"))):
-                    return Response({"error": "Administrator access required."}, status=403)
+                can_sh = (
+                    allowed
+                    or self._has_role(request.user, "sales_head", "business", "admin")
+                    or request.user.is_staff
+                    or request.user.is_superuser
+                    or is_admin(request.user)
+                    or can(request.user, "*")
+                    or can(request.user, "incentive.view_all")
+                )
+                if not can_sh:
+                    return Response({"error": "Administrator / Sales Head access required."}, status=403)
 
-                # Keep mobile Sales Head Incentives in sync with the website. The
-                # website calculates the override from invoice line items; it does
-                # not read IncentivePaymentStatus (which is the ASM payout ledger).
+                # Keep mobile Sales Head Incentives in sync with the website.
                 from incentive_calculator.views import SalesHeadDashboardView
 
-                dashboard = SalesHeadDashboardView()
-                dashboard.setup(request)
-                context = dashboard.get_context_data()
+                context = website_context(SalesHeadDashboardView)
                 rows = []
+                report_data = []
                 for salesperson_report in context.get("report", []):
+                    sp_items = []
                     for item in salesperson_report.get("items", []):
+                        item_dict = {
+                            "customer": item.get("customer", ""),
+                            "product": item.get("product", ""),
+                            "date": item["date"].isoformat() if hasattr(item.get("date"), "isoformat") else str(item.get("date", "")),
+                            "quantity": str(item.get("qty", 0)),
+                            "asm_incentive": str(item.get("asm", 0)),
+                            "amount": str(item.get("head", 0)),
+                            "status": item.get("status", "pending"),
+                            "trigger": bool(item.get("trigger", True)),
+                        }
+                        sp_items.append(item_dict)
                         rows.append({
                             "id": len(rows) + 1,
-                            "employee": salesperson_report["name"],
-                            "role": salesperson_report["role"],
-                            "customer": item["customer"],
-                            "product": item["product"],
-                            "date": item["date"].isoformat() if hasattr(item["date"], "isoformat") else str(item["date"]),
-                            "quantity": item["qty"],
-                            "asm_incentive": str(item["asm"]),
-                            "amount": str(item["head"]),
-                            "status": item["status"],
+                            "employee": salesperson_report.get("name", ""),
+                            "role": salesperson_report.get("role", ""),
+                            "customer": item.get("customer", ""),
+                            "product": item.get("product", ""),
+                            "date": item["date"].isoformat() if hasattr(item.get("date"), "isoformat") else str(item.get("date", "")),
+                            "quantity": str(item.get("qty", 0)),
+                            "asm_incentive": str(item.get("asm", 0)),
+                            "amount": str(item.get("head", 0)),
+                            "status": item.get("status", "pending"),
                         })
+                    report_data.append({
+                        "name": salesperson_report.get("name", ""),
+                        "role": salesperson_report.get("role", ""),
+                        "target": str(salesperson_report.get("target", 0)),
+                        "rev": str(salesperson_report.get("rev", 0)),
+                        "cats": salesperson_report.get("cats", {}),
+                        "paid": str(salesperson_report.get("paid", 0)),
+                        "pending": str(salesperson_report.get("pending", 0)),
+                        "blocked": str(salesperson_report.get("blocked", 0)),
+                        "asm_earned": str(salesperson_report.get("asm_earned", 0)),
+                        "items": sp_items,
+                    })
 
                 totals = context.get("totals", {})
                 return Response({
                     "rows": rows,
-                    "month": context.get("month_picker"),
-                    "display_month": context.get("display_month"),
+                    "month": context.get("month_picker", month),
+                    "display_month": context.get("display_month", ""),
+                    "sh_name": context.get("sh_name", "Sales Head"),
+                    "cats": context.get("cats", {}),
+                    "report": report_data,
                     "summary": {
                         "potential": str(totals.get("potential", 0)),
                         "payable": str(totals.get("payable", 0)),

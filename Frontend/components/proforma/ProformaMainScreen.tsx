@@ -136,6 +136,7 @@ export function ProformaMainScreen() {
 
   // Load Documents List
   const loadDocuments = useCallback(async (isPull = false) => {
+    console.log("[ProformaMainScreen] loadDocuments START, activeTab:", activeTab, "statusFilter:", statusFilter, "search:", debouncedSearch);
     if (!isPull) setLoading(true);
     try {
       const docTypeParam = activeTab === "quotations" ? "quotation" : "all";
@@ -145,10 +146,17 @@ export function ProformaMainScreen() {
         status: statusFilter !== "all" ? (statusFilter as any) : undefined,
       });
 
+      console.log("[ProformaMainScreen] loadDocuments GOT res:", {
+        resultsLen: res?.results?.length,
+        stats: res?.stats,
+      });
+
       if (res && Array.isArray(res.results)) {
         setItems(res.results);
         setStats(res.stats);
       }
+    } catch (e) {
+      console.error("[ProformaMainScreen] loadDocuments CATCH:", e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -340,8 +348,8 @@ export function ProformaMainScreen() {
             </Text>
           </View>
           <StatusPill
-            label={item.status}
-            variant={item.status.toLowerCase() === "approved" ? "paid" : "pending"}
+            label={item.status || "Pending"}
+            variant={(item.status || "").toLowerCase() === "approved" ? "paid" : "pending"}
             size="small"
           />
         </View>
