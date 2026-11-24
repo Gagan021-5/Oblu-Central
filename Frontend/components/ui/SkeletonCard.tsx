@@ -1,20 +1,13 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
   StyleProp,
   ViewStyle,
   DimensionValue,
-} from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  interpolate,
+  Animated,
   Easing,
-} from "react-native-reanimated";
+} from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 
 interface ShimmerItemProps {
@@ -33,26 +26,35 @@ const ShimmerItem: React.FC<ShimmerItemProps> = ({
   phaseDelay = 0,
 }) => {
   const { isDark } = useTheme();
-  const pulse = useSharedValue(0.42);
+  const pulse = useRef(new Animated.Value(0.42)).current;
 
   useEffect(() => {
+    let anim: Animated.CompositeAnimation | null = null;
     const timer = setTimeout(() => {
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(0.88, { duration: 750, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.42, { duration: 750, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
+      anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, {
+            toValue: 0.88,
+            duration: 750,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulse, {
+            toValue: 0.42,
+            duration: 750,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
       );
+      anim.start();
     }, phaseDelay);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (anim) anim.stop();
+    };
   }, [phaseDelay, pulse]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    opacity: pulse.value,
-  }));
 
   const baseBg = isDark ? "#1E2435" : "#E2E9E5";
 
@@ -64,8 +66,8 @@ const ShimmerItem: React.FC<ShimmerItemProps> = ({
           height,
           borderRadius,
           backgroundColor: baseBg,
+          opacity: pulse,
         },
-        animStyle,
         style,
       ]}
     />
@@ -78,22 +80,29 @@ export interface SkeletonCardProps {
 
 export const SkeletonCard: React.FC<SkeletonCardProps> = ({ height = 110 }) => {
   const { isDark } = useTheme();
-  const shimmerProgress = useSharedValue(0);
+  const shimmerProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    shimmerProgress.value = withRepeat(
-      withTiming(1, { duration: 1600, easing: Easing.linear }),
-      -1,
-      false
+    const anim = Animated.loop(
+      Animated.timing(shimmerProgress, {
+        toValue: 1,
+        duration: 1600,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
     );
+    anim.start();
+    return () => anim.stop();
   }, [shimmerProgress]);
 
-  const sheenAnimStyle = useAnimatedStyle(() => {
-    const translateX = interpolate(shimmerProgress.value, [0, 1], [-250, 480]);
-    return {
-      transform: [{ translateX }, { skewX: "-20deg" }],
-    };
+  const translateX = shimmerProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-250, 480],
   });
+
+  const sheenAnimStyle = {
+    transform: [{ translateX }, { skewX: "-20deg" }],
+  };
 
   return (
     <View
@@ -174,22 +183,29 @@ export const SkeletonBlock: React.FC<SkeletonBlockProps> = ({
   style,
 }) => {
   const { isDark } = useTheme();
-  const shimmerProgress = useSharedValue(0);
+  const shimmerProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    shimmerProgress.value = withRepeat(
-      withTiming(1, { duration: 1600, easing: Easing.linear }),
-      -1,
-      false
+    const anim = Animated.loop(
+      Animated.timing(shimmerProgress, {
+        toValue: 1,
+        duration: 1600,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
     );
+    anim.start();
+    return () => anim.stop();
   }, [shimmerProgress]);
 
-  const sheenAnimStyle = useAnimatedStyle(() => {
-    const translateX = interpolate(shimmerProgress.value, [0, 1], [-250, 480]);
-    return {
-      transform: [{ translateX }, { skewX: "-20deg" }],
-    };
+  const translateX = shimmerProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-250, 480],
   });
+
+  const sheenAnimStyle = {
+    transform: [{ translateX }, { skewX: "-20deg" }],
+  };
 
   return (
     <View
