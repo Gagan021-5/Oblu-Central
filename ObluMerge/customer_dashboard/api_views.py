@@ -693,7 +693,7 @@ class CustomerChartsView(APIView):
         active_count = len(active_cust_ids)
         inactive_count = max(0, total_customers - active_count)
 
-        # Salespersons count & distribution (include ALL, order by customer count descending)
+        # Salespersons count & distribution (exclude EXCLUDED_SALESPERSON_NAMES, order by customer count descending)
         sp_counts = (
             cust_qs.values("salesperson__id", "salesperson__name")
             .annotate(count=Count("id"))
@@ -702,6 +702,8 @@ class CustomerChartsView(APIView):
         salesperson_dist = []
         for s in sp_counts:
             sp_name = s["salesperson__name"] or "Unassigned"
+            if not sp_name or sp_name.strip().lower() in EXCLUDED_SALESPERSON_NAMES_SET:
+                continue
             sp_id = s["salesperson__id"]
             sp_active = len([cid for cid in active_cust_ids if cust_qs.filter(id=cid, salesperson_id=sp_id).exists()]) if sp_id else 0
             salesperson_dist.append({
@@ -729,7 +731,7 @@ class CustomerChartsView(APIView):
                 "inactive": max(0, s["count"] - st_active),
             })
         total_states = state_counts.count()
-        total_salespersons = sp_counts.exclude(salesperson__isnull=True).count()
+        total_salespersons = len(salesperson_dist)
 
         voucher_qs = CustomerVoucherStatus.objects.filter(customer__in=cust_qs)
         vouchers_total = voucher_qs.count()

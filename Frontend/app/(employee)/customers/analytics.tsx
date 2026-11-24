@@ -13,6 +13,7 @@ import { SkeletonBlock } from "@/components/ui/SkeletonCard";
 import { CustomerChartsData, fetchCustomerChartsApi } from "@/services/customerService";
 import { CustomerNavDrawer } from "@/components/CustomerNavDrawer";
 import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
+import { isSalespersonActive } from "@/constants/salespeople";
 
 const PIE_COLORS = [
   "#20B99A",
@@ -53,6 +54,8 @@ export default function CustomerAnalyticsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [showAllSalespersons, setShowAllSalespersons] = useState(false);
+  const [showAllStates, setShowAllStates] = useState(false);
 
   const load = useCallback(async () => {
     if (!canOpen) return;
@@ -84,8 +87,13 @@ export default function CustomerAnalyticsScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const chartWidth = Math.max(260, screenWidth - 72);
 
+  const cleanSalespersonDist = (data?.salespersonDistribution || []).filter(
+    (item) => item.name && isSalespersonActive(item.name)
+  );
   const maxState = Math.max(1, ...(data?.stateDistribution.map((x) => x.count) || [1]));
-  const maxSales = Math.max(1, ...(data?.salespersonDistribution.map((x) => x.customers) || [1]));
+  const maxSales = Math.max(1, ...(cleanSalespersonDist.map((x) => x.customers) || [1]));
+  const displayedSalespersons = showAllSalespersons ? cleanSalespersonDist : cleanSalespersonDist.slice(0, 3);
+  const displayedStates = showAllStates ? (data?.stateDistribution || []).slice(0, 10) : (data?.stateDistribution || []).slice(0, 3);
 
   const DualBarRow = ({
     label,
@@ -149,8 +157,8 @@ export default function CustomerAnalyticsScreen() {
     );
   };
 
-  const salespersonPieData = (data?.salespersonDistribution || []).slice(0, 15).map((item, idx) => ({
-    name: item.name ? (item.name.length > 12 ? `${item.name.slice(0, 10)}…` : item.name) : "Unassigned",
+  const salespersonPieData = cleanSalespersonDist.slice(0, 15).map((item, idx) => ({
+    name: item.name ? (item.name.length > 12 ? `${item.name.slice(0, 10)}…` : item.name) : "Salesperson",
     customers: item.customers,
     color: PIE_COLORS[idx % PIE_COLORS.length],
     legendFontColor: isDark ? "#D1D5DB" : "#374151",
@@ -283,7 +291,7 @@ export default function CustomerAnalyticsScreen() {
             </View>
 
             <View style={{ gap: 12, marginTop: 4 }}>
-              {(data?.salespersonDistribution || []).map((x) => (
+              {displayedSalespersons.map((x) => (
                 <DualBarRow
                   key={x.name}
                   label={x.name}
@@ -295,6 +303,32 @@ export default function CustomerAnalyticsScreen() {
                 />
               ))}
             </View>
+
+            {cleanSalespersonDist.length > 3 && (
+              <TouchableOpacity
+                onPress={() => setShowAllSalespersons(!showAllSalespersons)}
+                style={[
+                  styles.toggleButton,
+                  {
+                    borderColor: t.border,
+                    backgroundColor: isDark ? "rgba(21, 154, 124, 0.1)" : "#EBF7F3",
+                    marginTop: 8,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.toggleButtonText, { color: "#159A7C" }]}>
+                  {showAllSalespersons
+                    ? "Show Top 3"
+                    : `Show Remaining (${cleanSalespersonDist.length - 3}) Salespersons`}
+                </Text>
+                <Ionicons
+                  name={showAllSalespersons ? "chevron-up" : "chevron-down"}
+                  size={14}
+                  color="#159A7C"
+                />
+              </TouchableOpacity>
+            )}
           </>
         ) : (
           <Text style={{ color: muted, fontFamily: Typography.regular }}>No salesperson distribution data available.</Text>
@@ -336,7 +370,7 @@ export default function CustomerAnalyticsScreen() {
             </View>
 
             <View style={{ gap: 10, marginTop: 4 }}>
-              {(data?.stateDistribution || []).map((x) => (
+              {displayedStates.map((x) => (
                 <TouchableOpacity
                   key={x.state}
                   onPress={() => {
@@ -384,6 +418,32 @@ export default function CustomerAnalyticsScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {(data?.stateDistribution?.length || 0) > 3 && (
+              <TouchableOpacity
+                onPress={() => setShowAllStates(!showAllStates)}
+                style={[
+                  styles.toggleButton,
+                  {
+                    borderColor: t.border,
+                    backgroundColor: isDark ? "rgba(21, 154, 124, 0.1)" : "#EBF7F3",
+                    marginTop: 8,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.toggleButtonText, { color: "#159A7C" }]}>
+                  {showAllStates
+                    ? "Show Top 3"
+                    : `Show Remaining (${Math.min(10, data?.stateDistribution?.length || 0) - 3}) States`}
+                </Text>
+                <Ionicons
+                  name={showAllStates ? "chevron-up" : "chevron-down"}
+                  size={14}
+                  color="#159A7C"
+                />
+              </TouchableOpacity>
+            )}
           </>
         ) : (
           <Text style={{ color: muted, fontFamily: Typography.regular }}>No state distribution data available.</Text>
@@ -431,4 +491,19 @@ const styles = StyleSheet.create({
   stateCard: { borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 },
   districtPill: { flexDirection: "row", alignItems: "center", gap: 3, borderWidth: 1, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 8 },
   districtPillText: { fontFamily: Typography.bold, fontSize: 11 },
+  toggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 6,
+  },
+  toggleButtonText: {
+    fontFamily: Typography.semiBold,
+    fontSize: 12,
+  },
 });

@@ -28,6 +28,7 @@ import { SkeletonBlock } from "@/components/ui/SkeletonCard";
 import { Typography } from "@/constants/theme";
 import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 import { triggerLightHaptic } from "@/utils/haptics";
+import { isSalespersonActive } from "@/constants/salespeople";
 
 const PIE_COLORS = [
   "#20B99A",
@@ -42,7 +43,7 @@ const PIE_COLORS = [
   "#64748B",
   "#A855F7",
   "#06B6D4",
-  "#3B82F6",
+  "#0D9488",
   "#E11D48",
   "#D97706",
 ];
@@ -76,6 +77,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
   const [error, setError] = useState("");
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [showAllSalespersons, setShowAllSalespersons] = useState(false);
+  const [showAllStates, setShowAllStates] = useState(false);
 
   const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
   const userIsSuperuser =
@@ -175,19 +177,25 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
     },
   ];
 
+  const cleanSalespersonDist = useMemo(() => {
+    return (chartsData?.salespersonDistribution || []).filter(
+      (item) => item.name && isSalespersonActive(item.name)
+    );
+  }, [chartsData?.salespersonDistribution]);
+
   // Chart data calculations
   const salespersonPieData = useMemo(() => {
-    return (chartsData?.salespersonDistribution || [])
+    return cleanSalespersonDist
       .filter((item) => item.customers > 0)
       .slice(0, 15)
       .map((item, idx) => ({
-        name: item.name ? (item.name.length > 12 ? `${item.name.slice(0, 10)}…` : item.name) : "Unassigned",
+        name: item.name ? (item.name.length > 12 ? `${item.name.slice(0, 10)}…` : item.name) : "Salesperson",
         customers: item.customers,
         color: PIE_COLORS[idx % PIE_COLORS.length],
         legendFontColor: isDark ? "#D1D5DB" : "#374151",
         legendFontSize: 11,
       }));
-  }, [chartsData?.salespersonDistribution, isDark]);
+  }, [cleanSalespersonDist, isDark]);
 
   const statePieData = useMemo(() => {
     return (chartsData?.stateDistribution || [])
@@ -203,8 +211,8 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
   }, [chartsData?.stateDistribution, isDark]);
 
   const maxSales = useMemo(() => {
-    return Math.max(1, ...(chartsData?.salespersonDistribution?.map((x) => x.customers) || [1]));
-  }, [chartsData?.salespersonDistribution]);
+    return Math.max(1, ...(cleanSalespersonDist.map((x) => x.customers) || [1]));
+  }, [cleanSalespersonDist]);
 
   const maxState = useMemo(() => {
     return Math.max(1, ...(chartsData?.stateDistribution?.map((x) => x.count) || [1]));
@@ -218,13 +226,13 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
   };
 
   const displayedSalespersons = useMemo(() => {
-    const list = chartsData?.salespersonDistribution || [];
-    return showAllSalespersons ? list : list.slice(0, 8);
-  }, [chartsData?.salespersonDistribution, showAllSalespersons]);
+    return showAllSalespersons ? cleanSalespersonDist : cleanSalespersonDist.slice(0, 3);
+  }, [cleanSalespersonDist, showAllSalespersons]);
 
   const displayedStates = useMemo(() => {
-    return (chartsData?.stateDistribution || []).slice(0, 10);
-  }, [chartsData?.stateDistribution]);
+    const list = chartsData?.stateDistribution || [];
+    return showAllStates ? list.slice(0, 10) : list.slice(0, 3);
+  }, [chartsData?.stateDistribution, showAllStates]);
 
   // Dual Bar Row Component matching Web Dashboard (Total vs Active)
   const DualBarRow = ({
@@ -448,7 +456,7 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
                 ))}
               </View>
 
-              {(chartsData?.salespersonDistribution?.length || 0) > 8 && (
+              {cleanSalespersonDist.length > 3 && (
                 <TouchableOpacity
                   onPress={() => setShowAllSalespersons(!showAllSalespersons)}
                   style={[
@@ -462,8 +470,8 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
                 >
                   <Text style={[styles.toggleButtonText, { color: "#159A7C" }]}>
                     {showAllSalespersons
-                      ? "Show Top 8"
-                      : `Show All (${chartsData?.salespersonDistribution?.length}) Salespersons`}
+                      ? "Show Top 3"
+                      : `Show Remaining (${cleanSalespersonDist.length - 3}) Salespersons`}
                   </Text>
                   <Ionicons
                     name={showAllSalespersons ? "chevron-up" : "chevron-down"}
@@ -573,6 +581,32 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {(chartsData?.stateDistribution?.length || 0) > 3 && (
+                <TouchableOpacity
+                  onPress={() => setShowAllStates(!showAllStates)}
+                  style={[
+                    styles.toggleButton,
+                    {
+                      borderColor: t.border,
+                      backgroundColor: isDark ? "rgba(21, 154, 124, 0.1)" : "#EBF7F3",
+                      marginTop: 8,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.toggleButtonText, { color: "#159A7C" }]}>
+                    {showAllStates
+                      ? "Show Top 3"
+                      : `Show Remaining (${Math.min(10, chartsData?.stateDistribution?.length || 0) - 3}) States`}
+                  </Text>
+                  <Ionicons
+                    name={showAllStates ? "chevron-up" : "chevron-down"}
+                    size={14}
+                    color="#159A7C"
+                  />
+                </TouchableOpacity>
+              )}
             </>
           ) : (
             <Text style={{ color: muted, fontFamily: Typography.regular }}>
