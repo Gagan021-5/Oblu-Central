@@ -474,7 +474,8 @@ class ProformaCatalogAPIView(APIView):
             "category",
             "proforma_price"
         ).prefetch_related(
-            "proforma_price__price_tiers"
+            "proforma_price__price_tiers",
+            "courier_sheets__tiers"
         ).filter(proforma_price__isnull=False)
 
         if category_id and category_id.isdigit():
@@ -505,6 +506,19 @@ class ProformaCatalogAPIView(APIView):
                         "unit_price": unit_p,
                     })
 
+            courier_data = {"surface": [], "air": []}
+            for sheet in p.courier_sheets.all():
+                smode = str(sheet.mode).lower()
+                if smode in courier_data:
+                    for t in sheet.tiers.all():
+                        courier_data[smode].append({
+                            "min": t.min_quantity,
+                            "max": t.max_quantity if t.max_quantity is not None else 99999,
+                            "charge": float(t.charge),
+                        })
+
+            min_required = getattr(p_price, "min_requirement", 1) or 1
+
             products.append({
                 "id": p.id,
                 "name": p.name,
@@ -516,6 +530,8 @@ class ProformaCatalogAPIView(APIView):
                 "stock": getattr(p, "quantity", 0) or 0,
                 "price_display": f"₹{int(base_price):,}",
                 "tiers": tiers,
+                "courier": courier_data,
+                "min_qty": min_required,
             })
 
         categories = list(

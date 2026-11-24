@@ -462,6 +462,34 @@ class ProformaListCreateAPIView(APIView):
         customer = get_object_or_404(Customer, pk=customer_id)
         shipping_customer = Customer.objects.filter(pk=shipping_customer_id).first() if shipping_customer_id else customer
 
+        # ── Courier & Quantity Business Validation Rules (Web Parity) ──
+        RESTRICTED_CATEGORIES = ["THERMOFORMING SHEETS", "BAY MATERIALS", "COHERZ"]
+        restricted_qty = 0
+        has_resin = False
+
+        for item in items_data:
+            p_id = item.get("product_id")
+            p_qty = int(item.get("quantity", 1))
+            prod_check = get_object_or_404(InventoryItem, pk=p_id)
+            cat_check = prod_check.category.name.upper() if prod_check.category else ""
+            name_check = prod_check.name.upper()
+
+            pricing_cfg = getattr(prod_check, "proforma_price", None)
+            min_req = getattr(pricing_cfg, "min_requirement", 1) or 1
+            if p_qty < min_req:
+                return Response({"error": f"'{prod_check.name}' requires a minimum quantity of {min_req}."}, status=400)
+
+            if any(c in cat_check or c in name_check for c in RESTRICTED_CATEGORIES):
+                restricted_qty += p_qty
+            if "RESIN" in cat_check or "RESIN" in name_check:
+                has_resin = True
+
+        if courier_mode == "surface" and 0 < restricted_qty < 200:
+            return Response({"error": "Surface rejected: Sheets < 200 must be Air."}, status=400)
+
+        if courier_mode == "air" and has_resin:
+            return Response({"error": "Air rejected: Resin products cannot be sent by Air."}, status=400)
+
         with transaction.atomic():
             if doc_type == "quotation":
                 doc = QuotationMaker.objects.create(

@@ -529,11 +529,16 @@ export interface ProformaCatalogItem {
   gst_percentage: number;
   stock: number;
   price_display: string;
+  min_qty?: number;
   tiers?: Array<{
     min_qty: number;
     discount_pct: number;
     unit_price: number;
   }>;
+  courier?: {
+    surface: Array<{ min: number; max: number; charge: number }>;
+    air: Array<{ min: number; max: number; charge: number }>;
+  };
 }
 
 export async function fetchProformaHubApi(): Promise<ProformaHubData | null> {

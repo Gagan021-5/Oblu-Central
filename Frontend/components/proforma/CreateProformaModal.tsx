@@ -165,38 +165,107 @@ export function CreateProformaModal({
     });
   }, [catalogProducts, catalogSearch]);
 
-  // Live Calculations
-  const calculations = useMemo(() => {
+  // Business Rules & Live Calculations (Matches Web Quotation Maker & Backend exactly)
+  const validationAndTotals = useMemo(() => {
     let subtotal = 0;
     let gst = 0;
+    let grandCourier = 0;
+
+    const RESTRICTED_CATEGORIES = ["THERMOFORMING SHEETS", "BAY MATERIALS", "COHERZ"];
+    const PER_UNIT_KEYWORDS = ["PRINTER", "RESIN", "ANYCUBIC", "FILAMENT", "MACHINE"];
+
+    let restrictedQty = 0;
+    let hasResin = false;
+    let totalSheetQty = 0;
+    let sheetRuleProduct: ProformaCatalogItem | null = null;
+    const moqErrors: string[] = [];
 
     items.forEach((item) => {
-      let tierPrice = item.product.base_price;
-      if (item.product.tiers && item.product.tiers.length > 0) {
-        for (const t of item.product.tiers) {
-          if (item.quantity >= t.min_qty) {
+      const p = item.product;
+      const qty = item.quantity;
+      const catUpper = (p.category || "").toUpperCase();
+      const nameUpper = (p.name || "").toUpperCase();
+
+      // Check MOQ
+      const minReq = p.min_qty || 1;
+      if (qty < minReq) {
+        moqErrors.push(`'${p.name}' requires minimum ${minReq} units (current: ${qty})`);
+      }
+
+      // Check Sheet & Resin categories
+      const isSheet = RESTRICTED_CATEGORIES.some((c) => catUpper.includes(c) || nameUpper.includes(c));
+      if (isSheet) {
+        restrictedQty += qty;
+        totalSheetQty += qty;
+        if (!sheetRuleProduct) sheetRuleProduct = p;
+      }
+      if (catUpper.includes("RESIN") || nameUpper.includes("RESIN")) {
+        hasResin = true;
+      }
+
+      // Tier price calculation
+      let tierPrice = p.base_price;
+      if (p.tiers && p.tiers.length > 0) {
+        for (const t of p.tiers) {
+          if (qty >= t.min_qty) {
             tierPrice = t.unit_price;
             break;
           }
         }
       }
       const effectivePrice = item.requestedPrice !== undefined ? item.requestedPrice : tierPrice;
-      const lineTotal = effectivePrice * item.quantity;
+      const lineTotal = effectivePrice * qty;
       subtotal += lineTotal;
-      const taxRate = item.product.gst_percentage || 18;
+      const taxRate = p.gst_percentage || 18;
       gst += lineTotal * (taxRate / 100);
+
+      // Non-sheet per-product courier tiers
+      if (!isSheet && p.courier) {
+        const tiers = p.courier[courierMode] || [];
+        const tier = tiers.find((t) => qty >= t.min && qty <= t.max);
+        if (tier) {
+          const isPerUnit = PER_UNIT_KEYWORDS.some((k) => catUpper.includes(k) || nameUpper.includes(k));
+          grandCourier += isPerUnit ? tier.charge * qty : tier.charge;
+        }
+      }
     });
 
-    const courierCost = courierMode === "air" ? 450 : 200;
-    const courierGst = courierCost * 0.18;
-    const grandTotal = subtotal + courierCost;
+    // Sheet consolidated courier tiers
+    if (totalSheetQty > 0 && sheetRuleProduct) {
+      const sheetTiers = (sheetRuleProduct as ProformaCatalogItem).courier?.[courierMode] || [];
+      const tier = sheetTiers.find((t) => totalSheetQty >= t.min && totalSheetQty <= t.max);
+      if (tier) {
+        grandCourier += tier.charge;
+      }
+    }
+
+    // Courier GST & Grand Total
+    const courierGst = grandCourier * 0.18;
+    const grandTotal = subtotal + grandCourier;
+
+    // Shipping Mode Violations
+    let surfaceViolation: string | null = null;
+    let airViolation: string | null = null;
+
+    if (courierMode === "surface" && restrictedQty > 0 && restrictedQty < 200) {
+      surfaceViolation = "Surface rejected: Sheets < 200 must be Air.";
+    }
+
+    if (courierMode === "air" && hasResin) {
+      airViolation = "Air rejected: Resin products cannot be sent by Air.";
+    }
 
     return {
       subtotal,
       gst,
-      courier: courierCost,
+      courier: grandCourier,
       courierGst,
       grandTotal,
+      restrictedQty,
+      hasResin,
+      surfaceViolation,
+      airViolation,
+      moqErrors,
     };
   }, [items, courierMode]);
 
@@ -261,6 +330,19 @@ export function CreateProformaModal({
     }
     if (items.length === 0) {
       Alert.alert("No Line Items", "Please add at least one product item.");
+      return;
+    }
+
+    if (validationAndTotals.surfaceViolation) {
+      Alert.alert("Shipping Method Rejected", validationAndTotals.surfaceViolation + "\n\nPlease switch to Air Express.");
+      return;
+    }
+    if (validationAndTotals.airViolation) {
+      Alert.alert("Shipping Method Rejected", validationAndTotals.airViolation + "\n\nPlease switch to Surface Cargo.");
+      return;
+    }
+    if (validationAndTotals.moqErrors.length > 0) {
+      Alert.alert("Minimum Order Requirement", validationAndTotals.moqErrors[0]);
       return;
     }
 
@@ -561,6 +643,16 @@ export function CreateProformaModal({
                       </Text>
                     </View>
 
+                    {/* MOQ Warning */}
+                    {Boolean(item.product.min_qty && item.quantity < item.product.min_qty) && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                        <Ionicons name="alert-circle" size={13} color="#EF4444" />
+                        <Text style={{ fontSize: 11, fontFamily: Typography.bold, color: "#EF4444" }}>
+                          Below MOQ (Minimum required: {item.product.min_qty})
+                        </Text>
+                      </View>
+                    )}
+
                     {/* Qty Stepper & Requested Price */}
                     <View style={styles.inputsRow}>
                       <View style={{ flex: 1 }}>
@@ -626,7 +718,7 @@ export function CreateProformaModal({
             )}
           </View>
 
-          {/* ── 3. COURIER MODE (Mobile Theme) ── */}
+          {/* ── 3. COURIER MODE (Mobile Theme & Real-time Validation) ── */}
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: border }]}>
             <Text style={[styles.label, { color: muted }]}>COURIER MODE</Text>
             <View style={styles.segmentedRow}>
@@ -672,6 +764,34 @@ export function CreateProformaModal({
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Courier Violation Banner */}
+            {Boolean(validationAndTotals.surfaceViolation || validationAndTotals.airViolation) && (
+              <View style={[styles.violationBanner, { backgroundColor: isDark ? "rgba(239, 68, 68, 0.12)" : "#FEF2F2", borderColor: "#EF4444" }]}>
+                <Ionicons name="alert-circle" size={18} color="#EF4444" />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={[styles.violationTitle, { color: "#EF4444" }]}>
+                    {validationAndTotals.surfaceViolation || validationAndTotals.airViolation}
+                  </Text>
+                  <Text style={[styles.violationSub, { color: muted }]}>
+                    {validationAndTotals.surfaceViolation
+                      ? "Sheets under 200 pcs cannot be shipped by Surface Cargo."
+                      : "Resin products cannot be transported via air freight. Switch to Surface Cargo."}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.switchModePill, { backgroundColor: emeraldPrimary }]}
+                  onPress={() => {
+                    triggerLightHaptic();
+                    setCourierMode(validationAndTotals.surfaceViolation ? "air" : "surface");
+                  }}
+                >
+                  <Text style={styles.switchModePillText}>
+                    Switch to {validationAndTotals.surfaceViolation ? "Air" : "Surface"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           {/* ── 4. PRICE & COURIER REQUEST (REMARKS) ── */}
@@ -681,7 +801,7 @@ export function CreateProformaModal({
             <View style={styles.courierRow}>
               <Text style={[styles.courierRowLabel, { color: muted }]}>Approximate Courier:</Text>
               <Text style={[styles.courierRowVal, { color: emeraldPrimary }]}>
-                ₹{intFormat(calculations.courier)}
+                ₹{intFormat(validationAndTotals.courier)}
               </Text>
             </View>
 
@@ -717,7 +837,7 @@ export function CreateProformaModal({
 
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: muted }]}>Taxable Subtotal</Text>
-              <Text style={[styles.summaryVal, { color: foreground }]}>₹{intFormat(calculations.subtotal)}</Text>
+              <Text style={[styles.summaryVal, { color: foreground }]}>₹{intFormat(validationAndTotals.subtotal)}</Text>
             </View>
 
             <View style={styles.summaryRow}>
@@ -725,7 +845,7 @@ export function CreateProformaModal({
                 Courier ({courierMode.toUpperCase()})
               </Text>
               <Text style={[styles.summaryVal, { color: foreground }]}>
-                ₹{intFormat(calculations.courier)}
+                ₹{intFormat(validationAndTotals.courier)}
               </Text>
             </View>
 
@@ -733,7 +853,7 @@ export function CreateProformaModal({
 
             <View style={styles.summaryRow}>
               <Text style={[styles.grandLabel, { color: foreground }]}>Grand Total</Text>
-              <Text style={[styles.grandVal, { color: emeraldPrimary }]}>₹{intFormat(calculations.grandTotal)}</Text>
+              <Text style={[styles.grandVal, { color: emeraldPrimary }]}>₹{intFormat(validationAndTotals.grandTotal)}</Text>
             </View>
           </View>
         </ScrollView>
@@ -1215,6 +1335,23 @@ const styles = StyleSheet.create({
   },
   courierRowLabel: { fontSize: 12, fontFamily: Typography.bold },
   courierRowVal: { fontSize: 14, fontFamily: Typography.bold },
+  violationBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 10,
+    gap: 6,
+  },
+  violationTitle: { fontSize: 12, fontFamily: Typography.bold },
+  violationSub: { fontSize: 10.5, fontFamily: Typography.regular, marginTop: 2 },
+  switchModePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  switchModePillText: { fontSize: 10.5, fontFamily: Typography.bold, color: "#06281E" },
   inputField: {
     borderWidth: 1,
     borderRadius: 10,
