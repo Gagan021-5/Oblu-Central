@@ -1,6 +1,6 @@
 import React from "react";
-import CustomerWorkspaceScreen from "../(employee)/customers/dashboard";
+import CustomerWorkspaceScreen from "@/components/customers/CustomerWorkspaceScreen";
 
 export default function AdminCustomerWorkspaceScreen() {
-  return <CustomerWorkspaceScreen isAdmin />;
+  return <CustomerWorkspaceScreen isAdmin={true} />;
 }

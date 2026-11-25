@@ -41,7 +41,7 @@ export function DispatchQueueTab({
   const muted = isDark ? "#94A3B8" : "#64748B";
   const activeColor = "#10B981";
 
-  const loadData = useCallback(async (isPull = false) => {
+  const loadData = useCallback(async (isPull?: boolean) => {
     if (!isPull) setLoading(true);
     try {
       const data = await fetchDispatchQueueApi({

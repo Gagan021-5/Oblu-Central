@@ -74,7 +74,7 @@ export default function LeadsDashboardScreen() {
   const [activeStage, setActiveStage] = useState<LeadFilter>("All");
   const [showSearch, setShowSearch] = useState(false);
 
-  const loadLeads = useCallback(async (isPullToRefresh = false) => {
+  const loadLeads = useCallback(async (isPullToRefresh?: boolean) => {
     if (!isPullToRefresh) setLoading(true);
     try {
       const data = await fetchLeadsFromApi({

@@ -146,20 +146,15 @@ export function ProformaMainScreen() {
   }, [loadHub]);
 
   // Load Documents List
-  const loadDocuments = useCallback(async (isPull = false) => {
-    console.log("[ProformaMainScreen] loadDocuments START, activeTab:", activeTab, "statusFilter:", statusFilter, "search:", debouncedSearch);
-    if (!isPull) setLoading(true);
+  const loadDocuments = useCallback(async (isPull?: boolean) => {
+    const pull = Boolean(isPull);
+    if (!pull) setLoading(true);
     try {
       const docTypeParam = activeTab === "quotations" ? "quotation" : "all";
       const res = await fetchProformasFromApi({
         search: debouncedSearch,
         type: docTypeParam,
         status: statusFilter !== "all" ? (statusFilter as any) : undefined,
-      });
-
-      console.log("[ProformaMainScreen] loadDocuments GOT res:", {
-        resultsLen: res?.results?.length,
-        stats: res?.stats,
       });
 
       if (res && Array.isArray(res.results)) {

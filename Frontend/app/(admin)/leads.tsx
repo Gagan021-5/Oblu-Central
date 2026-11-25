@@ -46,7 +46,7 @@ export default function LeadsScreen() {
     "Won",
   ];
 
-  const loadLeads = useCallback(async (isPull = false) => {
+  const loadLeads = useCallback(async (isPull?: boolean) => {
     if (!isPull) setLoading(true);
     try {
       const data = await fetchLeadsFromApi();

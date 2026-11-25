@@ -245,7 +245,9 @@ export default function CustomerToolScreen() {
 
   const title = TITLES[tool] || "Customer Workspace";
 
-  const load = useCallback(async (pageToLoad = 1, append = false) => {
+  const load = useCallback(async (pageToLoadArg?: number, appendArg?: boolean) => {
+    const pageToLoad = pageToLoadArg ?? 1;
+    const append = Boolean(appendArg);
     if (!canOpen) return;
     const requestSequence = tool === "cross-selling" ? ++crossSellingRequestSequence.current : 0;
     setError("");

@@ -4,6 +4,10 @@ import { Stack } from "expo-router";
 import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { FloatingTabBar } from "@/components/employee/FloatingTabBar";
 
+export const unstable_settings = {
+  anchor: "users",
+};
+
 export default function AdminLayout() {
   const { t } = useEmployeeTheme();
 
@@ -16,6 +20,7 @@ export default function AdminLayout() {
           animation: "none",
         }}
       >
+        <Stack.Screen name="index" options={{ animation: "none" }} />
         <Stack.Screen name="users" options={{ animation: "none" }} />
         <Stack.Screen name="customers" options={{ animation: "none" }} />
         <Stack.Screen name="call-logs" options={{ animation: "none" }} />

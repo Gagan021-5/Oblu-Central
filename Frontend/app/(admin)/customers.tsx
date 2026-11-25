@@ -105,7 +105,10 @@ export default function CustomersScreen() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const loadData = useCallback(async (isPull = false, page = 1, append = false) => {
+  const loadData = useCallback(async (isPullArg?: boolean, pageArg?: number, appendArg?: boolean) => {
+    const isPull = Boolean(isPullArg);
+    const page = pageArg ?? 1;
+    const append = Boolean(appendArg);
     if (page === 1 && !isPull) setLoading(true);
     if (page > 1) setLoadingMore(true);
     if (page === 1) setLoadError("");

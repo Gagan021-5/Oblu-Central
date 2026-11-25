@@ -43,7 +43,8 @@ export function InventoryDeadStockTab({ onOpenProduct }: InventoryDeadStockTabPr
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
 
-  const fetchDeadStock = useCallback(async (pageNum = 1) => {
+  const fetchDeadStock = useCallback(async (pageNumArg?: number) => {
+    const pageNum = pageNumArg ?? 1;
     try {
       setLoading(true);
       const res = await api.get("/inventory/alerts/dead-stock/", {
