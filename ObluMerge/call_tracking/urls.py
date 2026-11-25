@@ -1,11 +1,9 @@
 """
-URL routing for the Call Tracer API.
+URL routing for the Call Tracking API.
 """
 
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 
-from access_control.views import MeProfileView
 from .views import (
     AdminCallLogView,
     AdminProfileView,
@@ -13,31 +11,9 @@ from .views import (
     AdminUserListView,
     CallLogSyncView,
     ConsentView,
-    LoginView,
-    RegisterView,
 )
 
 urlpatterns = [
-    path(
-        "auth/me/",
-        MeProfileView.as_view(),
-        name="auth-me",
-    ),
-    path(
-        "auth/login/",
-        LoginView.as_view(),
-        name="auth-login",
-    ),
-    path(
-        "auth/register/",
-        RegisterView.as_view(),
-        name="auth-register",
-    ),
-    path(
-        "auth/refresh/",
-        TokenRefreshView.as_view(),
-        name="auth-refresh",
-    ),
     path(
         "consent/",
         ConsentView.as_view(),

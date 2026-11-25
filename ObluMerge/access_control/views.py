@@ -289,3 +289,50 @@ class MyTeamListView(APIView):
             })
 
         return Response(team_data)
+
+
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
+from call_tracking.models import CallTrackingProfile
+from call_tracking.serializers import get_role
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Custom JWT serializer that embeds role and user info in response."""
+
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token["username"] = user.username
+        token["role"] = get_role(user)
+        try:
+            profile = user.call_tracking_profile
+            token["consent_given"] = profile.consent_given
+        except Exception:
+            token["consent_given"] = False
+        return token
+
+    def validate(self, attrs):
+        if self.username_field in attrs and isinstance(attrs[self.username_field], str):
+            attrs[self.username_field] = attrs[self.username_field].strip()
+        data = super().validate(attrs)
+        profile, _ = CallTrackingProfile.objects.get_or_create(user=self.user)
+        data["user"] = {
+            "id": self.user.id,
+            "username": self.user.username,
+            "email": self.user.email,
+            "role": get_role(self.user),
+            "device_id": profile.device_id,
+            "device_model": profile.device_model,
+            "app_version": profile.app_version,
+            "consent_given": profile.consent_given,
+        }
+        return data
+
+
+class MobileLoginView(TokenObtainPairView):
+    """POST /api/auth/login/ — Obtain JWT access and refresh token pair."""
+
+    serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [AllowAny]

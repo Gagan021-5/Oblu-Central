@@ -1,19 +1,17 @@
 """
 Views for the Call Tracer API.
 
-Authentication:
-- RegisterView: registers admin (generates connect_code) or employee (verifies connect_code)
-- LoginView: JWT token pair generation
+Consent:
 - ConsentView: sets consent_given=True for authenticated employee
 
 Call Log Operations:
 - CallLogSyncView: bulk deduplicated sync with ignore_conflicts
 
 Admin Operations (IsAdminRole):
-- AdminProfileView: returns admin's own profile and connect_code
-- AdminUserListView: list team employees linked to this admin
-- AdminCallLogView: filtered call logs for this admin's employees
-- AdminStatsView: daily & aggregate stats for an employee belonging to this admin
+- AdminProfileView: returns admin's own profile
+- AdminUserListView: list team employees
+- AdminCallLogView: filtered call logs for employees
+- AdminStatsView: daily & aggregate stats
 """
 
 from collections import Counter
@@ -24,11 +22,9 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import CallLog, CallStats, CallTrackingProfile
 from .permissions import IsAdminRole
@@ -36,8 +32,6 @@ from .serializers import (
     CallLogSerializer,
     CallLogSyncSerializer,
     CallStatsSerializer,
-    CustomTokenObtainPairSerializer,
-    RegisterSerializer,
     UserSerializer,
     AdminProfileUpdateSerializer,
     get_role,
@@ -54,52 +48,7 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 200
 
 
-# ── Authentication Views ─────────────────────────────────────────────────
-
-class RegisterView(generics.CreateAPIView):
-    """
-    Register a new user account.
-    - Admins get auto-generated unique connect_code (format: XXX-NNNN-NNNN)
-    - Employees must provide valid connect_code from their admin manager
-    """
-
-    queryset = User.objects.all()
-    serializer_class = RegisterSerializer
-    permission_classes = [AllowAny]
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-
-        # Generate JWT tokens for immediate login
-        refresh = RefreshToken.for_user(user)
-        refresh["username"] = user.username
-        refresh["role"] = get_role(user)
-        try:
-            refresh["consent_given"] = user.call_tracking_profile.consent_given
-        except Exception:
-            refresh["consent_given"] = False
-
-        return Response(
-            {
-                "message": "Account created successfully.",
-                "user": UserSerializer(user).data,
-                "tokens": {
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
-                },
-            },
-            status=status.HTTP_201_CREATED,
-        )
-
-
-class LoginView(TokenObtainPairView):
-    """Obtain JWT access and refresh token pair."""
-
-    serializer_class = CustomTokenObtainPairSerializer
-    permission_classes = [AllowAny]
-
+# ── Consent & Sync Views ─────────────────────────────────────────────────
 
 class ConsentView(APIView):
     """
