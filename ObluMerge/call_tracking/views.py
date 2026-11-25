@@ -15,18 +15,21 @@ Admin Operations (IsAdminRole):
 """
 
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum, Max, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import CallLog, CallStats, CallTrackingProfile
+from .models import CallLog, CallStats, CallTrackingProfile, normalize_phone
 from .permissions import IsAdminRole
 from .serializers import (
     CallLogSerializer,
@@ -114,6 +117,99 @@ class CallLogSyncView(APIView):
                 "synced": synced_count,
                 "skipped_duplicates": skipped_count,
                 "total_received": len(instances),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class CallRecordingUploadView(APIView):
+    """
+    POST /api/call-logs/upload-recording/
+    Accepts multipart audio file from employee device and attaches it to the matching CallLog.
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        audio_file = request.FILES.get("file")
+        if not audio_file:
+            return Response(
+                {"error": "No audio file provided under 'file'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = request.user
+        call_log_id = request.data.get("call_log_id")
+        phone_number = (request.data.get("phone_number") or "").strip()
+        raw_ts = request.data.get("timestamp")
+        call_type = (request.data.get("call_type") or "outgoing").lower()
+        if call_type not in ("incoming", "outgoing", "missed"):
+            call_type = "outgoing"
+        try:
+            duration = max(0, int(request.data.get("duration") or 0))
+        except (TypeError, ValueError):
+            duration = 0
+
+        target_dt = None
+        if raw_ts:
+            target_dt = parse_datetime(str(raw_ts))
+            if target_dt is None:
+                try:
+                    ms = float(raw_ts)
+                    if ms > 1e11:
+                        ms = ms / 1000.0
+                    target_dt = datetime.fromtimestamp(ms, tz=timezone.get_current_timezone())
+                except (TypeError, ValueError):
+                    target_dt = None
+        if target_dt is None:
+            target_dt = timezone.now()
+        elif timezone.is_naive(target_dt):
+            target_dt = timezone.make_aware(target_dt, timezone.get_current_timezone())
+
+        call_log = None
+        if call_log_id:
+            call_log = CallLog.objects.filter(id=call_log_id, user=user).first()
+
+        if call_log is None:
+            window_start = target_dt - timedelta(minutes=5)
+            window_end = target_dt + timedelta(minutes=5)
+            qs = CallLog.objects.filter(
+                user=user,
+                timestamp__gte=window_start,
+                timestamp__lte=window_end,
+            )
+            if phone_number:
+                norm = normalize_phone(phone_number)
+                matched = qs.filter(
+                    Q(normalized_phone=norm) | Q(phone_number=phone_number)
+                ).order_by("-timestamp").first()
+                call_log = matched
+            if call_log is None:
+                call_log = qs.filter(duration__gt=0).order_by("-timestamp").first()
+
+        if call_log is None:
+            if not phone_number:
+                phone_number = "Recorded Call"
+            call_log = CallLog.objects.create(
+                user=user,
+                phone_number=phone_number,
+                call_type=call_type,
+                duration=duration,
+                timestamp=target_dt,
+            )
+
+        call_log.audio_file = audio_file
+        call_log.recording_filename = audio_file.name or "recording.m4a"
+        call_log.save(update_fields=["audio_file", "recording_filename"])
+
+        audio_url = request.build_absolute_uri(call_log.audio_file.url)
+        return Response(
+            {
+                "status": "uploaded",
+                "call_log_id": call_log.id,
+                "audio_url": audio_url,
+                "recording_filename": call_log.recording_filename,
             },
             status=status.HTTP_200_OK,
         )

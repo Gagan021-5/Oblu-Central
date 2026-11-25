@@ -357,28 +357,6 @@ export default function CustomerDashboardScreen() {
                   borderColor: t.border,
                 },
               ]}
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.push("/(employee)/customers/dashboard" as any);
-                }
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Back to Customer Workspace"
-              activeOpacity={0.7}
-            >
-              <Ionicons name="arrow-back" size={18} color={t.text} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.backButton,
-                {
-                  backgroundColor: t.surface,
-                  borderColor: t.border,
-                },
-              ]}
               onPress={() => setDrawerVisible(true)}
               accessibilityRole="button"
               accessibilityLabel="Open customer navigation"

@@ -148,7 +148,7 @@ export function CustomerFilterSheet({
               </View>
             </> : null}
 
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PAYMENT STATUS</Text>
+            <Text style={[styles.sectionLabel, onActivityFilterChange ? styles.sortLabel : null, { color: colors.textSecondary }]}>PAYMENT STATUS</Text>
             <View style={styles.optionsGroup}>
               {PAYMENT_OPTIONS.map((option) =>
                 renderChoice(paymentFilter === option.value, option.label, () => onPaymentFilterChange(option.value))
@@ -164,7 +164,7 @@ export function CustomerFilterSheet({
             {onSalespersonFilterChange ? (
               <>
                 <Text style={[styles.sectionLabel, styles.sortLabel, { color: colors.textSecondary }]}>SALESPERSON</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
+                <View style={styles.chipsWrapContainer}>
                   {renderChip(!salespersonFilter || salespersonFilter === "all", "All Salespersons", () => onSalespersonFilterChange("all"))}
                   {salespersonOptions.map((sp) =>
                     renderChip(
@@ -173,28 +173,21 @@ export function CustomerFilterSheet({
                       () => onSalespersonFilterChange(sp.id)
                     )
                   )}
-                </ScrollView>
+                </View>
               </>
             ) : null}
 
             {onStateFilterChange ? (
               <>
                 <Text style={[styles.sectionLabel, styles.sortLabel, { color: colors.textSecondary }]}>STATE / REGION</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
+                <View style={styles.chipsWrapContainer}>
                   {renderChip(!stateFilter || stateFilter === "all", "All States", () => onStateFilterChange("all"))}
                   {stateOptions.map((st) =>
                     renderChip(stateFilter === st, st, () => onStateFilterChange(st))
                   )}
-                </ScrollView>
+                </View>
               </>
             ) : null}
-
-            <Text style={[styles.sectionLabel, styles.sortLabel, { color: colors.textSecondary }]}>SORT BY</Text>
-            <View style={styles.optionsGroup}>
-              {SORT_OPTIONS.map((option) =>
-                renderChoice(sortOption === option.value, option.label, () => onSortOptionChange(option.value), option.icon)
-              )}
-            </View>
           </ScrollView>
 
           <View style={styles.footer}>
@@ -254,24 +247,26 @@ const styles = StyleSheet.create({
     fontFamily: Typography.semiBold,
     fontSize: FontSizes.micro,
     letterSpacing: 0.7,
-    marginBottom: 9,
+    marginTop: 4,
+    marginBottom: 10,
   },
   sortLabel: {
-    marginTop: 18,
+    marginTop: 20,
   },
   optionsGroup: {
-    gap: 8,
+    gap: 10,
   },
-  chipsContainer: {
+  chipsWrapContainer: {
     flexDirection: "row",
-    gap: 8,
-    paddingVertical: 2,
+    flexWrap: "wrap",
+    gap: 10,
+    paddingVertical: 4,
   },
   chip: {
-    height: 36,
-    borderRadius: 18,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -280,13 +275,14 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.bodySmall,
   },
   choice: {
-    minHeight: 44,
+    minHeight: 46,
     borderRadius: Radius.md,
     borderWidth: 1,
-    paddingHorizontal: 13,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     flexDirection: "row",
     alignItems: "center",
-    gap: 9,
+    gap: 10,
   },
   choiceText: {
     flex: 1,

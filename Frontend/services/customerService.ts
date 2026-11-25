@@ -51,6 +51,8 @@ export function normalizeCustomer(raw: any): Customer {
     paymentStatus: raw.paymentStatus || "",
     status: raw.status || "",
     remarks: Array.isArray(raw.remarks) ? raw.remarks : [],
+    remarksCount: Number(raw.remarks_count ?? raw.remarksCount ?? (Array.isArray(raw.remarks) ? raw.remarks.length : 0)) || 0,
+    remarks_count: Number(raw.remarks_count ?? raw.remarksCount ?? (Array.isArray(raw.remarks) ? raw.remarks.length : 0)) || 0,
     followUps: Array.isArray(raw.followUps) ? raw.followUps : [],
     followupsDue: Number(raw.followups_due) || 0,
     payments: Array.isArray(raw.payments) ? raw.payments : [],

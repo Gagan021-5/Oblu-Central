@@ -10,6 +10,7 @@ from .views import (
     AdminStatsView,
     AdminUserListView,
     CallLogSyncView,
+    CallRecordingUploadView,
     ConsentView,
 )
 
@@ -23,6 +24,11 @@ urlpatterns = [
         "call-logs/sync/",
         CallLogSyncView.as_view(),
         name="call-logs-sync",
+    ),
+    path(
+        "call-logs/upload-recording/",
+        CallRecordingUploadView.as_view(),
+        name="call-logs-upload-recording",
     ),
     path(
         "admin/profile/",

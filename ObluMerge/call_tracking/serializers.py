@@ -136,6 +136,7 @@ class CallLogSerializer(serializers.ModelSerializer):
     """Full CallLog model serializer for admin list/detail views."""
 
     username = serializers.CharField(source="user.username", read_only=True)
+    audio_url = serializers.SerializerMethodField()
 
     class Meta:
         model = CallLog
@@ -148,8 +149,20 @@ class CallLogSerializer(serializers.ModelSerializer):
             "duration",
             "timestamp",
             "synced_at",
+            "audio_url",
+            "recording_filename",
         ]
         read_only_fields = ["id", "synced_at"]
+
+    def get_audio_url(self, obj):
+        if not obj.audio_file:
+            return None
+        request = self.context.get("request")
+        try:
+            url = obj.audio_file.url
+            return request.build_absolute_uri(url) if request else url
+        except Exception:
+            return None
 
 
 class CallStatsSerializer(serializers.ModelSerializer):

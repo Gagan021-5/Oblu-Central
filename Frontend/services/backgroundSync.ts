@@ -9,7 +9,7 @@
  */
 
 import * as TaskManager from "expo-task-manager";
-import { Platform } from "react-native";
+import { AppRegistry, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { syncCallLogs } from "@/services/callLogSync";
 
@@ -30,6 +30,21 @@ async function loadBackgroundTask() {
     BackgroundTask = require("expo-background-task");
   } catch {
     // Module not available
+  }
+}
+
+// ── Register Headless JS Task for Call-End & Boot Sync (when app is closed) ─
+if (!isExpoGo && Platform.OS === "android") {
+  try {
+    AppRegistry.registerHeadlessTask("CALL_END_SYNC_TASK", () => async () => {
+      try {
+        await syncCallLogs();
+      } catch {
+        // Handled silently in headless background
+      }
+    });
+  } catch {
+    // Ignore duplicate registration in fast refresh
   }
 }
 

@@ -37,24 +37,27 @@ export default function ConsentScreen() {
     }
 
     try {
-      // Use a timeout so it never hangs in Expo Go or custom Android ROMs
-      const permissionPromise = PermissionsAndroid.request(
+      // Request call log, phone state (for call-end sync), and audio media (for Option A dialer recordings)
+      const audioPerm =
+        Number(Platform.Version) >= 33
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO
+          : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+
+      const permissionPromise = PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
-        {
-          title: "Call Log Access Required",
-          message:
-            "This app needs permission to read call logs to synchronize business call activity with the company dashboard.",
-          buttonPositive: "Allow",
-          buttonNegative: "Deny",
-        }
+        PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+        audioPerm,
+      ]);
+
+      const timeoutPromise = new Promise<Record<string, string>>((resolve) =>
+        setTimeout(() => resolve({}), 4000)
       );
 
-      const timeoutPromise = new Promise<string>((resolve) =>
-        setTimeout(() => resolve("timeout"), 3000)
+      const results = await Promise.race([permissionPromise, timeoutPromise]);
+      return (
+        results[PermissionsAndroid.PERMISSIONS.READ_CALL_LOG] ===
+        PermissionsAndroid.RESULTS.GRANTED
       );
-
-      const result = await Promise.race([permissionPromise, timeoutPromise]);
-      return result === PermissionsAndroid.RESULTS.GRANTED;
     } catch {
       return false;
     }

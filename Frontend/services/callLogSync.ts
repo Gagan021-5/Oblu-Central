@@ -14,6 +14,16 @@ import api, { getAccessToken } from "@/services/api";
 const LAST_SYNC_KEY = "calltracer_last_sync_timestamp";
 const RETRY_QUEUE_KEY = "calltracer_retry_queue";
 const SYNC_COUNT_KEY = "calltracer_total_synced";
+const UPLOADED_RECS_KEY = "calltracer_uploaded_recordings";
+const LAST_REC_SCAN_KEY = "calltracer_last_recording_scan";
+
+export interface DeviceRecordingFile {
+  uri: string;
+  name: string;
+  size: number;
+  lastModifiedMs: number;
+  mimeType: string;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -153,6 +163,19 @@ async function sendBatch(batch: SyncableCallLog[]): Promise<boolean> {
 }
 
 /**
+ * Resets the last-sync checkpoint and performs a full device call-log sync.
+ */
+export async function forceFullResync(): Promise<{
+  synced: number;
+  failed: number;
+  total: number;
+  isNative: boolean;
+}> {
+  await AsyncStorage.removeItem(LAST_SYNC_KEY);
+  return syncCallLogs();
+}
+
+/**
  * Main sync function — reads call logs, batches, and sends.
  */
 export async function syncCallLogs(
@@ -209,7 +232,85 @@ export async function syncCallLogs(
   }
 
   await flushRetryQueue();
+  await syncCallRecordings(newLogs).catch(() => {});
   return { synced, failed, total: newLogs.length, isNative };
+}
+
+/**
+ * Option A: Scans the device's built-in dialer call-recording folders
+ * and uploads any newly recorded audio files matched to recent calls.
+ */
+export async function syncCallRecordings(
+  recentLogs: RawCallLog[] = []
+): Promise<{ uploaded: number }> {
+  if (Platform.OS !== "android") return { uploaded: 0 };
+  const scanner = NativeModules?.CallRecordingScanner;
+  if (!scanner?.findRecentRecordings) return { uploaded: 0 };
+
+  const token = await getAccessToken();
+  if (!token) return { uploaded: 0 };
+
+  const storedScan = await AsyncStorage.getItem(LAST_REC_SCAN_KEY);
+  const sinceMs = storedScan
+    ? Math.max(0, parseInt(storedScan, 10) - 5 * 60 * 1000)
+    : Date.now() - 24 * 60 * 60 * 1000;
+
+  let files: DeviceRecordingFile[] = [];
+  try {
+    files = await scanner.findRecentRecordings(sinceMs);
+  } catch {
+    return { uploaded: 0 };
+  }
+  if (!Array.isArray(files) || files.length === 0) {
+    await AsyncStorage.setItem(LAST_REC_SCAN_KEY, Date.now().toString());
+    return { uploaded: 0 };
+  }
+
+  const uploadedRaw = await AsyncStorage.getItem(UPLOADED_RECS_KEY);
+  const uploadedSet = new Set<string>(uploadedRaw ? JSON.parse(uploadedRaw) : []);
+  let uploaded = 0;
+
+  for (const file of files) {
+    const key = `${file.name}_${file.size}`;
+    if (uploadedSet.has(key)) continue;
+
+    // Try matching to a synced call log within ±3 minutes of call end
+    const matchedLog = recentLogs.find((l) => {
+      if (l.duration <= 0) return false;
+      const callEnd = l.timestamp + l.duration * 1000;
+      return Math.abs(file.lastModifiedMs - callEnd) <= 3 * 60 * 1000;
+    });
+
+    const formData = new FormData();
+    formData.append("file", {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType || "audio/mp4",
+    } as any);
+    if (matchedLog) {
+      formData.append("phone_number", matchedLog.phoneNumber);
+      formData.append("call_type", mapCallType(matchedLog.callType));
+      formData.append("duration", String(matchedLog.duration));
+      formData.append("timestamp", new Date(matchedLog.timestamp).toISOString());
+    } else {
+      formData.append("timestamp", new Date(file.lastModifiedMs).toISOString());
+    }
+
+    try {
+      await api.post("/call-logs/upload-recording/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      uploadedSet.add(key);
+      uploaded++;
+    } catch {
+      // Will retry on next sync cycle
+    }
+  }
+
+  const trimmed = Array.from(uploadedSet).slice(-300);
+  await AsyncStorage.setItem(UPLOADED_RECS_KEY, JSON.stringify(trimmed));
+  await AsyncStorage.setItem(LAST_REC_SCAN_KEY, Date.now().toString());
+  return { uploaded };
 }
 
 /**

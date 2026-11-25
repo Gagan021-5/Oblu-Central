@@ -26,6 +26,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import AppLineChart from "@/components/charts/AppLineChart";
@@ -33,6 +34,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
+import { StatusPill } from "@/components/ui/StatusPill";
 import { SkeletonCardList, SkeletonBlock } from "@/components/ui/SkeletonCard";
 import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
@@ -45,10 +47,20 @@ interface CallLogItem {
   duration: number;
   timestamp: string;
   synced_at: string;
+  audio_url?: string | null;
+  recording_filename?: string;
 }
 
 type FilterType = "all" | "incoming" | "outgoing" | "missed";
-type AnalysisTab = "Analysis" | "Transcript" | "Moments" | "Details";
+type DatePresetType = "all" | "1d" | "1w" | "1m" | "3m" | "custom";
+type AnalysisTab = "Playback" | "Details";
+
+const formatYMD = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 export default function CallLogsScreen() {
   const insets = useSafeAreaInsets();
@@ -61,8 +73,16 @@ export default function CallLogsScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState<FilterType>("all");
   const [searchPhone, setSearchPhone] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchPhone.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchPhone]);
 
   // Segmented Main Tab: Timeline vs Analytics
   const [activeMainTab, setActiveMainTab] = useState<"timeline" | "analytics">("timeline");
@@ -70,8 +90,63 @@ export default function CallLogsScreen() {
   // Analytics & Reports state
   const [selectedStatsUser, setSelectedStatsUser] = useState<string>(params.user_id || "all");
   const [stats, setStats] = useState<any>(null);
-  const [teamMembers, setTeamMembers] = useState<Array<{ id: number; username: string }>>([]);
+  const [teamMembers, setTeamMembers] = useState<
+    Array<{ id: number; username: string; role?: string; total_call_logs?: number }>
+  >([]);
   const [statsLoading, setStatsLoading] = useState(false);
+
+  // Employee & Date Filter Modal state
+  const [employeeModalVisible, setEmployeeModalVisible] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [datePreset, setDatePreset] = useState<DatePresetType>("all");
+  const [customStartDate, setCustomStartDate] = useState<string>(() => formatYMD(new Date()));
+  const [customEndDate, setCustomEndDate] = useState<string>(() => formatYMD(new Date()));
+  const [draftStartDate, setDraftStartDate] = useState<string>(() => formatYMD(new Date()));
+  const [draftEndDate, setDraftEndDate] = useState<string>(() => formatYMD(new Date()));
+  const [dateError, setDateError] = useState("");
+
+  const activeDateRange = useMemo(() => {
+    const today = new Date();
+    const endStr = formatYMD(today);
+    if (datePreset === "all") return { start: "", end: "", label: "" };
+    if (datePreset === "1d") return { start: endStr, end: endStr, label: "1 Day (Today)" };
+    if (datePreset === "1w") {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 6);
+      return { start: formatYMD(start), end: endStr, label: "Past 1 Week" };
+    }
+    if (datePreset === "1m") {
+      const start = new Date(today);
+      start.setMonth(start.getMonth() - 1);
+      return { start: formatYMD(start), end: endStr, label: "Past 1 Month" };
+    }
+    if (datePreset === "3m") {
+      const start = new Date(today);
+      start.setMonth(start.getMonth() - 3);
+      return { start: formatYMD(start), end: endStr, label: "Past 3 Months" };
+    }
+    const label =
+      customStartDate === customEndDate
+        ? customStartDate
+        : `${customStartDate} → ${customEndDate}`;
+    return { start: customStartDate, end: customEndDate, label };
+  }, [datePreset, customStartDate, customEndDate]);
+
+  const selectedEmployeeName = useMemo(() => {
+    if (!selectedStatsUser || selectedStatsUser === "all") return null;
+    const found = teamMembers.find((m) => m.id.toString() === selectedStatsUser);
+    return found ? found.username : params.username || `Employee #${selectedStatsUser}`;
+  }, [selectedStatsUser, teamMembers, params.username]);
+
+  const filteredEmployees = useMemo(() => {
+    const q = employeeSearch.trim().toLowerCase();
+    if (!q) return teamMembers;
+    return teamMembers.filter(
+      (m) =>
+        m.username.toLowerCase().includes(q) ||
+        (m.role && m.role.toLowerCase().includes(q))
+    );
+  }, [teamMembers, employeeSearch]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -131,10 +206,30 @@ export default function CallLogsScreen() {
   const incomingPct = Math.round((incomingCalls / totalStatsCalls) * 100);
   const outgoingPct = Math.round((outgoingCalls / totalStatsCalls) * 100);
   const missedPct = Math.round((missedCalls / totalStatsCalls) * 100);
+  const connectedCalls = incomingCalls + outgoingCalls;
+  const connectRatePct = stats?.total_calls
+    ? Math.round((connectedCalls / stats.total_calls) * 100)
+    : 0;
+
+  const trendSummary = useMemo(() => {
+    const vals = trendData.data;
+    const sum = vals.reduce((a, b) => a + b, 0);
+    const maxVal = Math.max(...vals, 0);
+    const maxIdx = vals.indexOf(maxVal);
+    return {
+      peakCalls: maxVal,
+      peakLabel: maxIdx >= 0 ? trendData.labels[maxIdx] : "-",
+      dailyAvg: vals.length > 0 ? (sum / vals.length).toFixed(1) : "0",
+    };
+  }, [trendData]);
 
   const chartConfig = {
     backgroundGradientFrom: t.surface,
     backgroundGradientTo: t.surface,
+    fillShadowGradientFrom: isDark ? "#10B981" : "#00A879",
+    fillShadowGradientFromOpacity: 0.24,
+    fillShadowGradientTo: t.surface,
+    fillShadowGradientToOpacity: 0.02,
     color: (opacity = 1) =>
       isDark ? `rgba(16, 185, 129, ${opacity})` : `rgba(0, 168, 121, ${opacity})`,
     labelColor: (opacity = 1) =>
@@ -142,7 +237,12 @@ export default function CallLogsScreen() {
     strokeWidth: 2.5,
     barPercentage: 0.55,
     decimalPlaces: 0,
-    propsForDots: { r: "4", strokeWidth: "2", stroke: t.primary },
+    propsForDots: {
+      r: "4.5",
+      strokeWidth: "2",
+      stroke: t.surface,
+      fill: t.primary,
+    },
     propsForBackgroundLines: {
       strokeDasharray: "4",
       stroke: t.border,
@@ -151,15 +251,54 @@ export default function CallLogsScreen() {
 
   // Recorded Call Modal
   const [selectedCall, setSelectedCall] = useState<CallLogItem | null>(null);
-  const [activeTab, setActiveTab] = useState<AnalysisTab>("Analysis");
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [activeTab, setActiveTab] = useState<AnalysisTab>("Playback");
   const [playbackSpeed, setPlaybackSpeed] = useState<"1x" | "1.5x" | "2x">("1x");
+
+  const audioPlayer = useAudioPlayer(selectedCall?.audio_url ? { uri: selectedCall.audio_url } : null);
+  const audioStatus = useAudioPlayerStatus(audioPlayer);
+  const isAudioPlaying = audioStatus?.playing ?? false;
+  const audioCurrentSec = audioStatus?.currentTime ?? 0;
+  const audioDurationSec =
+    audioStatus?.duration && audioStatus.duration > 0
+      ? audioStatus.duration
+      : selectedCall?.duration || 0;
+  const playbackProgress =
+    audioDurationSec > 0 ? Math.min(1, audioCurrentSec / audioDurationSec) : 0;
+
+  useEffect(() => {
+    if (!selectedCall) {
+      try {
+        audioPlayer.pause();
+      } catch {
+        // Ignore if player not initialized
+      }
+      setActiveTab("Playback");
+      setPlaybackSpeed("1x");
+    }
+  }, [selectedCall, audioPlayer]);
 
   const fetchLogs = useCallback(
     async (pageNum = 1, append = false) => {
       try {
-        const queryParams: Record<string, string> = { page: pageNum.toString() };
-        if (params.user_id) queryParams.user_id = params.user_id;
+        const queryParams: Record<string, string> = {
+          page: pageNum.toString(),
+          page_size: "200",
+        };
+        if (selectedStatsUser && selectedStatsUser !== "all") {
+          queryParams.user_id = selectedStatsUser;
+        }
+        if (selectedType !== "all") {
+          queryParams.call_type = selectedType;
+        }
+        if (activeDateRange.start) {
+          queryParams.start_date = activeDateRange.start;
+        }
+        if (activeDateRange.end) {
+          queryParams.end_date = activeDateRange.end;
+        }
+        if (debouncedSearch) {
+          queryParams.search = debouncedSearch;
+        }
         const response = await api.get("/admin/call-logs/", { params: queryParams });
         const data = response.data;
         const results = data.results || data;
@@ -176,7 +315,7 @@ export default function CallLogsScreen() {
         setLoading(false);
       }
     },
-    [params.user_id]
+    [selectedStatsUser, selectedType, activeDateRange.start, activeDateRange.end, debouncedSearch]
   );
 
   useEffect(() => {
@@ -193,15 +332,18 @@ export default function CallLogsScreen() {
   };
 
   const filteredLogs = useMemo(() => {
+    const trimmed = searchPhone.trim().toLowerCase();
     return logs.filter((log) => {
       const matchType = selectedType === "all" || log.call_type === selectedType;
+      if (!trimmed || trimmed === debouncedSearch.toLowerCase()) {
+        return matchType;
+      }
       const matchSearch =
-        !searchPhone.trim() ||
-        log.phone_number.toLowerCase().includes(searchPhone.toLowerCase()) ||
-        log.username.toLowerCase().includes(searchPhone.toLowerCase());
+        log.phone_number.toLowerCase().includes(trimmed) ||
+        log.username.toLowerCase().includes(trimmed);
       return matchType && matchSearch;
     });
-  }, [logs, selectedType, searchPhone]);
+  }, [logs, selectedType, searchPhone, debouncedSearch]);
 
   // Group calls by Today, Yesterday, Earlier
   const groupedLogs = useMemo(() => {
@@ -276,19 +418,6 @@ export default function CallLogsScreen() {
           Calls & Tracking
         </Text>
         <View style={styles.topBarRight}>
-          <TouchableOpacity
-            style={[
-              styles.iconBtn,
-              { backgroundColor: t.surface, borderColor: t.border },
-            ]}
-            onPress={() => setActiveMainTab(activeMainTab === "timeline" ? "analytics" : "timeline")}
-          >
-            <Ionicons
-              name={activeMainTab === "timeline" ? "bar-chart-outline" : "list-outline"}
-              size={18}
-              color={t.primary}
-            />
-          </TouchableOpacity>
           <SubAppHomeButton size={38} isAdmin={true} />
         </View>
       </View>
@@ -363,61 +492,99 @@ export default function CallLogsScreen() {
       {/* ── VIEW 1: TIMELINE WITH LIVE KPI STRIP ────────────────── */}
       {activeMainTab === "timeline" ? (
         <>
-          {/* ── Live Quick Stats Strip (Incoming, Outgoing, Missed) ── */}
-          <View
-            style={[
-              styles.kpiStrip,
-              {
-                backgroundColor: t.surface,
-                borderColor: t.border,
-                borderWidth: 1,
-                borderRadius: 20,
-              },
-              isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
-            ]}
-          >
-            <View style={styles.kpiItem}>
-              <Text style={[styles.kpiNum, { color: t.text }]}>
-                {stats?.total_calls || logs.length}
-              </Text>
-              <Text style={[styles.kpiLabel, { color: t.textSecondary }]}>TOTAL</Text>
-            </View>
-
-            <View style={[styles.kpiDivider, { backgroundColor: t.border, height: 28 }]} />
-
-            <View style={styles.kpiItem}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <Ionicons name="arrow-down" size={13} color={t.primary} />
-                <Text style={[styles.kpiNum, { color: t.primary }]}>
-                  {incomingCalls}
-                </Text>
-              </View>
-              <Text style={[styles.kpiLabel, { color: t.textSecondary }]}>INCOMING</Text>
-            </View>
-
-            <View style={[styles.kpiDivider, { backgroundColor: t.border, height: 28 }]} />
-
-            <View style={styles.kpiItem}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <Ionicons name="arrow-up" size={13} color={t.primary} />
-                <Text style={[styles.kpiNum, { color: t.primary }]}>
-                  {outgoingCalls}
-                </Text>
-              </View>
-              <Text style={[styles.kpiLabel, { color: t.textSecondary }]}>OUTGOING</Text>
-            </View>
-
-            <View style={[styles.kpiDivider, { backgroundColor: t.border, height: 28 }]} />
-
-            <View style={styles.kpiItem}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <Ionicons name="close" size={14} color={t.danger || "#EF4444"} />
-                <Text style={[styles.kpiNum, { color: t.danger || "#EF4444" }]}>
-                  {missedCalls}
-                </Text>
-              </View>
-              <Text style={[styles.kpiLabel, { color: t.textSecondary }]}>MISSED</Text>
-            </View>
+          {/* ── Clickable KPI Filter Cards (Total, Incoming, Outgoing, Missed) ── */}
+          <View style={styles.kpiStrip}>
+            {(
+              [
+                {
+                  key: "all" as FilterType,
+                  label: "TOTAL",
+                  value: stats?.total_calls ?? logs.length,
+                  color: t.text,
+                  activeBorder: t.primary,
+                  activeBg: isDark ? "rgba(16, 185, 129, 0.14)" : "#ECFDF5",
+                  icon: null,
+                },
+                {
+                  key: "incoming" as FilterType,
+                  label: "INCOMING",
+                  value: incomingCalls,
+                  color: t.primary,
+                  activeBorder: t.primary,
+                  activeBg: isDark ? "rgba(16, 185, 129, 0.14)" : "#ECFDF5",
+                  icon: "arrow-down" as const,
+                },
+                {
+                  key: "outgoing" as FilterType,
+                  label: "OUTGOING",
+                  value: outgoingCalls,
+                  color: isDark ? "#60A5FA" : "#2563EB",
+                  activeBorder: isDark ? "#60A5FA" : "#2563EB",
+                  activeBg: isDark ? "rgba(59, 130, 246, 0.16)" : "rgba(37, 99, 235, 0.08)",
+                  icon: "arrow-up" as const,
+                },
+                {
+                  key: "missed" as FilterType,
+                  label: "MISSED",
+                  value: missedCalls,
+                  color: t.danger || "#EF4444",
+                  activeBorder: t.danger || "#EF4444",
+                  activeBg: isDark ? "rgba(239, 68, 68, 0.16)" : "rgba(239, 68, 68, 0.08)",
+                  icon: "close" as const,
+                },
+              ]
+            ).map((card) => {
+              const isSelected = selectedType === card.key;
+              return (
+                <TouchableOpacity
+                  key={card.key}
+                  activeOpacity={0.75}
+                  onPress={() =>
+                    setSelectedType(
+                      card.key === "all"
+                        ? "all"
+                        : selectedType === card.key
+                        ? "all"
+                        : card.key
+                    )
+                  }
+                  style={[
+                    styles.kpiItem,
+                    {
+                      backgroundColor: isSelected ? card.activeBg : t.surface,
+                      borderColor: isSelected ? card.activeBorder : t.border,
+                    },
+                    Shadows.card,
+                    isDark && !isSelected && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
+                  ]}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                    {card.icon && (
+                      <Ionicons name={card.icon} size={13} color={card.color} />
+                    )}
+                    <Text
+                      style={[
+                        styles.kpiNum,
+                        { color: card.color, fontVariant: ["tabular-nums"] },
+                      ]}
+                    >
+                      {card.value}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.kpiLabel,
+                      {
+                        color: isSelected ? card.color : t.textSecondary,
+                        fontFamily: isSelected ? Typography.bold : Typography.medium,
+                      },
+                    ]}
+                  >
+                    {card.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* ── Search Bar ─────────────────────────────────────────── */}
@@ -426,47 +593,83 @@ export default function CallLogsScreen() {
               value={searchPhone}
               onChangeText={setSearchPhone}
               placeholders={[
+                'Search "employee"',
                 'Search "contact"',
                 'Search "company"',
                 'Search "phone number"',
               ]}
               intervalMs={2000}
               onClear={() => setSearchPhone("")}
+              onFilterPress={() => {
+                setDateError("");
+                setDraftStartDate(customStartDate);
+                setDraftEndDate(customEndDate);
+                setEmployeeModalVisible(true);
+              }}
+              filterActive={selectedStatsUser !== "all" || datePreset !== "all"}
             />
           </View>
 
-          {/* ── Filter Chips ───────────────────────────────────────── */}
-          <View style={styles.filterChipsRow}>
-            {(["all", "incoming", "outgoing", "missed"] as FilterType[]).map((type) => {
-              const isSelected = selectedType === type;
-              return (
+          {/* ── Active Employee / Date Filter Banner ───────────────── */}
+          {(selectedEmployeeName || datePreset !== "all") && (
+            <View style={styles.activeEmployeeRow}>
+              {selectedEmployeeName && (
                 <TouchableOpacity
-                  key={type}
                   activeOpacity={0.75}
-                  onPress={() => setSelectedType(type)}
+                  onPress={() => setEmployeeModalVisible(true)}
                   style={[
-                    styles.filterChip,
+                    styles.activeEmployeeBadge,
                     {
-                      backgroundColor: isSelected ? t.primary : t.surface,
-                      borderColor: isSelected ? t.primary : t.border,
+                      backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "#ECFDF5",
+                      borderColor: t.primary,
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      {
-                        color: isSelected ? "#FFFFFF" : t.textSecondary,
-                        fontFamily: isSelected ? Typography.semiBold : Typography.regular,
-                      },
-                    ]}
-                  >
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  <Ionicons name="person-outline" size={13} color={t.primary} />
+                  <Text style={[styles.activeEmployeeText, { color: t.primary }]}>
+                    {selectedEmployeeName}
                   </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
+              )}
+              {datePreset !== "all" && (
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  onPress={() => setEmployeeModalVisible(true)}
+                  style={[
+                    styles.activeEmployeeBadge,
+                    {
+                      backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "#ECFDF5",
+                      borderColor: t.primary,
+                    },
+                  ]}
+                >
+                  <Ionicons name="calendar-outline" size={13} color={t.primary} />
+                  <Text style={[styles.activeEmployeeText, { color: t.primary }]}>
+                    {activeDateRange.label}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  setSelectedStatsUser("all");
+                  setDatePreset("all");
+                }}
+                style={[
+                  styles.clearEmployeeBtn,
+                  {
+                    backgroundColor: t.surface,
+                    borderColor: t.border,
+                  },
+                ]}
+              >
+                <Ionicons name="close" size={14} color={t.textSecondary} />
+                <Text style={[styles.clearEmployeeText, { color: t.textSecondary }]}>
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* ── Call List Timeline ─────────────────────────────────── */}
           {loading ? (
@@ -493,9 +696,25 @@ export default function CallLogsScreen() {
               onEndReachedThreshold={0.4}
               renderItem={({ item: group }) => (
                 <View style={styles.groupSection}>
-                  <Text style={[styles.groupHeader, { color: t.textSecondary }]}>
-                    {group.title}
-                  </Text>
+                  <View style={styles.groupHeaderRow}>
+                    <Text style={[styles.groupHeader, { color: t.textSecondary }]}>
+                      {group.title}
+                    </Text>
+                    <View
+                      style={[
+                        styles.groupCountPill,
+                        {
+                          backgroundColor: isDark
+                            ? "rgba(255, 255, 255, 0.06)"
+                            : "rgba(16, 21, 19, 0.06)",
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.groupCountText, { color: t.textSecondary }]}>
+                        {group.data.length}
+                      </Text>
+                    </View>
+                  </View>
 
                   {group.data.map((log) => {
                     const isIncoming = log.call_type === "incoming";
@@ -504,7 +723,9 @@ export default function CallLogsScreen() {
                       ? t.danger
                       : isIncoming
                       ? t.primary
-                      : t.textSecondary;
+                      : isDark
+                      ? "#60A5FA"
+                      : "#2563EB";
                     const iconName = isMissed
                       ? "close"
                       : isIncoming
@@ -523,10 +744,16 @@ export default function CallLogsScreen() {
                       ? "rgba(59, 130, 246, 0.16)"
                       : "rgba(59, 130, 246, 0.12)";
 
+                    const pillVariant = isMissed
+                      ? "overdue"
+                      : isIncoming
+                      ? "paid"
+                      : "stage_contacted";
+
                     return (
                       <TouchableOpacity
                         key={log.id}
-                        activeOpacity={0.7}
+                        activeOpacity={0.72}
                         onPress={() => setSelectedCall(log)}
                         style={[
                           styles.callRow,
@@ -537,51 +764,140 @@ export default function CallLogsScreen() {
                           isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                         ]}
                       >
-                        {/* Avatar */}
+                        {/* Top Row: Call Icon + Employee & Phone + StatusPill */}
+                        <View style={styles.callTopRow}>
+                          <View style={styles.callIdentityRow}>
+                            <View
+                              style={[
+                                styles.callAvatar,
+                                {
+                                  backgroundColor: avatarBg,
+                                  borderColor: isMissed
+                                    ? "rgba(239, 68, 68, 0.25)"
+                                    : isIncoming
+                                    ? "rgba(0, 168, 121, 0.25)"
+                                    : "rgba(59, 130, 246, 0.25)",
+                                  borderWidth: 1,
+                                },
+                              ]}
+                            >
+                              <Ionicons name={iconName} size={17} color={iconColor} />
+                            </View>
+
+                            <View style={styles.callDetails}>
+                              <Text
+                                style={[styles.callerName, { color: t.text }]}
+                                numberOfLines={1}
+                              >
+                                {log.username || log.phone_number}
+                              </Text>
+                              <View style={styles.callPhoneRow}>
+                                <Ionicons
+                                  name="call-outline"
+                                  size={12}
+                                  color={t.textSecondary}
+                                />
+                                <Text
+                                  style={[styles.callMeta, { color: t.textSecondary }]}
+                                  numberOfLines={1}
+                                >
+                                  {log.phone_number}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          <StatusPill
+                            label={log.call_type}
+                            variant={pillVariant}
+                            size="small"
+                            showDot={!isMissed}
+                          />
+                        </View>
+
+                        {/* Bottom Meta Well (Oblu CRM Card Pattern) */}
                         <View
                           style={[
-                            styles.callAvatar,
-                            { backgroundColor: avatarBg },
+                            styles.callMetaWell,
+                            {
+                              backgroundColor: isDark
+                                ? "rgba(255, 255, 255, 0.03)"
+                                : "rgba(16, 21, 19, 0.03)",
+                              borderColor: isDark
+                                ? "rgba(255, 255, 255, 0.06)"
+                                : "rgba(16, 21, 19, 0.06)",
+                            },
                           ]}
                         >
-                          <Ionicons name={iconName} size={16} color={iconColor} />
-                        </View>
-
-                        {/* Details */}
-                        <View style={styles.callDetails}>
-                          <Text
-                            style={[styles.callerName, { color: t.text }]}
-                            numberOfLines={1}
-                          >
-                            {log.username || log.phone_number}
-                          </Text>
-                          <Text
-                            style={[styles.callMeta, { color: t.textSecondary }]}
-                            numberOfLines={1}
-                          >
-                            {log.phone_number}
-                          </Text>
-                        </View>
-
-                        {/* Duration & Time Column + Chevron */}
-                        <View style={styles.callRight}>
-                          <View style={styles.callTimeCol}>
-                            <Text
-                              style={[styles.callDurationText, { color: t.textSecondary }]}
-                            >
-                              {formatDuration(log.duration)}
-                            </Text>
-                            <Text
-                              style={[styles.callTimeText, { color: t.textSecondary }]}
-                            >
-                              {formatTime(log.timestamp)}
-                            </Text>
+                          <View style={styles.callMetaLeft}>
+                            <View style={styles.callMetaChip}>
+                              <Ionicons
+                                name="time-outline"
+                                size={13}
+                                color={t.textSecondary}
+                              />
+                              <Text
+                                style={[
+                                  styles.callDurationText,
+                                  { color: t.text, fontVariant: ["tabular-nums"] },
+                                ]}
+                              >
+                                {formatDuration(log.duration)}
+                              </Text>
+                            </View>
+                            <View style={[styles.metaDot, { backgroundColor: t.border }]} />
+                            <View style={styles.callMetaChip}>
+                              <Ionicons
+                                name="calendar-outline"
+                                size={12}
+                                color={t.textSecondary}
+                              />
+                              <Text
+                                style={[
+                                  styles.callTimeText,
+                                  { color: t.textSecondary, fontVariant: ["tabular-nums"] },
+                                ]}
+                              >
+                                {formatTime(log.timestamp)}
+                              </Text>
+                            </View>
                           </View>
-                          <Ionicons
-                            name="chevron-forward"
-                            size={16}
-                            color={t.textSecondary}
-                          />
+
+                          <View style={styles.callInspectWrap}>
+                            {log.audio_url ? (
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: 3,
+                                  marginRight: 6,
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 2,
+                                  borderRadius: 6,
+                                  backgroundColor: t.primarySurface,
+                                }}
+                              >
+                                <Ionicons name="mic" size={11} color={t.primary} />
+                                <Text
+                                  style={{
+                                    fontSize: 10.5,
+                                    fontFamily: Typography.semiBold,
+                                    color: t.primary,
+                                  }}
+                                >
+                                  Audio
+                                </Text>
+                              </View>
+                            ) : null}
+                            <Text style={[styles.callInspectText, { color: t.primary }]}>
+                              Inspect
+                            </Text>
+                            <Ionicons
+                              name="chevron-forward"
+                              size={14}
+                              color={t.primary}
+                            />
+                          </View>
                         </View>
                       </TouchableOpacity>
                     );
@@ -687,12 +1003,23 @@ export default function CallLogsScreen() {
                   <View
                     style={[
                       styles.analyticsKpiIcon,
-                      { backgroundColor: t.primarySurface },
+                      {
+                        backgroundColor: t.primarySurface,
+                        borderColor: isDark
+                          ? "rgba(16, 185, 129, 0.25)"
+                          : "rgba(0, 168, 121, 0.2)",
+                        borderWidth: 1,
+                      },
                     ]}
                   >
                     <Ionicons name="call" size={16} color={t.primary} />
                   </View>
-                  <Text style={[styles.analyticsKpiVal, { color: t.text }]}>
+                  <Text
+                    style={[
+                      styles.analyticsKpiVal,
+                      { color: t.text, fontVariant: ["tabular-nums"] },
+                    ]}
+                  >
                     {stats?.total_calls || 0}
                   </Text>
                   <Text style={[styles.analyticsKpiLbl, { color: t.textSecondary }]}>
@@ -710,12 +1037,27 @@ export default function CallLogsScreen() {
                   <View
                     style={[
                       styles.analyticsKpiIcon,
-                      { backgroundColor: t.surfaceAlt },
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(59, 130, 246, 0.16)"
+                          : "rgba(37, 99, 235, 0.10)",
+                        borderColor: "rgba(59, 130, 246, 0.25)",
+                        borderWidth: 1,
+                      },
                     ]}
                   >
-                    <Ionicons name="time" size={16} color={t.text} />
+                    <Ionicons
+                      name="time"
+                      size={16}
+                      color={isDark ? "#60A5FA" : "#2563EB"}
+                    />
                   </View>
-                  <Text style={[styles.analyticsKpiVal, { color: t.text }]}>
+                  <Text
+                    style={[
+                      styles.analyticsKpiVal,
+                      { color: t.text, fontVariant: ["tabular-nums"] },
+                    ]}
+                  >
                     {formatDuration(stats?.total_duration || 0)}
                   </Text>
                   <Text style={[styles.analyticsKpiLbl, { color: t.textSecondary }]}>
@@ -733,18 +1075,29 @@ export default function CallLogsScreen() {
                   <View
                     style={[
                       styles.analyticsKpiIcon,
-                      { backgroundColor: t.primarySurface },
+                      {
+                        backgroundColor: t.primarySurface,
+                        borderColor: isDark
+                          ? "rgba(16, 185, 129, 0.25)"
+                          : "rgba(0, 168, 121, 0.2)",
+                        borderWidth: 1,
+                      },
                     ]}
                   >
                     <Ionicons name="speedometer" size={16} color={t.primary} />
                   </View>
-                  <Text style={[styles.analyticsKpiVal, { color: t.text }]}>
+                  <Text
+                    style={[
+                      styles.analyticsKpiVal,
+                      { color: t.text, fontVariant: ["tabular-nums"] },
+                    ]}
+                  >
                     {stats?.total_calls
                       ? formatDuration(Math.round(stats.total_duration / stats.total_calls))
                       : "0s"}
                   </Text>
                   <Text style={[styles.analyticsKpiLbl, { color: t.textSecondary }]}>
-                    Avg/Call
+                    Avg / Call
                   </Text>
                 </View>
               </View>
@@ -758,9 +1111,14 @@ export default function CallLogsScreen() {
                 ]}
               >
                 <View style={styles.analyticsChartHeader}>
-                  <Text style={[styles.analyticsChartTitle, { color: t.text }]}>
-                    Daily Call Volume
-                  </Text>
+                  <View>
+                    <Text style={[styles.analyticsChartTitle, { color: t.text }]}>
+                      Daily Call Volume
+                    </Text>
+                    <Text style={[styles.analyticsChartSub, { color: t.textSecondary }]}>
+                      Last 7 days activity trend
+                    </Text>
+                  </View>
                   <View
                     style={[
                       styles.analyticsChartBadge,
@@ -772,6 +1130,7 @@ export default function CallLogsScreen() {
                     </Text>
                   </View>
                 </View>
+
                 <AppLineChart
                   data={{
                     labels: trendData.labels,
@@ -784,13 +1143,60 @@ export default function CallLogsScreen() {
                       },
                     ],
                   }}
-                  width={Math.max(windowWidth - 56, 260)}
-                  height={180}
+                  width={Math.max(windowWidth - Spacing.screenPadding * 2 - 34, 240)}
+                  height={185}
                   chartConfig={chartConfig}
                   bezier
-                  style={{ borderRadius: 12, marginVertical: 8 }}
+                  withInnerLines
+                  withOuterLines={false}
+                  style={{ borderRadius: 14, marginTop: 6, marginBottom: 10 }}
                   fromZero
                 />
+
+                {/* Chart Summary Meta Well */}
+                <View
+                  style={[
+                    styles.chartMetaWell,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(255, 255, 255, 0.03)"
+                        : "rgba(16, 21, 19, 0.03)",
+                      borderColor: isDark
+                        ? "rgba(255, 255, 255, 0.06)"
+                        : "rgba(16, 21, 19, 0.06)",
+                    },
+                  ]}
+                >
+                  <View style={styles.chartMetaItem}>
+                    <Ionicons name="trending-up" size={14} color={t.primary} />
+                    <Text style={[styles.chartMetaLabel, { color: t.textSecondary }]}>
+                      Peak:
+                    </Text>
+                    <Text
+                      style={[
+                        styles.chartMetaVal,
+                        { color: t.text, fontVariant: ["tabular-nums"] },
+                      ]}
+                    >
+                      {trendSummary.peakCalls} ({trendSummary.peakLabel})
+                    </Text>
+                  </View>
+                  <View style={[styles.metaDot, { backgroundColor: t.border }]} />
+                  <View style={styles.chartMetaItem}>
+                    <Ionicons name="analytics-outline" size={14} color={t.textSecondary} />
+                    <Text style={[styles.chartMetaLabel, { color: t.textSecondary }]}>
+                      Daily Avg:
+                    </Text>
+                    <Text
+                      style={[
+                        styles.chartMetaVal,
+                        { color: t.text, fontVariant: ["tabular-nums"] },
+                      ]}
+                    >
+                      {trendSummary.dailyAvg}
+                    </Text>
+                  </View>
+                </View>
               </View>
 
               {/* Distribution By Type (Incoming, Outgoing, Missed) */}
@@ -801,93 +1207,119 @@ export default function CallLogsScreen() {
                   isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                 ]}
               >
-                <Text style={[styles.analyticsSectionTitle, { color: t.text }]}>
-                  Call Breakdown by Type
-                </Text>
-
-                {/* Incoming */}
-                <View style={styles.distRow}>
-                  <View style={styles.distLabelRow}>
-                    <Text style={[styles.distType, { color: t.primary }]}>
-                      Incoming ({incomingPct}%)
-                    </Text>
-                    <Text style={[styles.distCount, { color: t.text }]}>
-                      {incomingCalls} calls
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.distTrack,
-                      { backgroundColor: t.surfaceAlt },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.distBar,
-                        {
-                          width: `${incomingPct}%`,
-                          backgroundColor: t.primary,
-                        },
-                      ]}
-                    />
-                  </View>
+                <View style={styles.analyticsChartHeader}>
+                  <Text style={[styles.analyticsSectionTitle, { color: t.text, marginBottom: 0 }]}>
+                    Call Breakdown by Type
+                  </Text>
+                  <StatusPill
+                    label={`${connectRatePct}% Connected`}
+                    variant={connectRatePct >= 70 ? "paid" : "pending"}
+                    size="small"
+                  />
                 </View>
 
-                {/* Outgoing */}
-                <View style={styles.distRow}>
-                  <View style={styles.distLabelRow}>
-                    <Text style={[styles.distType, { color: t.primaryLight || t.primary }]}>
-                      Outgoing ({outgoingPct}%)
-                    </Text>
-                    <Text style={[styles.distCount, { color: t.text }]}>
-                      {outgoingCalls} calls
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.distTrack,
-                      { backgroundColor: t.surfaceAlt },
-                    ]}
-                  >
+                {/* Combined Proportional Segmented Bar */}
+                <View
+                  style={[
+                    styles.segmentedDistTrack,
+                    { backgroundColor: t.surfaceAlt },
+                  ]}
+                >
+                  {incomingPct > 0 && (
                     <View
-                      style={[
-                        styles.distBar,
-                        {
-                          width: `${outgoingPct}%`,
-                          backgroundColor: t.primaryLight || t.primary,
-                        },
-                      ]}
+                      style={{
+                        flex: incomingPct,
+                        backgroundColor: t.primary,
+                      }}
                     />
-                  </View>
+                  )}
+                  {outgoingPct > 0 && (
+                    <View
+                      style={{
+                        flex: outgoingPct,
+                        backgroundColor: isDark ? "#60A5FA" : "#2563EB",
+                      }}
+                    />
+                  )}
+                  {missedPct > 0 && (
+                    <View
+                      style={{
+                        flex: missedPct,
+                        backgroundColor: t.danger,
+                      }}
+                    />
+                  )}
                 </View>
 
-                {/* Missed */}
-                <View style={styles.distRow}>
-                  <View style={styles.distLabelRow}>
-                    <Text style={[styles.distType, { color: t.danger }]}>
-                      Missed ({missedPct}%)
-                    </Text>
-                    <Text style={[styles.distCount, { color: t.text }]}>
-                      {missedCalls} calls
-                    </Text>
+                {/* Breakdown Rows */}
+                {(
+                  [
+                    {
+                      label: "Incoming",
+                      count: incomingCalls,
+                      pct: incomingPct,
+                      color: t.primary,
+                      bg: isDark ? "rgba(16, 185, 129, 0.15)" : "rgba(0, 168, 121, 0.12)",
+                      icon: "arrow-down" as const,
+                    },
+                    {
+                      label: "Outgoing",
+                      count: outgoingCalls,
+                      pct: outgoingPct,
+                      color: isDark ? "#60A5FA" : "#2563EB",
+                      bg: isDark ? "rgba(59, 130, 246, 0.15)" : "rgba(37, 99, 235, 0.10)",
+                      icon: "arrow-up" as const,
+                    },
+                    {
+                      label: "Missed",
+                      count: missedCalls,
+                      pct: missedPct,
+                      color: t.danger,
+                      bg: isDark ? "rgba(239, 68, 68, 0.15)" : "rgba(239, 68, 68, 0.10)",
+                      icon: "close" as const,
+                    },
+                  ]
+                ).map((item) => (
+                  <View key={item.label} style={styles.distRow}>
+                    <View style={styles.distLabelRow}>
+                      <View style={styles.distLeftWrap}>
+                        <View style={[styles.distIconBox, { backgroundColor: item.bg }]}>
+                          <Ionicons name={item.icon} size={12} color={item.color} />
+                        </View>
+                        <Text style={[styles.distType, { color: t.text }]}>
+                          {item.label}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.distPctText,
+                            { color: item.color, fontVariant: ["tabular-nums"] },
+                          ]}
+                        >
+                          {item.pct}%
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.distCount,
+                          { color: t.text, fontVariant: ["tabular-nums"] },
+                        ]}
+                      >
+                        {item.count} {item.count === 1 ? "call" : "calls"}
+                      </Text>
+                    </View>
+                    <View style={[styles.distTrack, { backgroundColor: t.surfaceAlt }]}>
+                      <View
+                        style={[
+                          styles.distBar,
+                          {
+                            width: `${item.pct}%`,
+                            backgroundColor: item.color,
+                          },
+                        ]}
+                      />
+                    </View>
                   </View>
-                  <View
-                    style={[
-                      styles.distTrack,
-                      { backgroundColor: t.surfaceAlt },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.distBar,
-                        {
-                          width: `${missedPct}%`,
-                          backgroundColor: t.danger,
-                        },
-                      ]}
-                    />
-                  </View>
-                </View>
+                ))}
               </View>
 
               {/* Top Contacted Numbers */}
@@ -907,35 +1339,51 @@ export default function CallLogsScreen() {
                     <View
                       key={item.phone_number}
                       style={[
-                        styles.topNumberRow,
-                        { borderBottomColor: t.border },
+                        styles.topNumberCard,
+                        {
+                          backgroundColor: isDark
+                            ? "rgba(255, 255, 255, 0.03)"
+                            : "rgba(16, 21, 19, 0.025)",
+                          borderColor: isDark
+                            ? "rgba(255, 255, 255, 0.06)"
+                            : "rgba(16, 21, 19, 0.06)",
+                        },
                       ]}
                     >
                       <View style={styles.topNumberLeft}>
                         <View
                           style={[
                             styles.topRankBadge,
-                            { backgroundColor: t.primarySurface },
+                            {
+                              backgroundColor:
+                                index < 3 ? t.primary : t.surfaceAlt,
+                            },
                           ]}
                         >
-                          <Text style={[styles.topRankText, { color: t.primary }]}>
-                            {index + 1}
+                          <Text
+                            style={[
+                              styles.topRankText,
+                              { color: index < 3 ? "#FFFFFF" : t.textSecondary },
+                            ]}
+                          >
+                            #{index + 1}
                           </Text>
                         </View>
-                        <Text style={[styles.topPhone, { color: t.text }]}>
+                        <Text
+                          style={[
+                            styles.topPhone,
+                            { color: t.text, fontVariant: ["tabular-nums"] },
+                          ]}
+                        >
                           {item.phone_number}
                         </Text>
                       </View>
-                      <View
-                        style={[
-                          styles.topCallsBadge,
-                          { backgroundColor: t.surfaceAlt },
-                        ]}
-                      >
-                        <Text style={[styles.topCallsText, { color: t.textSecondary }]}>
-                          {item.count} {item.count === 1 ? "call" : "calls"}
-                        </Text>
-                      </View>
+                      <StatusPill
+                        label={`${item.count} ${item.count === 1 ? "call" : "calls"}`}
+                        variant={index === 0 ? "paid" : "neutral"}
+                        size="small"
+                        showDot={false}
+                      />
                     </View>
                   ))
                 ) : (
@@ -1002,359 +1450,265 @@ export default function CallLogsScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.companyLogoLetter, { color: t.primary }]}>O</Text>
+                <Text style={[styles.companyLogoLetter, { color: t.primary }]}>
+                  {(selectedCall?.username || "C").charAt(0).toUpperCase()}
+                </Text>
               </View>
 
               <View style={styles.companyTextWrap}>
                 <Text style={[styles.recordCompanyName, { color: t.text }]}>
-                  {selectedCall?.username || "Orion Systems"}
+                  {selectedCall?.username || "Employee"}
                 </Text>
                 <Text style={[styles.recordCompanySub, { color: t.textSecondary }]}>
-                  Discovery Call · May 14, 2025 ·{" "}
-                  {selectedCall ? formatDuration(selectedCall.duration) : "28:17"}
+                  {selectedCall
+                    ? `${selectedCall.call_type.charAt(0).toUpperCase() + selectedCall.call_type.slice(1)} · ${selectedCall.phone_number} · ${formatDuration(selectedCall.duration)}`
+                    : ""}
                 </Text>
               </View>
             </View>
 
-            {/* Analysis Tabs */}
+            {/* Tabs */}
             <View style={[styles.tabsRow, { borderBottomColor: t.border }]}>
-              {(["Analysis", "Transcript", "Moments", "Details"] as AnalysisTab[]).map(
-                (tab) => {
-                  const isActive = activeTab === tab;
-                  return (
-                    <TouchableOpacity
-                      key={tab}
-                      onPress={() => setActiveTab(tab)}
+              {(["Playback", "Details"] as AnalysisTab[]).map((tab) => {
+                const isActive = activeTab === tab;
+                return (
+                  <TouchableOpacity
+                    key={tab}
+                    onPress={() => setActiveTab(tab)}
+                    style={[
+                      styles.tabBtn,
+                      isActive && { borderBottomColor: t.primary, borderBottomWidth: 2 },
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.tabBtn,
-                        isActive && { borderBottomColor: t.primary, borderBottomWidth: 2 },
+                        styles.tabText,
+                        {
+                          color: isActive ? t.primary : t.textSecondary,
+                          fontFamily: isActive ? Typography.semiBold : Typography.regular,
+                        },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.tabText,
-                          {
-                            color: isActive ? t.primary : t.textSecondary,
-                            fontFamily: isActive ? Typography.semiBold : Typography.regular,
-                          },
-                        ]}
-                      >
-                        {tab}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                }
-              )}
+                      {tab}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Interactive Audio Waveform */}
-            <View
-              style={[
-                styles.waveformCard,
-                {
-                  backgroundColor: t.surface,
-                  borderColor: t.border,
-                },
-                isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
-              ]}
-            >
-              {/* Bars */}
-              <View style={styles.waveformContainer}>
-                {waveformHeights.map((h, i) => {
-                  const isPlayed = i < 18;
-                  return (
+            {activeTab === "Playback" ? (
+              selectedCall?.audio_url ? (
+                <View
+                  style={[
+                    styles.waveformCard,
+                    {
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
+                    },
+                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
+                  ]}
+                >
+                  {/* Waveform synced to live playback progress */}
+                  <View style={styles.waveformContainer}>
+                    {waveformHeights.map((h, i) => {
+                      const ratio = i / waveformHeights.length;
+                      const isPlayed = ratio <= playbackProgress;
+                      return (
+                        <View
+                          key={i}
+                          style={[
+                            styles.waveBar,
+                            {
+                              height: h,
+                              backgroundColor: isPlayed ? t.primary : t.border,
+                              opacity: isPlayed ? 1 : 0.45,
+                            },
+                          ]}
+                        />
+                      );
+                    })}
                     <View
-                      key={i}
                       style={[
-                        styles.waveBar,
+                        styles.playheadLine,
                         {
-                          height: h,
-                          backgroundColor: isPlayed ? t.primary : t.border,
-                          opacity: isPlayed ? 1 : 0.45,
+                          left: `${Math.round(playbackProgress * 100)}%`,
+                          backgroundColor: t.primaryLight || t.primary,
                         },
                       ]}
                     />
-                  );
-                })}
-                {/* Active Playhead */}
+                  </View>
+
+                  {/* Timestamps */}
+                  <View style={styles.waveTimeRow}>
+                    <Text style={[styles.waveTime, { color: t.textSecondary }]}>
+                      {formatDuration(Math.floor(audioCurrentSec))}
+                    </Text>
+                    <Text style={[styles.waveTime, { color: t.textSecondary }]}>
+                      {formatDuration(Math.floor(audioDurationSec))}
+                    </Text>
+                  </View>
+
+                  {/* Scrubber Controls */}
+                  <View style={styles.scrubberRow}>
+                    <TouchableOpacity
+                      style={styles.scrubBtn}
+                      onPress={() => {
+                        const target = Math.max(0, audioCurrentSec - 15);
+                        audioPlayer.seekTo(target);
+                      }}
+                    >
+                      <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
+                      <Text style={[styles.scrubText, { color: t.textSecondary }]}>-15s</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        if (isAudioPlaying) {
+                          audioPlayer.pause();
+                        } else {
+                          audioPlayer.play();
+                        }
+                      }}
+                      style={[
+                        styles.playPauseBtn,
+                        { backgroundColor: t.text },
+                      ]}
+                    >
+                      <Ionicons
+                        name={isAudioPlaying ? "pause" : "play"}
+                        size={24}
+                        color={t.bg}
+                        style={{ marginLeft: isAudioPlaying ? 0 : 2 }}
+                      />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.scrubBtn}
+                      onPress={() => {
+                        const target = Math.min(audioDurationSec, audioCurrentSec + 15);
+                        audioPlayer.seekTo(target);
+                      }}
+                    >
+                      <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
+                      <Text style={[styles.scrubText, { color: t.textSecondary }]}>+15s</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        const nextSpeed =
+                          playbackSpeed === "1x"
+                            ? "1.5x"
+                            : playbackSpeed === "1.5x"
+                            ? "2x"
+                            : "1x";
+                        setPlaybackSpeed(nextSpeed);
+                        const rate = nextSpeed === "1.5x" ? 1.5 : nextSpeed === "2x" ? 2.0 : 1.0;
+                        audioPlayer.setPlaybackRate(rate);
+                      }}
+                      style={[
+                        styles.speedPill,
+                        { backgroundColor: t.surfaceAlt, borderColor: t.border },
+                      ]}
+                    >
+                      <Text style={[styles.speedText, { color: t.text }]}>
+                        {playbackSpeed}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
                 <View
-                  style={[styles.playheadLine, { left: "45%", backgroundColor: t.primaryLight || t.primary }]}
-                />
-              </View>
-
-              {/* Timestamps */}
-              <View style={styles.waveTimeRow}>
-                <Text style={[styles.waveTime, { color: t.textSecondary }]}>00:00</Text>
-                <Text style={[styles.waveTime, { color: t.textSecondary }]}>
-                  {selectedCall ? formatDuration(selectedCall.duration) : "28:17"}
-                </Text>
-              </View>
-
-              {/* Scrubber Controls */}
-              <View style={styles.scrubberRow}>
-                <TouchableOpacity
-                  style={styles.scrubBtn}
-                  onPress={() => Alert.alert("Rewind", "Rewound 15s")}
-                >
-                  <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
-                  <Text style={[styles.scrubText, { color: t.textSecondary }]}>15</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => setIsPlaying(!isPlaying)}
                   style={[
-                    styles.playPauseBtn,
+                    styles.waveformCard,
                     {
-                      backgroundColor: t.text,
+                      backgroundColor: t.surface,
+                      borderColor: t.border,
+                      alignItems: "center",
+                      paddingVertical: 28,
+                      gap: 8,
                     },
+                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                   ]}
                 >
-                  <Ionicons
-                    name={isPlaying ? "pause" : "play"}
-                    size={24}
-                    color={t.bg}
-                    style={{ marginLeft: isPlaying ? 0 : 2 }}
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.scrubBtn}
-                  onPress={() => Alert.alert("Forward", "Forwarded 15s")}
-                >
-                  <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
-                  <Text style={[styles.scrubText, { color: t.textSecondary }]}>15</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() =>
-                    setPlaybackSpeed(
-                      playbackSpeed === "1x"
-                        ? "1.5x"
-                        : playbackSpeed === "1.5x"
-                        ? "2x"
-                        : "1x"
-                    )
-                  }
-                  style={[
-                    styles.speedPill,
-                    { backgroundColor: t.surfaceAlt, borderColor: t.border },
-                  ]}
-                >
-                  <Text style={[styles.speedText, { color: t.text }]}>
-                    {playbackSpeed}
+                  <View
+                    style={[
+                      styles.analyticsKpiIcon,
+                      { backgroundColor: t.surfaceAlt, width: 48, height: 48, borderRadius: 16 },
+                    ]}
+                  >
+                    <Ionicons name="mic-off-outline" size={22} color={t.textSecondary} />
+                  </View>
+                  <Text style={[styles.analyticsChartTitle, { color: t.text }]}>
+                    No Call Recording Available
                   </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Talk / Listen Section */}
-            <View style={styles.talkListenSection}>
-              <View style={styles.talkHeaderRow}>
-                <Text style={[styles.talkTitle, { color: t.text }]}>
-                  Talk / Listen
-                </Text>
-                <View style={styles.balanceBadge}>
-                  <View style={[styles.balanceDot, { backgroundColor: t.primary }]} />
-                  <Text style={[styles.balanceText, { color: t.textSecondary }]}>
-                    Good balance
+                  <Text
+                    style={[
+                      styles.emptySubtitle,
+                      { color: t.textSecondary, paddingHorizontal: 12 },
+                    ]}
+                  >
+                    Recordings sync automatically from the employee phone's dialer recording folder when auto-record is enabled.
                   </Text>
                 </View>
-              </View>
-
-              {/* Progress Split Bar */}
-              <View style={styles.talkBarWrap}>
-                <View
-                  style={[
-                    styles.talkBarLeft,
-                    { width: "46%", backgroundColor: t.primary },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.talkBarRight,
-                    { width: "54%", backgroundColor: t.surfaceAlt },
-                  ]}
-                />
-              </View>
-
-              <View style={styles.talkLabelsRow}>
-                <Text style={[styles.talkSub, { color: t.textSecondary }]}>
-                  You <Text style={{ color: t.text, fontFamily: Typography.bold }}>46%</Text>
-                </Text>
-                <Text style={[styles.talkSub, { color: t.textSecondary }]}>
-                  Them <Text style={{ color: t.text, fontFamily: Typography.bold }}>54%</Text>
-                </Text>
-              </View>
-            </View>
-
-            {/* Sentiment Trajectory Section */}
-            <View style={styles.sentimentSection}>
-              <View style={styles.sentimentHeaderRow}>
-                <Text style={[styles.talkTitle, { color: t.text }]}>
-                  Sentiment
-                </Text>
-                {/* Acid Lime Tooltip */}
-                <View
-                  style={[
-                    styles.peakBadge,
-                    { backgroundColor: t.primarySurface },
-                  ]}
-                >
-                  <Text style={[styles.peakText, { color: t.primary }]}>Peak interest at 21:14</Text>
-                </View>
-              </View>
-
+              )
+            ) : (
+              /* ── Details Tab (Real CallLog Metadata) ── */
               <View
                 style={[
-                  styles.sentimentCard,
-                  {
-                    backgroundColor: t.surface,
-                    borderColor: t.border,
-                  },
+                  styles.analyticsSectionCard,
+                  { backgroundColor: t.surface, borderColor: t.border },
                   isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
                 ]}
               >
-                <View style={styles.sentimentYAxis}>
-                  <Text style={[styles.sentAxisText, { color: t.textSecondary }]}>Positive</Text>
-                  <Text style={[styles.sentAxisText, { color: t.textSecondary }]}>Neutral</Text>
-                  <Text style={[styles.sentAxisText, { color: t.textSecondary }]}>Negative</Text>
-                </View>
-
-                {/* Trajectory Simulation Curve */}
-                <View style={styles.sentimentGraph}>
-                  <View style={[styles.sentGridLine, { top: "15%", borderColor: t.border }]} />
-                  <View style={[styles.sentGridLine, { top: "50%", borderColor: t.border }]} />
-                  <View style={[styles.sentGridLine, { top: "85%", borderColor: t.border }]} />
-
-                  {/* Nodes along the curve */}
-                  <View style={[styles.curvePoint, { left: "10%", top: "60%", backgroundColor: t.primary }]} />
-                  <View style={[styles.curvePoint, { left: "30%", top: "45%", backgroundColor: t.primary }]} />
-                  <View style={[styles.curvePoint, { left: "55%", top: "40%", backgroundColor: t.primary }]} />
-                  <View style={[styles.curvePoint, { left: "75%", top: "15%", backgroundColor: t.primary, width: 10, height: 10 }]} />
-                  <View style={[styles.curvePoint, { left: "90%", top: "25%", backgroundColor: t.primary }]} />
-                </View>
-              </View>
-              <View style={styles.sentTimeRow}>
-                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>0m</Text>
-                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>7m</Text>
-                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>14m</Text>
-                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>21m</Text>
-                <Text style={[styles.sentTimeLabel, { color: t.textSecondary }]}>28m</Text>
-              </View>
-            </View>
-
-            {/* AI Insights Section */}
-            <View style={styles.aiInsightsSection}>
-              <View style={styles.aiHeaderRow}>
-                <View
-                  style={[
-                    styles.aiSparkIcon,
-                    { backgroundColor: t.primarySurface },
-                  ]}
-                >
-                  <Ionicons name="sparkles" size={14} color={t.primary} />
-                </View>
-                <View>
-                  <Text style={[styles.aiTitle, { color: t.text }]}>
-                    AI insights
-                  </Text>
-                  <Text style={[styles.aiSub, { color: t.textSecondary }]}>
-                    Generated from call analysis
-                  </Text>
-                </View>
-              </View>
-
-              {/* Numbered Insights */}
-              <View style={styles.insightsList}>
-                <View
-                  style={[
-                    styles.insightCard,
-                    {
-                      backgroundColor: t.surface,
-                      borderColor: t.border,
-                    },
-                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
-                  ]}
-                >
+                <Text style={[styles.analyticsSectionTitle, { color: t.text }]}>
+                  Call Information
+                </Text>
+                {[
+                  { label: "Employee", value: selectedCall?.username || "-" },
+                  { label: "Phone Number", value: selectedCall?.phone_number || "-" },
+                  {
+                    label: "Call Type",
+                    value: selectedCall
+                      ? selectedCall.call_type.charAt(0).toUpperCase() +
+                        selectedCall.call_type.slice(1)
+                      : "-",
+                  },
+                  {
+                    label: "Duration",
+                    value: selectedCall ? formatDuration(selectedCall.duration) : "0s",
+                  },
+                  {
+                    label: "Call Time",
+                    value: selectedCall
+                      ? new Date(selectedCall.timestamp).toLocaleString()
+                      : "-",
+                  },
+                  {
+                    label: "Synced At",
+                    value: selectedCall
+                      ? new Date(selectedCall.synced_at).toLocaleString()
+                      : "-",
+                  },
+                  {
+                    label: "Recording File",
+                    value: selectedCall?.recording_filename || "Not recorded",
+                  },
+                ].map((row) => (
                   <View
-                    style={[
-                      styles.numCircle,
-                      { backgroundColor: t.surfaceAlt },
-                    ]}
+                    key={row.label}
+                    style={[styles.topNumberRow, { borderBottomColor: t.border }]}
                   >
-                    <Text style={[styles.numText, { color: t.text }]}>1</Text>
-                  </View>
-                  <View style={styles.insightContent}>
-                    <Text style={[styles.insightHeading, { color: t.text }]}>
-                      Strong interest in Q2 rollout
+                    <Text style={[styles.callMeta, { color: t.textSecondary }]}>
+                      {row.label}
                     </Text>
-                    <Text style={[styles.insightDesc, { color: t.textSecondary }]}>
-                      Confirmed budget and internal alignment.
+                    <Text style={[styles.topPhone, { color: t.text }]}>
+                      {row.value}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={t.textSecondary} />
-                </View>
-
-                <View
-                  style={[
-                    styles.insightCard,
-                    {
-                      backgroundColor: t.surface,
-                      borderColor: t.border,
-                    },
-                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.numCircle,
-                      { backgroundColor: t.surfaceAlt },
-                    ]}
-                  >
-                    <Text style={[styles.numText, { color: t.text }]}>2</Text>
-                  </View>
-                  <View style={styles.insightContent}>
-                    <Text style={[styles.insightHeading, { color: t.text }]}>
-                      Security and data residency are key concerns
-                    </Text>
-                    <Text style={[styles.insightDesc, { color: t.textSecondary }]}>
-                      Send security overview and compliance docs.
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={t.textSecondary} />
-                </View>
-
-                <View
-                  style={[
-                    styles.insightCard,
-                    {
-                      backgroundColor: t.surface,
-                      borderColor: t.border,
-                    },
-                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.numCircle,
-                      { backgroundColor: t.surfaceAlt },
-                    ]}
-                  >
-                    <Text style={[styles.numText, { color: t.text }]}>3</Text>
-                  </View>
-                  <View style={styles.insightContent}>
-                    <Text style={[styles.insightHeading, { color: t.text }]}>
-                      Next step
-                    </Text>
-                    <Text style={[styles.insightDesc, { color: t.textSecondary }]}>
-                      Send custom proposal by end of week.
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={t.textSecondary} />
-                </View>
+                ))}
               </View>
-            </View>
+            )}
 
             {/* Create Follow-up Task Action */}
             <TouchableOpacity
@@ -1371,6 +1725,382 @@ export default function CallLogsScreen() {
               <Text style={styles.createTaskText}>Create follow up task</Text>
             </TouchableOpacity>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ── Unified Filter Modal (Call Type, Date Range & Employee) ─ */}
+      <Modal
+        visible={employeeModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEmployeeModalVisible(false)}
+      >
+        <View style={styles.empModalBackdrop}>
+          <View
+            style={[
+              styles.empModalSheet,
+              {
+                backgroundColor: t.bg,
+                borderColor: t.border,
+                paddingBottom: Math.max(insets.bottom, 16) + 12,
+              },
+            ]}
+          >
+            <View style={[styles.empModalHeader, { borderBottomColor: t.border }]}>
+              <View>
+                <Text style={[styles.empModalTitle, { color: t.text }]}>
+                  Filter Calls
+                </Text>
+                <Text style={[styles.empModalSubtitle, { color: t.textSecondary }]}>
+                  Date range & employee
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {(selectedStatsUser !== "all" || datePreset !== "all") && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedStatsUser("all");
+                      setDatePreset("all");
+                      setDateError("");
+                    }}
+                    style={[
+                      styles.resetAllBtn,
+                      { backgroundColor: t.surface, borderColor: t.border },
+                    ]}
+                  >
+                    <Text style={[styles.resetAllText, { color: t.textSecondary }]}>
+                      Reset
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => setEmployeeModalVisible(false)}
+                  style={[
+                    styles.empModalCloseBtn,
+                    { backgroundColor: t.surface, borderColor: t.border },
+                  ]}
+                >
+                  <Ionicons name="close" size={18} color={t.text} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.empListContent}
+            >
+              {/* ── 1. Date Range Section ── */}
+              <Text
+                style={[
+                  styles.filterSectionLabel,
+                  { color: t.textSecondary },
+                ]}
+              >
+                DATE RANGE
+              </Text>
+              <View style={styles.modalChipsWrap}>
+                {(
+                  [
+                    { id: "all", label: "All Time" },
+                    { id: "1d", label: "1 Day" },
+                    { id: "1w", label: "Past 1 Week" },
+                    { id: "1m", label: "Past 1 Month" },
+                    { id: "3m", label: "Past 3 Months" },
+                    { id: "custom", label: "Custom Range" },
+                  ] as Array<{ id: DatePresetType; label: string }>
+                ).map((preset) => {
+                  const isSelected = datePreset === preset.id;
+                  return (
+                    <TouchableOpacity
+                      key={preset.id}
+                      activeOpacity={0.75}
+                      onPress={() => {
+                        setDateError("");
+                        setDatePreset(preset.id);
+                      }}
+                      style={[
+                        styles.modalFilterChip,
+                        {
+                          backgroundColor: isSelected ? t.primary : t.surface,
+                          borderColor: isSelected ? t.primary : t.border,
+                        },
+                      ]}
+                    >
+                      {preset.id === "custom" && (
+                        <Ionicons
+                          name="calendar-outline"
+                          size={13}
+                          color={isSelected ? "#FFFFFF" : t.textSecondary}
+                        />
+                      )}
+                      <Text
+                        style={[
+                          styles.modalFilterChipText,
+                          { color: isSelected ? "#FFFFFF" : t.textSecondary },
+                        ]}
+                      >
+                        {preset.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {datePreset === "custom" && (
+                <View
+                  style={[
+                    styles.customDateBox,
+                    { backgroundColor: t.surface, borderColor: t.border },
+                  ]}
+                >
+                  <View style={styles.customDateRow}>
+                    <View style={styles.customDateCol}>
+                      <Text style={[styles.customDateLabel, { color: t.textSecondary }]}>
+                        From (YYYY-MM-DD)
+                      </Text>
+                      <TextInput
+                        value={draftStartDate}
+                        onChangeText={setDraftStartDate}
+                        placeholder="2026-11-25"
+                        placeholderTextColor={t.textSecondary}
+                        style={[
+                          styles.customDateInput,
+                          {
+                            color: t.text,
+                            backgroundColor: t.bg,
+                            borderColor: t.border,
+                          },
+                        ]}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                    <View style={styles.customDateCol}>
+                      <Text style={[styles.customDateLabel, { color: t.textSecondary }]}>
+                        To (YYYY-MM-DD)
+                      </Text>
+                      <TextInput
+                        value={draftEndDate}
+                        onChangeText={setDraftEndDate}
+                        placeholder="2026-11-25"
+                        placeholderTextColor={t.textSecondary}
+                        style={[
+                          styles.customDateInput,
+                          {
+                            color: t.text,
+                            backgroundColor: t.bg,
+                            borderColor: t.border,
+                          },
+                        ]}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                  </View>
+
+                  {!!dateError && (
+                    <Text style={[styles.customDateError, { color: t.danger }]}>
+                      {dateError}
+                    </Text>
+                  )}
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      const s = draftStartDate.trim();
+                      const e = draftEndDate.trim();
+                      const re = /^\d{4}-\d{2}-\d{2}$/;
+                      if (!re.test(s) || !re.test(e)) {
+                        setDateError("Use YYYY-MM-DD format (e.g. 2026-11-25).");
+                        return;
+                      }
+                      if (s > e) {
+                        setDateError("From date cannot be after To date.");
+                        return;
+                      }
+                      setDateError("");
+                      setCustomStartDate(s);
+                      setCustomEndDate(e);
+                      setEmployeeModalVisible(false);
+                    }}
+                    style={[styles.applyDateBtn, { backgroundColor: t.primary }]}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                    <Text style={styles.applyDateBtnText}>Apply Date Range</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* ── 3. Employee Section ── */}
+              <Text
+                style={[
+                  styles.filterSectionLabel,
+                  { color: t.textSecondary, marginTop: 14 },
+                ]}
+              >
+                EMPLOYEE
+              </Text>
+              <View
+                style={[
+                  styles.empSearchWrap,
+                  {
+                    backgroundColor: t.surface,
+                    borderColor: t.border,
+                    marginHorizontal: 0,
+                    marginTop: 6,
+                    marginBottom: 8,
+                  },
+                ]}
+              >
+                <Ionicons name="search-outline" size={16} color={t.textSecondary} />
+                <TextInput
+                  value={employeeSearch}
+                  onChangeText={setEmployeeSearch}
+                  placeholder="Search employee name..."
+                  placeholderTextColor={t.textSecondary}
+                  style={[styles.empSearchInput, { color: t.text }]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {employeeSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setEmployeeSearch("")}>
+                    <Ionicons name="close-circle" size={16} color={t.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* All Team Option */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  setSelectedStatsUser("all");
+                  setEmployeeModalVisible(false);
+                }}
+                style={[
+                  styles.empRow,
+                  {
+                    backgroundColor:
+                      selectedStatsUser === "all"
+                        ? isDark
+                          ? "rgba(16, 185, 129, 0.14)"
+                          : "#ECFDF5"
+                        : t.surface,
+                    borderColor:
+                      selectedStatsUser === "all" ? t.primary : t.border,
+                  },
+                ]}
+              >
+                <View style={styles.empRowLeft}>
+                  <View
+                    style={[
+                      styles.empAvatar,
+                      {
+                        backgroundColor:
+                          selectedStatsUser === "all" ? t.primary : t.surfaceAlt,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="people-outline"
+                      size={16}
+                      color={selectedStatsUser === "all" ? "#FFFFFF" : t.textSecondary}
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.empRowName, { color: t.text }]}>
+                      All Team
+                    </Text>
+                    <Text style={[styles.empRowMeta, { color: t.textSecondary }]}>
+                      Combined calls across {teamMembers.length} employees
+                    </Text>
+                  </View>
+                </View>
+                {selectedStatsUser === "all" && (
+                  <Ionicons name="checkmark-circle" size={20} color={t.primary} />
+                )}
+              </TouchableOpacity>
+
+              {filteredEmployees.map((emp) => {
+                const isSelected = selectedStatsUser === emp.id.toString();
+                return (
+                  <TouchableOpacity
+                    key={emp.id}
+                    activeOpacity={0.75}
+                    onPress={() => {
+                      setSelectedStatsUser(emp.id.toString());
+                      setEmployeeModalVisible(false);
+                    }}
+                    style={[
+                      styles.empRow,
+                      {
+                        backgroundColor: isSelected
+                          ? isDark
+                            ? "rgba(16, 185, 129, 0.14)"
+                            : "#ECFDF5"
+                          : t.surface,
+                        borderColor: isSelected ? t.primary : t.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.empRowLeft}>
+                      <View
+                        style={[
+                          styles.empAvatar,
+                          {
+                            backgroundColor: isSelected ? t.primary : t.surfaceAlt,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.empAvatarText,
+                            { color: isSelected ? "#FFFFFF" : t.text },
+                          ]}
+                        >
+                          {emp.username.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[styles.empRowName, { color: t.text }]}
+                          numberOfLines={1}
+                        >
+                          {emp.username}
+                        </Text>
+                        <Text style={[styles.empRowMeta, { color: t.textSecondary }]}>
+                          {emp.role ? `${emp.role.toUpperCase()} • ` : ""}
+                          {typeof emp.total_call_logs === "number"
+                            ? `${emp.total_call_logs} calls`
+                            : "Tap to view calls"}
+                        </Text>
+                      </View>
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={20} color={t.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+
+              {filteredEmployees.length === 0 && (
+                <View style={styles.empEmptyWrap}>
+                  <Text style={[styles.empRowMeta, { color: t.textSecondary }]}>
+                    No employees match "{employeeSearch}"
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={[styles.modalFooterBar, { borderTopColor: t.border }]}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setEmployeeModalVisible(false)}
+                style={[styles.applyDateBtn, { backgroundColor: t.primary }]}
+              >
+                <Text style={styles.applyDateBtnText}>Show Results</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </View>
@@ -1472,59 +2202,112 @@ const styles = StyleSheet.create({
   groupSection: {
     marginBottom: 20,
   },
+  groupHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
   groupHeader: {
     fontFamily: Typography.bold,
     fontSize: 12,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: 8,
+    letterSpacing: 0.7,
+  },
+  groupCountPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Radius.pill,
+  },
+  groupCountText: {
+    fontFamily: Typography.semiBold,
+    fontSize: 11,
   },
   callRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: Radius.lg,
+    padding: 14,
+    borderRadius: Radius.xl,
     borderWidth: 1,
-    marginBottom: 8,
-    gap: 12,
+    marginBottom: 10,
+    gap: 10,
     ...Shadows.card,
   },
+  callTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  callIdentityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 12,
+  },
   callAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
   callDetails: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   callerName: {
-    fontFamily: Typography.bold,
-    fontSize: 16,
+    fontFamily: Typography.headingSemi,
+    fontSize: 15,
     letterSpacing: -0.2,
+  },
+  callPhoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   callMeta: {
     fontFamily: Typography.medium,
-    fontSize: 13,
+    fontSize: 12.5,
   },
-  callRight: {
+  callMetaWell: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+  },
+  callMetaLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  callTimeCol: {
-    alignItems: "flex-end",
+  callMetaChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+  },
+  callInspectWrap: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 2,
   },
+  callInspectText: {
+    fontFamily: Typography.semiBold,
+    fontSize: 12,
+  },
   callDurationText: {
-    fontFamily: Typography.medium,
+    fontFamily: Typography.semiBold,
     fontSize: 12,
   },
   callTimeText: {
     fontFamily: Typography.medium,
-    fontSize: 11,
+    fontSize: 11.5,
   },
 
   // Recorded Call Modal Styles
@@ -1887,17 +2670,19 @@ const styles = StyleSheet.create({
   },
   kpiStrip: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
+    alignItems: "stretch",
+    gap: 8,
     marginHorizontal: Spacing.screenPadding,
-    marginBottom: 12,
-    paddingVertical: 12,
-    borderRadius: 20,
-    borderWidth: 1,
+    marginBottom: 4,
   },
   kpiItem: {
     alignItems: "center",
+    justifyContent: "center",
     flex: 1,
+    paddingVertical: 11,
+    paddingHorizontal: 4,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
   },
   kpiNum: {
     fontSize: 16,
@@ -1942,27 +2727,27 @@ const styles = StyleSheet.create({
   },
   analyticsKpiCard: {
     flex: 1,
-    padding: 12,
-    borderRadius: Radius.lg,
+    padding: 14,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     alignItems: "center",
     ...Shadows.card,
   },
   analyticsKpiIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   analyticsKpiVal: {
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: Typography.bold,
   },
   analyticsKpiLbl: {
     fontSize: 10,
-    fontFamily: Typography.medium,
+    fontFamily: Typography.semiBold,
     marginTop: 2,
     textTransform: "uppercase",
     letterSpacing: 0.4,
@@ -1978,11 +2763,72 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   analyticsChartTitle: {
-    fontSize: 14,
+    fontSize: 15,
+    fontFamily: Typography.headingSemi,
+  },
+  analyticsChartSub: {
+    fontSize: 11.5,
+    fontFamily: Typography.regular,
+    marginTop: 2,
+  },
+  chartMetaWell: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+  },
+  chartMetaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  chartMetaLabel: {
+    fontSize: 11.5,
+    fontFamily: Typography.medium,
+  },
+  chartMetaVal: {
+    fontSize: 12,
     fontFamily: Typography.bold,
+  },
+  segmentedDistTrack: {
+    flexDirection: "row",
+    height: 10,
+    borderRadius: 5,
+    overflow: "hidden",
+    gap: 2,
+    marginBottom: 16,
+  },
+  distLeftWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  distIconBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  distPctText: {
+    fontSize: 12,
+    fontFamily: Typography.bold,
+  },
+  topNumberCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    marginBottom: 8,
   },
   analyticsChartBadge: {
     paddingHorizontal: 8,
@@ -2065,5 +2911,218 @@ const styles = StyleSheet.create({
   topCallsText: {
     fontSize: 11,
     fontFamily: Typography.bold,
+  },
+  activeEmployeeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.screenPadding,
+    marginBottom: Spacing.sm,
+    gap: 8,
+  },
+  activeEmployeeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
+  activeEmployeeText: {
+    fontSize: 12,
+    fontFamily: Typography.semiBold,
+  },
+  clearEmployeeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
+  clearEmployeeText: {
+    fontSize: 12,
+    fontFamily: Typography.medium,
+  },
+  empModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  empModalSheet: {
+    maxHeight: "78%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    paddingTop: 16,
+  },
+  empModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.screenPadding,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  empModalTitle: {
+    fontSize: FontSizes.sectionTitle,
+    fontFamily: Typography.headingSemi,
+  },
+  empModalSubtitle: {
+    fontSize: 12,
+    fontFamily: Typography.regular,
+    marginTop: 2,
+  },
+  empModalCloseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  empSearchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: Spacing.screenPadding,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  empSearchInput: {
+    flex: 1,
+    fontSize: FontSizes.bodySmall,
+    fontFamily: Typography.regular,
+  },
+  empListContent: {
+    paddingHorizontal: Spacing.screenPadding,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  empRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  empRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  empAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  empAvatarText: {
+    fontSize: 14,
+    fontFamily: Typography.bold,
+  },
+  empRowName: {
+    fontSize: 14,
+    fontFamily: Typography.semiBold,
+  },
+  empRowMeta: {
+    fontSize: 11,
+    fontFamily: Typography.regular,
+    marginTop: 2,
+  },
+  empEmptyWrap: {
+    paddingVertical: 24,
+    alignItems: "center",
+  },
+  resetAllBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
+  resetAllText: {
+    fontSize: 12,
+    fontFamily: Typography.semiBold,
+  },
+  filterSectionLabel: {
+    fontSize: 11,
+    fontFamily: Typography.bold,
+    letterSpacing: 0.7,
+    marginBottom: 8,
+  },
+  modalChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  modalFilterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
+  modalFilterChipText: {
+    fontSize: 12.5,
+    fontFamily: Typography.semiBold,
+  },
+  customDateBox: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    gap: 10,
+  },
+  customDateRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  customDateCol: {
+    flex: 1,
+    gap: 4,
+  },
+  customDateLabel: {
+    fontSize: 11,
+    fontFamily: Typography.medium,
+  },
+  customDateInput: {
+    height: 38,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    fontFamily: Typography.medium,
+  },
+  customDateError: {
+    fontSize: 12,
+    fontFamily: Typography.medium,
+  },
+  applyDateBtn: {
+    height: 42,
+    borderRadius: Radius.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  applyDateBtnText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: Typography.semiBold,
+  },
+  modalFooterBar: {
+    paddingHorizontal: Spacing.screenPadding,
+    paddingTop: 12,
+    borderTopWidth: 1,
   },
 });

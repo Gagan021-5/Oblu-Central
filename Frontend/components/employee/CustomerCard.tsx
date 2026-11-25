@@ -224,8 +224,7 @@ const CustomerCardComponent: React.FC<CustomerCardProps> = ({
                   { color: isDark ? "#F1F7F4" : "#101513" },
                 ]}
                 numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
+                ellipsizeMode="tail"
               >
                 {customerName}
               </Text>

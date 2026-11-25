@@ -18,6 +18,7 @@
       "permissions": [
         "android.permission.READ_CALL_LOG",
         "android.permission.READ_PHONE_STATE",
+        "android.permission.READ_MEDIA_AUDIO",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
@@ -84,7 +85,8 @@
             "extraProguardRules": "-dontwarn com.calltracer.app.**\n-dontwarn com.facebook.react.**"
           }
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

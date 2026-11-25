@@ -188,8 +188,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* Swiggy/Zomato Right Addon: Divider + Sparkle/Filter Badge */}
-        {value.length === 0 && (
+        {/* Swiggy/Zomato Right Addon: Divider + Filter Badge (only shown when onFilterPress is provided) */}
+        {value.length === 0 && onFilterPress && (
           <View style={styles.rightAddonGroup}>
             <View
               style={[
@@ -202,10 +202,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.sparkleButton}
               accessibilityRole="button"
-              accessibilityLabel="Search filters and quick actions"
+              accessibilityLabel="Search filters"
             >
               <Ionicons
-                name={onFilterPress ? "options-outline" : "sparkles-outline"}
+                name="options-outline"
                 size={18}
                 color={filterActive ? colors.primary : isDark ? "#10B981" : "#00A879"}
               />

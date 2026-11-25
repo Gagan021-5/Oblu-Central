@@ -125,6 +125,18 @@ class CallLog(models.Model):
         related_name="call_logs",
         help_text="Matched customer based on normalized phone number.",
     )
+    audio_file = models.FileField(
+        upload_to="call_recordings/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Uploaded call recording audio file from employee device.",
+    )
+    recording_filename = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Original filename of the uploaded recording.",
+    )
 
     class Meta:
         db_table = "call_logs"
