@@ -264,8 +264,8 @@ function CallAudioPlayerInner({
               playbackSpeed === "1x"
                 ? "1.5x"
                 : playbackSpeed === "1.5x"
-                ? "2x"
-                : "1x";
+                  ? "2x"
+                  : "1x";
             setPlaybackSpeed(nextSpeed);
             const rate = nextSpeed === "1.5x" ? 1.5 : nextSpeed === "2x" ? 2.0 : 1.0;
             audioPlayer.setPlaybackRate(rate);
@@ -1214,72 +1214,69 @@ export default function CallLogsScreen() {
             paddingBottom: Math.max(insets.bottom, 16) + 110,
           }}
         >
-          {/* Member Filter Pills */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillsRow}
-          >
-            <TouchableOpacity
-              style={[
-                styles.memberPill,
-                {
-                  backgroundColor:
-                    selectedStatsUser === "all" ? t.primary : t.surface,
-                  borderColor:
-                    selectedStatsUser === "all" ? t.primary : t.border,
+          {/* Employee Dropdown Selector (No Horizontal Scroll) */}
+          <TouchableOpacity
+            activeOpacity={0.78}
+            onPress={() => {
+              setDateError("");
+              setEmployeeModalVisible(true);
+            }}
+            style={[
+              styles.analyticsDropdownBtn,
+              {
+                backgroundColor: t.surface,
+                borderColor: selectedStatsUser !== "all" ? t.primary : t.border,
+              },
+              Shadows.card,
+              isDark &&
+                selectedStatsUser === "all" && {
+                  borderTopColor: "rgba(255, 255, 255, 0.12)",
                 },
-              ]}
-              onPress={() => setSelectedStatsUser("all")}
-            >
-              <Ionicons
-                name="globe-outline"
-                size={13}
-                color={selectedStatsUser === "all" ? "#FFFFFF" : t.textSecondary}
-              />
-              <Text
+            ]}
+          >
+            <View style={styles.analyticsDropdownLeft}>
+              <View
                 style={[
-                  styles.pillText,
-                  {
-                    color: selectedStatsUser === "all" ? "#FFFFFF" : t.textSecondary,
-                    fontFamily:
-                      selectedStatsUser === "all" ? Typography.semiBold : Typography.regular,
-                  },
+                  styles.analyticsDropdownIcon,
+                  { backgroundColor: t.primarySurface },
                 ]}
               >
-                All Team
-              </Text>
-            </TouchableOpacity>
-
-            {teamMembers.map((m) => {
-              const active = selectedStatsUser === m.id.toString();
-              return (
+                <Ionicons
+                  name={selectedStatsUser === "all" ? "people-outline" : "person-outline"}
+                  size={17}
+                  color={t.primary}
+                />
+              </View>
+              <View>
+                <Text style={[styles.analyticsDropdownLabel, { color: t.textSecondary }]}>
+                  VIEWING ANALYTICS FOR
+                </Text>
+                <Text style={[styles.analyticsDropdownVal, { color: t.text }]}>
+                  {selectedEmployeeName || `All Team (${teamMembers.length} Employees)`}
+                </Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              {selectedStatsUser !== "all" && (
                 <TouchableOpacity
-                  key={m.id}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setSelectedStatsUser("all");
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={[
-                    styles.memberPill,
-                    {
-                      backgroundColor: active ? t.primary : t.surface,
-                      borderColor: active ? t.primary : t.border,
-                    },
+                    styles.resetAllBtn,
+                    { backgroundColor: t.surfaceAlt, borderColor: t.border },
                   ]}
-                  onPress={() => setSelectedStatsUser(m.id.toString())}
                 >
-                  <Text
-                    style={[
-                      styles.pillText,
-                      {
-                        color: active ? "#FFFFFF" : t.textSecondary,
-                        fontFamily: active ? Typography.semiBold : Typography.regular,
-                      },
-                    ]}
-                  >
-                    {m.username}
+                  <Text style={[styles.resetAllText, { color: t.textSecondary }]}>
+                    All
                   </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+              )}
+              <Ionicons name="chevron-down" size={18} color={t.textSecondary} />
+            </View>
+          </TouchableOpacity>
 
           {statsLoading ? (
             <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
@@ -3333,5 +3330,38 @@ const styles = StyleSheet.create({
   footerMetaText: {
     fontSize: 12,
     fontFamily: Typography.medium,
+  },
+  analyticsDropdownBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    marginBottom: Spacing.lg,
+  },
+  analyticsDropdownLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  analyticsDropdownIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  analyticsDropdownLabel: {
+    fontSize: 10,
+    fontFamily: Typography.bold,
+    letterSpacing: 0.6,
+  },
+  analyticsDropdownVal: {
+    fontSize: 14.5,
+    fontFamily: Typography.headingSemi,
+    marginTop: 2,
   },
 });
