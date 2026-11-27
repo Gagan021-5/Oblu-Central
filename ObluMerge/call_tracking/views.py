@@ -18,6 +18,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum, Max, Q
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -213,6 +214,29 @@ class CallRecordingUploadView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class CallRecordingStreamView(APIView):
+    """
+    GET /api/call-logs/<int:pk>/audio/
+    Streams the uploaded call recording audio file directly (works even with DEBUG=False).
+    """
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request, pk):
+        call_log = get_object_or_404(CallLog, pk=pk)
+        if not call_log.audio_file:
+            raise Http404("No recording attached to this call.")
+        try:
+            f = call_log.audio_file.open("rb")
+        except Exception:
+            raise Http404("Recording file not found on storage.")
+        name = (call_log.recording_filename or "recording.m4a").lower()
+        content_type = "audio/mpeg" if name.endswith(".mp3") else "audio/mp4"
+        resp = FileResponse(f, content_type=content_type)
+        resp["Accept-Ranges"] = "bytes"
+        return resp
 
 
 # ── Admin Dashboard Views ────────────────────────────────────────────────

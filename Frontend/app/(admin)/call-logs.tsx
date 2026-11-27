@@ -24,11 +24,12 @@ import {
   ScrollView,
   RefreshControl,
   Platform,
+  NativeModules,
   useWindowDimensions,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import api from "@/services/api";
+import api, { getAccessToken } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import AppLineChart from "@/components/charts/AppLineChart";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -72,14 +73,6 @@ const WAVEFORM_HEIGHTS = [
   15, 10,
 ];
 
-function getExpoAudioSafe(): any {
-  try {
-    return require("expo-audio");
-  } catch {
-    return null;
-  }
-}
-
 function CallAudioPlayer({
   audioUrl,
   fallbackDuration,
@@ -93,8 +86,50 @@ function CallAudioPlayer({
   t: any;
   isDark: boolean;
 }) {
-  const expoAudio = useMemo(() => getExpoAudioSafe(), []);
-  if (!expoAudio?.useAudioPlayer || !expoAudio?.useAudioPlayerStatus) {
+  const nativeAudio = NativeModules?.CallRecordingScanner;
+  const [playbackSpeed, setPlaybackSpeed] = useState<"1x" | "1.5x" | "2x">("1x");
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [audioCurrentSec, setAudioCurrentSec] = useState(0);
+  const [audioDurationSec, setAudioDurationSec] = useState(fallbackDuration || 0);
+  const [audioError, setAudioError] = useState<string | null>(null);
+
+  const playbackProgress =
+    audioDurationSec > 0 ? Math.min(1, audioCurrentSec / audioDurationSec) : 0;
+
+  useEffect(() => {
+    let active = true;
+    const poll = setInterval(async () => {
+      if (!active || !nativeAudio?.getAudioStatus) return;
+      try {
+        const st = await nativeAudio.getAudioStatus();
+        if (!active || !st) return;
+        setIsAudioPlaying(Boolean(st.playing));
+        setIsBuffering(Boolean(st.loading));
+        setAudioCurrentSec(Number(st.currentTime) || 0);
+        if (Number(st.duration) > 0) {
+          setAudioDurationSec(Number(st.duration));
+        }
+        if (st.error) {
+          setAudioError(String(st.error));
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      clearInterval(poll);
+      try {
+        nativeAudio?.stopAudio?.();
+      } catch {
+        // Ignore cleanup errors
+      }
+    };
+  }, [audioUrl, nativeAudio]);
+
+  if (!nativeAudio?.playAudio) {
     return (
       <View
         style={[
@@ -113,59 +148,28 @@ function CallAudioPlayer({
           Audio Playback Unavailable
         </Text>
         <Text style={[styles.emptySubtitle, { color: t.textSecondary }]}>
-          Native audio module is not available in this build.
+          Please update to the latest APK to play recordings.
         </Text>
       </View>
     );
   }
-  return (
-    <CallAudioPlayerInner
-      audioUrl={audioUrl}
-      fallbackDuration={fallbackDuration}
-      formatDuration={formatDuration}
-      t={t}
-      isDark={isDark}
-      expoAudio={expoAudio}
-    />
-  );
-}
 
-function CallAudioPlayerInner({
-  audioUrl,
-  fallbackDuration,
-  formatDuration,
-  t,
-  isDark,
-  expoAudio,
-}: {
-  audioUrl: string;
-  fallbackDuration: number;
-  formatDuration: (s: number) => string;
-  t: any;
-  isDark: boolean;
-  expoAudio: any;
-}) {
-  const [playbackSpeed, setPlaybackSpeed] = useState<"1x" | "1.5x" | "2x">("1x");
-  const audioPlayer = expoAudio.useAudioPlayer({ uri: audioUrl });
-  const audioStatus = expoAudio.useAudioPlayerStatus(audioPlayer);
-  const isAudioPlaying = audioStatus?.playing ?? false;
-  const audioCurrentSec = audioStatus?.currentTime ?? 0;
-  const audioDurationSec =
-    audioStatus?.duration && audioStatus.duration > 0
-      ? audioStatus.duration
-      : fallbackDuration || 0;
-  const playbackProgress =
-    audioDurationSec > 0 ? Math.min(1, audioCurrentSec / audioDurationSec) : 0;
-
-  useEffect(() => {
-    return () => {
-      try {
-        audioPlayer.pause();
-      } catch {
-        // Ignore cleanup errors
+  const handleTogglePlay = async () => {
+    setAudioError(null);
+    try {
+      if (isAudioPlaying) {
+        await nativeAudio.pauseAudio();
+        setIsAudioPlaying(false);
+      } else {
+        setIsBuffering(true);
+        const token = await getAccessToken();
+        await nativeAudio.playAudio(audioUrl, token || "");
       }
-    };
-  }, [audioPlayer]);
+    } catch (err: any) {
+      setIsBuffering(false);
+      setAudioError(err?.message || "Unable to play recording");
+    }
+  };
 
   return (
     <View
@@ -216,12 +220,26 @@ function CallAudioPlayerInner({
         </Text>
       </View>
 
+      {!!audioError && (
+        <Text
+          style={{
+            color: t.danger,
+            fontSize: 12,
+            textAlign: "center",
+            marginBottom: 8,
+            fontFamily: Typography.medium,
+          }}
+        >
+          {audioError}
+        </Text>
+      )}
+
       <View style={styles.scrubberRow}>
         <TouchableOpacity
           style={styles.scrubBtn}
           onPress={() => {
             const target = Math.max(0, audioCurrentSec - 15);
-            audioPlayer.seekTo(target);
+            nativeAudio.seekAudio?.(target);
           }}
         >
           <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
@@ -230,28 +248,26 @@ function CallAudioPlayerInner({
 
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => {
-            if (isAudioPlaying) {
-              audioPlayer.pause();
-            } else {
-              audioPlayer.play();
-            }
-          }}
+          onPress={handleTogglePlay}
           style={[styles.playPauseBtn, { backgroundColor: t.text }]}
         >
-          <Ionicons
-            name={isAudioPlaying ? "pause" : "play"}
-            size={24}
-            color={t.bg}
-            style={{ marginLeft: isAudioPlaying ? 0 : 2 }}
-          />
+          {isBuffering && !isAudioPlaying ? (
+            <ActivityIndicator size="small" color={t.bg} />
+          ) : (
+            <Ionicons
+              name={isAudioPlaying ? "pause" : "play"}
+              size={24}
+              color={t.bg}
+              style={{ marginLeft: isAudioPlaying ? 0 : 2 }}
+            />
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.scrubBtn}
           onPress={() => {
             const target = Math.min(audioDurationSec, audioCurrentSec + 15);
-            audioPlayer.seekTo(target);
+            nativeAudio.seekAudio?.(target);
           }}
         >
           <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
@@ -268,7 +284,7 @@ function CallAudioPlayerInner({
                   : "1x";
             setPlaybackSpeed(nextSpeed);
             const rate = nextSpeed === "1.5x" ? 1.5 : nextSpeed === "2x" ? 2.0 : 1.0;
-            audioPlayer.setPlaybackRate(rate);
+            nativeAudio.setAudioSpeed?.(rate);
           }}
           style={[
             styles.speedPill,

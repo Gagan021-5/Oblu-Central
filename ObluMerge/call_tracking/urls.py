@@ -10,6 +10,7 @@ from .views import (
     AdminStatsView,
     AdminUserListView,
     CallLogSyncView,
+    CallRecordingStreamView,
     CallRecordingUploadView,
     ConsentView,
 )
@@ -29,6 +30,11 @@ urlpatterns = [
         "call-logs/upload-recording/",
         CallRecordingUploadView.as_view(),
         name="call-logs-upload-recording",
+    ),
+    path(
+        "call-logs/<int:pk>/audio/",
+        CallRecordingStreamView.as_view(),
+        name="call-logs-audio-stream",
     ),
     path(
         "admin/profile/",

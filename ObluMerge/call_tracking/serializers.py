@@ -160,6 +160,9 @@ class CallLogSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         try:
             url = obj.audio_file.url
+            if url.startswith("/media/"):
+                stream_path = f"/api/call-logs/{obj.id}/audio/"
+                return request.build_absolute_uri(stream_path) if request else stream_path
             return request.build_absolute_uri(url) if request else url
         except Exception:
             return None
