@@ -46,6 +46,7 @@ export default function ConsentScreen() {
       const permissionPromise = PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
         PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         audioPerm,
       ]);
 

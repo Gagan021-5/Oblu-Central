@@ -202,9 +202,16 @@ export default function StatusScreen() {
   const handlePermissionRequest = async () => {
     if (Platform.OS !== "android") return;
     try {
+      const audioPerm =
+        Number(Platform.Version) >= 33
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO
+          : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+
       const statuses = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
         PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        audioPerm,
       ]);
 
       const callLogGranted =

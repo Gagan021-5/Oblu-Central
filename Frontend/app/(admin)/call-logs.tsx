@@ -545,6 +545,18 @@ export default function CallLogsScreen() {
     fetchLogs(1, false);
   }, [fetchLogs]);
 
+  // Real-time 15s polling so newly ended employee calls & recordings appear automatically
+  useEffect(() => {
+    if (activeMainTab !== "timeline") return;
+    const interval = setInterval(() => {
+      if (!loadingMoreRef.current) {
+        fetchLogs(1, false);
+        fetchStats();
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [activeMainTab, fetchLogs, fetchStats]);
+
   const loadMore = useCallback(() => {
     if (!hasMore || loading || loadingMoreRef.current) return;
     loadingMoreRef.current = true;
@@ -1229,9 +1241,9 @@ export default function CallLogsScreen() {
               },
               Shadows.card,
               isDark &&
-                selectedStatsUser === "all" && {
-                  borderTopColor: "rgba(255, 255, 255, 0.12)",
-                },
+              selectedStatsUser === "all" && {
+                borderTopColor: "rgba(255, 255, 255, 0.12)",
+              },
             ]}
           >
             <View style={styles.analyticsDropdownLeft}>
