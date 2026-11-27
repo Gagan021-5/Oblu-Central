@@ -10,7 +10,7 @@
  *   - "Create follow up task" mint action button.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import {
   Alert,
   Modal,
   ScrollView,
+  RefreshControl,
+  Platform,
   useWindowDimensions,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
@@ -54,6 +56,9 @@ interface CallLogItem {
 type FilterType = "all" | "incoming" | "outgoing" | "missed";
 type DatePresetType = "all" | "1d" | "1w" | "1m" | "3m" | "custom";
 type AnalysisTab = "Playback" | "Details";
+type TimelineRow =
+  | { kind: "header"; key: string; title: string; count: number }
+  | { kind: "item"; key: string; log: CallLogItem };
 
 const formatYMD = (d: Date) => {
   const y = d.getFullYear();
@@ -71,6 +76,10 @@ export default function CallLogsScreen() {
 
   const [logs, setLogs] = useState<CallLogItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const loadingMoreRef = useRef(false);
   const [selectedType, setSelectedType] = useState<FilterType>("all");
   const [searchPhone, setSearchPhone] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -282,7 +291,7 @@ export default function CallLogsScreen() {
       try {
         const queryParams: Record<string, string> = {
           page: pageNum.toString(),
-          page_size: "200",
+          page_size: "50",
         };
         if (selectedStatsUser && selectedStatsUser !== "all") {
           queryParams.user_id = selectedStatsUser;
@@ -301,10 +310,19 @@ export default function CallLogsScreen() {
         }
         const response = await api.get("/admin/call-logs/", { params: queryParams });
         const data = response.data;
-        const results = data.results || data;
+        const results: CallLogItem[] = data.results || data;
         const nextExists = !!data.next;
+        if (typeof data.count === "number") {
+          setTotalCount(data.count);
+        } else if (!append) {
+          setTotalCount(results.length);
+        }
         if (append) {
-          setLogs((prev) => [...prev, ...results]);
+          setLogs((prev) => {
+            const seen = new Set(prev.map((p) => p.id));
+            const uniqueNew = results.filter((r) => !seen.has(r.id));
+            return [...prev, ...uniqueNew];
+          });
         } else {
           setLogs(results);
         }
@@ -313,6 +331,9 @@ export default function CallLogsScreen() {
         // Handled silently
       } finally {
         setLoading(false);
+        setLoadingMore(false);
+        setRefreshing(false);
+        loadingMoreRef.current = false;
       }
     },
     [selectedStatsUser, selectedType, activeDateRange.start, activeDateRange.end, debouncedSearch]
@@ -321,15 +342,26 @@ export default function CallLogsScreen() {
   useEffect(() => {
     setLoading(true);
     setPage(1);
-    fetchLogs(1);
+    loadingMoreRef.current = false;
+    fetchLogs(1, false);
   }, [fetchLogs]);
 
-  const loadMore = () => {
-    if (!hasMore || loading) return;
+  const loadMore = useCallback(() => {
+    if (!hasMore || loading || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
     const nextPage = page + 1;
     setPage(nextPage);
     fetchLogs(nextPage, true);
-  };
+  }, [hasMore, loading, page, fetchLogs]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    setPage(1);
+    loadingMoreRef.current = false;
+    fetchLogs(1, false);
+    fetchStats();
+  }, [fetchLogs, fetchStats]);
 
   const filteredLogs = useMemo(() => {
     const trimmed = searchPhone.trim().toLowerCase();
@@ -372,6 +404,26 @@ export default function CallLogsScreen() {
     return groups.filter((g) => g.data.length > 0);
   }, [filteredLogs]);
 
+  const timelineRows = useMemo<TimelineRow[]>(() => {
+    const rows: TimelineRow[] = [];
+    groupedLogs.forEach((g) => {
+      rows.push({
+        kind: "header",
+        key: `header-${g.title}`,
+        title: g.title,
+        count: g.data.length,
+      });
+      g.data.forEach((log) => {
+        rows.push({
+          kind: "item",
+          key: `log-${log.id}`,
+          log,
+        });
+      });
+    });
+    return rows;
+  }, [groupedLogs]);
+
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -382,7 +434,24 @@ export default function CallLogsScreen() {
   const formatTime = (ts: string) => {
     try {
       const d = new Date(ts);
-      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const now = new Date();
+      const todayStr = now.toDateString();
+      const yesterdayDate = new Date(now);
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+
+      if (d.toDateString() === todayStr) {
+        return `Today, ${timeStr}`;
+      }
+      if (d.toDateString() === yesterdayDate.toDateString()) {
+        return `Yesterday, ${timeStr}`;
+      }
+      const dateStr = d.toLocaleDateString([], {
+        day: "numeric",
+        month: "short",
+        ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+      });
+      return `${dateStr}, ${timeStr}`;
     } catch {
       return ts;
     }
@@ -544,8 +613,8 @@ export default function CallLogsScreen() {
                       card.key === "all"
                         ? "all"
                         : selectedType === card.key
-                        ? "all"
-                        : card.key
+                          ? "all"
+                          : card.key
                     )
                   }
                   style={[
@@ -686,224 +755,254 @@ export default function CallLogsScreen() {
             </View>
           ) : (
             <FlatList
-              data={groupedLogs}
-              keyExtractor={(item) => item.title}
+              data={timelineRows}
+              keyExtractor={(item) => item.key}
+              initialNumToRender={15}
+              maxToRenderPerBatch={15}
+              windowSize={7}
+              removeClippedSubviews={Platform.OS === "android"}
               contentContainerStyle={{
                 paddingHorizontal: Spacing.screenPadding,
-                paddingBottom: Math.max(insets.bottom, 16) + 90, // Leave room for floating dock
+                paddingBottom: Math.max(insets.bottom, 16) + 90,
               }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={t.primary}
+                  colors={[t.primary]}
+                />
+              }
               onEndReached={loadMore}
               onEndReachedThreshold={0.4}
-              renderItem={({ item: group }) => (
-                <View style={styles.groupSection}>
-                  <View style={styles.groupHeaderRow}>
-                    <Text style={[styles.groupHeader, { color: t.textSecondary }]}>
-                      {group.title}
+              ListFooterComponent={
+                <View style={styles.listFooterWrap}>
+                  {loadingMore ? (
+                    <View style={styles.loadingMoreRow}>
+                      <ActivityIndicator size="small" color={t.primary} />
+                      <Text style={[styles.footerMetaText, { color: t.textSecondary }]}>
+                        Loading more calls...
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.footerMetaText, { color: t.textSecondary }]}>
+                      {hasMore
+                        ? `Showing ${filteredLogs.length}${totalCount ? ` of ${totalCount}` : ""} calls · Scroll for more`
+                        : `Showing all ${filteredLogs.length} calls`}
                     </Text>
+                  )}
+                </View>
+              }
+              renderItem={({ item }) => {
+                if (item.kind === "header") {
+                  return (
+                    <View style={[styles.groupHeaderRow, { marginTop: 8 }]}>
+                      <Text style={[styles.groupHeader, { color: t.textSecondary }]}>
+                        {item.title}
+                      </Text>
+                      <View
+                        style={[
+                          styles.groupCountPill,
+                          {
+                            backgroundColor: isDark
+                              ? "rgba(255, 255, 255, 0.06)"
+                              : "rgba(16, 21, 19, 0.06)",
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.groupCountText, { color: t.textSecondary }]}>
+                          {item.count}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                }
+
+                const log = item.log;
+                const isIncoming = log.call_type === "incoming";
+                const isMissed = log.call_type === "missed";
+                const iconColor = isMissed
+                  ? t.danger
+                  : isIncoming
+                    ? t.primary
+                    : isDark
+                      ? "#60A5FA"
+                      : "#2563EB";
+                const iconName = isMissed
+                  ? "close"
+                  : isIncoming
+                    ? "arrow-down"
+                    : "arrow-up";
+
+                const avatarBg = isMissed
+                  ? isDark
+                    ? "rgba(239, 68, 68, 0.16)"
+                    : "rgba(239, 68, 68, 0.12)"
+                  : isIncoming
+                    ? isDark
+                      ? "rgba(16, 185, 129, 0.16)"
+                      : "rgba(0, 168, 121, 0.12)"
+                    : isDark
+                      ? "rgba(59, 130, 246, 0.16)"
+                      : "rgba(59, 130, 246, 0.12)";
+
+                const pillVariant = isMissed
+                  ? "overdue"
+                  : isIncoming
+                    ? "paid"
+                    : "stage_contacted";
+
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.72}
+                    onPress={() => setSelectedCall(log)}
+                    style={[
+                      styles.callRow,
+                      {
+                        backgroundColor: t.surface,
+                        borderColor: t.border,
+                      },
+                      isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
+                    ]}
+                  >
+                    {/* Top Row: Call Icon + Employee & Phone + StatusPill */}
+                    <View style={styles.callTopRow}>
+                      <View style={styles.callIdentityRow}>
+                        <View
+                          style={[
+                            styles.callAvatar,
+                            {
+                              backgroundColor: avatarBg,
+                              borderColor: isMissed
+                                ? "rgba(239, 68, 68, 0.25)"
+                                : isIncoming
+                                  ? "rgba(0, 168, 121, 0.25)"
+                                  : "rgba(59, 130, 246, 0.25)",
+                              borderWidth: 1,
+                            },
+                          ]}
+                        >
+                          <Ionicons name={iconName} size={17} color={iconColor} />
+                        </View>
+
+                        <View style={styles.callDetails}>
+                          <Text
+                            style={[styles.callerName, { color: t.text }]}
+                            numberOfLines={1}
+                          >
+                            {log.username || log.phone_number}
+                          </Text>
+                          <View style={styles.callPhoneRow}>
+                            <Ionicons
+                              name="call-outline"
+                              size={12}
+                              color={t.textSecondary}
+                            />
+                            <Text
+                              style={[styles.callMeta, { color: t.textSecondary }]}
+                              numberOfLines={1}
+                            >
+                              {log.phone_number}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      <StatusPill
+                        label={log.call_type}
+                        variant={pillVariant}
+                        size="small"
+                        showDot={!isMissed}
+                      />
+                    </View>
+
+                    {/* Bottom Meta Well (Oblu CRM Card Pattern) */}
                     <View
                       style={[
-                        styles.groupCountPill,
+                        styles.callMetaWell,
                         {
                           backgroundColor: isDark
+                            ? "rgba(255, 255, 255, 0.03)"
+                            : "rgba(16, 21, 19, 0.03)",
+                          borderColor: isDark
                             ? "rgba(255, 255, 255, 0.06)"
                             : "rgba(16, 21, 19, 0.06)",
                         },
                       ]}
                     >
-                      <Text style={[styles.groupCountText, { color: t.textSecondary }]}>
-                        {group.data.length}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {group.data.map((log) => {
-                    const isIncoming = log.call_type === "incoming";
-                    const isMissed = log.call_type === "missed";
-                    const iconColor = isMissed
-                      ? t.danger
-                      : isIncoming
-                      ? t.primary
-                      : isDark
-                      ? "#60A5FA"
-                      : "#2563EB";
-                    const iconName = isMissed
-                      ? "close"
-                      : isIncoming
-                      ? "arrow-down"
-                      : "arrow-up";
-
-                    const avatarBg = isMissed
-                      ? isDark
-                        ? "rgba(239, 68, 68, 0.16)"
-                        : "rgba(239, 68, 68, 0.12)"
-                      : isIncoming
-                      ? isDark
-                        ? "rgba(16, 185, 129, 0.16)"
-                        : "rgba(0, 168, 121, 0.12)"
-                      : isDark
-                      ? "rgba(59, 130, 246, 0.16)"
-                      : "rgba(59, 130, 246, 0.12)";
-
-                    const pillVariant = isMissed
-                      ? "overdue"
-                      : isIncoming
-                      ? "paid"
-                      : "stage_contacted";
-
-                    return (
-                      <TouchableOpacity
-                        key={log.id}
-                        activeOpacity={0.72}
-                        onPress={() => setSelectedCall(log)}
-                        style={[
-                          styles.callRow,
-                          {
-                            backgroundColor: t.surface,
-                            borderColor: t.border,
-                          },
-                          isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
-                        ]}
-                      >
-                        {/* Top Row: Call Icon + Employee & Phone + StatusPill */}
-                        <View style={styles.callTopRow}>
-                          <View style={styles.callIdentityRow}>
-                            <View
-                              style={[
-                                styles.callAvatar,
-                                {
-                                  backgroundColor: avatarBg,
-                                  borderColor: isMissed
-                                    ? "rgba(239, 68, 68, 0.25)"
-                                    : isIncoming
-                                    ? "rgba(0, 168, 121, 0.25)"
-                                    : "rgba(59, 130, 246, 0.25)",
-                                  borderWidth: 1,
-                                },
-                              ]}
-                            >
-                              <Ionicons name={iconName} size={17} color={iconColor} />
-                            </View>
-
-                            <View style={styles.callDetails}>
-                              <Text
-                                style={[styles.callerName, { color: t.text }]}
-                                numberOfLines={1}
-                              >
-                                {log.username || log.phone_number}
-                              </Text>
-                              <View style={styles.callPhoneRow}>
-                                <Ionicons
-                                  name="call-outline"
-                                  size={12}
-                                  color={t.textSecondary}
-                                />
-                                <Text
-                                  style={[styles.callMeta, { color: t.textSecondary }]}
-                                  numberOfLines={1}
-                                >
-                                  {log.phone_number}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-
-                          <StatusPill
-                            label={log.call_type}
-                            variant={pillVariant}
-                            size="small"
-                            showDot={!isMissed}
+                      <View style={styles.callMetaLeft}>
+                        <View style={styles.callMetaChip}>
+                          <Ionicons
+                            name="time-outline"
+                            size={13}
+                            color={t.textSecondary}
                           />
+                          <Text
+                            style={[
+                              styles.callDurationText,
+                              { color: t.text, fontVariant: ["tabular-nums"] },
+                            ]}
+                          >
+                            {formatDuration(log.duration)}
+                          </Text>
                         </View>
+                        <View style={[styles.metaDot, { backgroundColor: t.border }]} />
+                        <View style={styles.callMetaChip}>
+                          <Ionicons
+                            name="calendar-outline"
+                            size={12}
+                            color={t.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.callTimeText,
+                              { color: t.textSecondary, fontVariant: ["tabular-nums"] },
+                            ]}
+                          >
+                            {formatTime(log.timestamp)}
+                          </Text>
+                        </View>
+                      </View>
 
-                        {/* Bottom Meta Well (Oblu CRM Card Pattern) */}
-                        <View
-                          style={[
-                            styles.callMetaWell,
-                            {
-                              backgroundColor: isDark
-                                ? "rgba(255, 255, 255, 0.03)"
-                                : "rgba(16, 21, 19, 0.03)",
-                              borderColor: isDark
-                                ? "rgba(255, 255, 255, 0.06)"
-                                : "rgba(16, 21, 19, 0.06)",
-                            },
-                          ]}
-                        >
-                          <View style={styles.callMetaLeft}>
-                            <View style={styles.callMetaChip}>
-                              <Ionicons
-                                name="time-outline"
-                                size={13}
-                                color={t.textSecondary}
-                              />
-                              <Text
-                                style={[
-                                  styles.callDurationText,
-                                  { color: t.text, fontVariant: ["tabular-nums"] },
-                                ]}
-                              >
-                                {formatDuration(log.duration)}
-                              </Text>
-                            </View>
-                            <View style={[styles.metaDot, { backgroundColor: t.border }]} />
-                            <View style={styles.callMetaChip}>
-                              <Ionicons
-                                name="calendar-outline"
-                                size={12}
-                                color={t.textSecondary}
-                              />
-                              <Text
-                                style={[
-                                  styles.callTimeText,
-                                  { color: t.textSecondary, fontVariant: ["tabular-nums"] },
-                                ]}
-                              >
-                                {formatTime(log.timestamp)}
-                              </Text>
-                            </View>
-                          </View>
-
-                          <View style={styles.callInspectWrap}>
-                            {log.audio_url ? (
-                              <View
-                                style={{
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                  gap: 3,
-                                  marginRight: 6,
-                                  paddingHorizontal: 6,
-                                  paddingVertical: 2,
-                                  borderRadius: 6,
-                                  backgroundColor: t.primarySurface,
-                                }}
-                              >
-                                <Ionicons name="mic" size={11} color={t.primary} />
-                                <Text
-                                  style={{
-                                    fontSize: 10.5,
-                                    fontFamily: Typography.semiBold,
-                                    color: t.primary,
-                                  }}
-                                >
-                                  Audio
-                                </Text>
-                              </View>
-                            ) : null}
-                            <Text style={[styles.callInspectText, { color: t.primary }]}>
-                              Inspect
+                      <View style={styles.callInspectWrap}>
+                        {log.audio_url ? (
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 3,
+                              marginRight: 6,
+                              paddingHorizontal: 6,
+                              paddingVertical: 2,
+                              borderRadius: 6,
+                              backgroundColor: t.primarySurface,
+                            }}
+                          >
+                            <Ionicons name="mic" size={11} color={t.primary} />
+                            <Text
+                              style={{
+                                fontSize: 10.5,
+                                fontFamily: Typography.semiBold,
+                                color: t.primary,
+                              }}
+                            >
+                              Audio
                             </Text>
-                            <Ionicons
-                              name="chevron-forward"
-                              size={14}
-                              color={t.primary}
-                            />
                           </View>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+                        ) : null}
+                        <Text style={[styles.callInspectText, { color: t.primary }]}>
+                          Inspect
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={14}
+                          color={t.primary}
+                        />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
             />
           )}
         </>
@@ -1600,8 +1699,8 @@ export default function CallLogsScreen() {
                           playbackSpeed === "1x"
                             ? "1.5x"
                             : playbackSpeed === "1.5x"
-                            ? "2x"
-                            : "1x";
+                              ? "2x"
+                              : "1x";
                         setPlaybackSpeed(nextSpeed);
                         const rate = nextSpeed === "1.5x" ? 1.5 : nextSpeed === "2x" ? 2.0 : 1.0;
                         audioPlayer.setPlaybackRate(rate);
@@ -1671,7 +1770,7 @@ export default function CallLogsScreen() {
                     label: "Call Type",
                     value: selectedCall
                       ? selectedCall.call_type.charAt(0).toUpperCase() +
-                        selectedCall.call_type.slice(1)
+                      selectedCall.call_type.slice(1)
                       : "-",
                   },
                   {
@@ -3124,5 +3223,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.screenPadding,
     paddingTop: 12,
     borderTopWidth: 1,
+  },
+  timelinePillsWrap: {
+    marginBottom: 8,
+  },
+  timelinePillsRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.screenPadding,
+    gap: 8,
+    paddingVertical: 2,
+  },
+  listFooterWrap: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingMoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  footerMetaText: {
+    fontSize: 12,
+    fontFamily: Typography.medium,
   },
 });
