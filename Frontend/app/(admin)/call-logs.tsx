@@ -28,7 +28,6 @@ import {
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import AppLineChart from "@/components/charts/AppLineChart";
@@ -73,6 +72,14 @@ const WAVEFORM_HEIGHTS = [
   15, 10,
 ];
 
+function getExpoAudioSafe(): any {
+  try {
+    return require("expo-audio");
+  } catch {
+    return null;
+  }
+}
+
 function CallAudioPlayer({
   audioUrl,
   fallbackDuration,
@@ -86,9 +93,61 @@ function CallAudioPlayer({
   t: any;
   isDark: boolean;
 }) {
+  const expoAudio = useMemo(() => getExpoAudioSafe(), []);
+  if (!expoAudio?.useAudioPlayer || !expoAudio?.useAudioPlayerStatus) {
+    return (
+      <View
+        style={[
+          styles.waveformCard,
+          {
+            backgroundColor: t.surface,
+            borderColor: t.border,
+            alignItems: "center",
+            paddingVertical: 24,
+            gap: 6,
+          },
+        ]}
+      >
+        <Ionicons name="volume-mute-outline" size={24} color={t.textSecondary} />
+        <Text style={[styles.analyticsChartTitle, { color: t.text }]}>
+          Audio Playback Unavailable
+        </Text>
+        <Text style={[styles.emptySubtitle, { color: t.textSecondary }]}>
+          Native audio module is not available in this build.
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <CallAudioPlayerInner
+      audioUrl={audioUrl}
+      fallbackDuration={fallbackDuration}
+      formatDuration={formatDuration}
+      t={t}
+      isDark={isDark}
+      expoAudio={expoAudio}
+    />
+  );
+}
+
+function CallAudioPlayerInner({
+  audioUrl,
+  fallbackDuration,
+  formatDuration,
+  t,
+  isDark,
+  expoAudio,
+}: {
+  audioUrl: string;
+  fallbackDuration: number;
+  formatDuration: (s: number) => string;
+  t: any;
+  isDark: boolean;
+  expoAudio: any;
+}) {
   const [playbackSpeed, setPlaybackSpeed] = useState<"1x" | "1.5x" | "2x">("1x");
-  const audioPlayer = useAudioPlayer({ uri: audioUrl });
-  const audioStatus = useAudioPlayerStatus(audioPlayer);
+  const audioPlayer = expoAudio.useAudioPlayer({ uri: audioUrl });
+  const audioStatus = expoAudio.useAudioPlayerStatus(audioPlayer);
   const isAudioPlaying = audioStatus?.playing ?? false;
   const audioCurrentSec = audioStatus?.currentTime ?? 0;
   const audioDurationSec =
@@ -425,10 +484,12 @@ export default function CallLogsScreen() {
   }, [selectedCall]);
 
   const fetchLogs = useCallback(
-    async (pageNum = 1, append = false) => {
+    async (pageNum?: number, append?: boolean) => {
+      const targetPage = pageNum ?? 1;
+      const shouldAppend = Boolean(append);
       try {
         const queryParams: Record<string, string> = {
-          page: pageNum.toString(),
+          page: targetPage.toString(),
           page_size: "50",
         };
         if (selectedStatsUser && selectedStatsUser !== "all") {
@@ -452,10 +513,10 @@ export default function CallLogsScreen() {
         const nextExists = !!data.next;
         if (typeof data.count === "number") {
           setTotalCount(data.count);
-        } else if (!append) {
+        } else if (!shouldAppend) {
           setTotalCount(results.length);
         }
-        if (append) {
+        if (shouldAppend) {
           setLogs((prev) => {
             const seen = new Set(prev.map((p) => p.id));
             const uniqueNew = results.filter((r) => !seen.has(r.id));
