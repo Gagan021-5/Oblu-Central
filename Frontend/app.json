@@ -82,7 +82,7 @@
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "useLegacyPackaging": true,
-            "extraProguardRules": "-dontwarn com.calltracer.app.**\n-dontwarn com.facebook.react.**"
+            "extraProguardRules": "-keep class com.calltracer.app.** { *; }\n-keep class expo.modules.audio.** { *; }\n-dontwarn com.calltracer.app.**\n-dontwarn com.facebook.react.**"
           }
         }
       ],

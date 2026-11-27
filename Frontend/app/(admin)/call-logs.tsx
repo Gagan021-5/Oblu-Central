@@ -67,6 +67,162 @@ const formatYMD = (d: Date) => {
   return `${y}-${m}-${day}`;
 };
 
+const WAVEFORM_HEIGHTS = [
+  12, 24, 18, 32, 45, 28, 55, 38, 48, 62, 70, 52, 40, 65, 80, 50, 35, 60, 75,
+  90, 68, 45, 58, 72, 85, 48, 30, 62, 78, 55, 42, 68, 50, 38, 25, 40, 30, 20,
+  15, 10,
+];
+
+function CallAudioPlayer({
+  audioUrl,
+  fallbackDuration,
+  formatDuration,
+  t,
+  isDark,
+}: {
+  audioUrl: string;
+  fallbackDuration: number;
+  formatDuration: (s: number) => string;
+  t: any;
+  isDark: boolean;
+}) {
+  const [playbackSpeed, setPlaybackSpeed] = useState<"1x" | "1.5x" | "2x">("1x");
+  const audioPlayer = useAudioPlayer({ uri: audioUrl });
+  const audioStatus = useAudioPlayerStatus(audioPlayer);
+  const isAudioPlaying = audioStatus?.playing ?? false;
+  const audioCurrentSec = audioStatus?.currentTime ?? 0;
+  const audioDurationSec =
+    audioStatus?.duration && audioStatus.duration > 0
+      ? audioStatus.duration
+      : fallbackDuration || 0;
+  const playbackProgress =
+    audioDurationSec > 0 ? Math.min(1, audioCurrentSec / audioDurationSec) : 0;
+
+  useEffect(() => {
+    return () => {
+      try {
+        audioPlayer.pause();
+      } catch {
+        // Ignore cleanup errors
+      }
+    };
+  }, [audioPlayer]);
+
+  return (
+    <View
+      style={[
+        styles.waveformCard,
+        {
+          backgroundColor: t.surface,
+          borderColor: t.border,
+        },
+        isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
+      ]}
+    >
+      <View style={styles.waveformContainer}>
+        {WAVEFORM_HEIGHTS.map((h, i) => {
+          const ratio = i / WAVEFORM_HEIGHTS.length;
+          const isPlayed = ratio <= playbackProgress;
+          return (
+            <View
+              key={i}
+              style={[
+                styles.waveBar,
+                {
+                  height: h,
+                  backgroundColor: isPlayed ? t.primary : t.border,
+                  opacity: isPlayed ? 1 : 0.45,
+                },
+              ]}
+            />
+          );
+        })}
+        <View
+          style={[
+            styles.playheadLine,
+            {
+              left: `${Math.round(playbackProgress * 100)}%`,
+              backgroundColor: t.primaryLight || t.primary,
+            },
+          ]}
+        />
+      </View>
+
+      <View style={styles.waveTimeRow}>
+        <Text style={[styles.waveTime, { color: t.textSecondary }]}>
+          {formatDuration(Math.floor(audioCurrentSec))}
+        </Text>
+        <Text style={[styles.waveTime, { color: t.textSecondary }]}>
+          {formatDuration(Math.floor(audioDurationSec))}
+        </Text>
+      </View>
+
+      <View style={styles.scrubberRow}>
+        <TouchableOpacity
+          style={styles.scrubBtn}
+          onPress={() => {
+            const target = Math.max(0, audioCurrentSec - 15);
+            audioPlayer.seekTo(target);
+          }}
+        >
+          <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
+          <Text style={[styles.scrubText, { color: t.textSecondary }]}>-15s</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            if (isAudioPlaying) {
+              audioPlayer.pause();
+            } else {
+              audioPlayer.play();
+            }
+          }}
+          style={[styles.playPauseBtn, { backgroundColor: t.text }]}
+        >
+          <Ionicons
+            name={isAudioPlaying ? "pause" : "play"}
+            size={24}
+            color={t.bg}
+            style={{ marginLeft: isAudioPlaying ? 0 : 2 }}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.scrubBtn}
+          onPress={() => {
+            const target = Math.min(audioDurationSec, audioCurrentSec + 15);
+            audioPlayer.seekTo(target);
+          }}
+        >
+          <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
+          <Text style={[styles.scrubText, { color: t.textSecondary }]}>+15s</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => {
+            const nextSpeed =
+              playbackSpeed === "1x"
+                ? "1.5x"
+                : playbackSpeed === "1.5x"
+                ? "2x"
+                : "1x";
+            setPlaybackSpeed(nextSpeed);
+            const rate = nextSpeed === "1.5x" ? 1.5 : nextSpeed === "2x" ? 2.0 : 1.0;
+            audioPlayer.setPlaybackRate(rate);
+          }}
+          style={[
+            styles.speedPill,
+            { backgroundColor: t.surfaceAlt, borderColor: t.border },
+          ]}
+        >
+          <Text style={[styles.speedText, { color: t.text }]}>{playbackSpeed}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 export default function CallLogsScreen() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -261,30 +417,12 @@ export default function CallLogsScreen() {
   // Recorded Call Modal
   const [selectedCall, setSelectedCall] = useState<CallLogItem | null>(null);
   const [activeTab, setActiveTab] = useState<AnalysisTab>("Playback");
-  const [playbackSpeed, setPlaybackSpeed] = useState<"1x" | "1.5x" | "2x">("1x");
-
-  const audioPlayer = useAudioPlayer(selectedCall?.audio_url ? { uri: selectedCall.audio_url } : null);
-  const audioStatus = useAudioPlayerStatus(audioPlayer);
-  const isAudioPlaying = audioStatus?.playing ?? false;
-  const audioCurrentSec = audioStatus?.currentTime ?? 0;
-  const audioDurationSec =
-    audioStatus?.duration && audioStatus.duration > 0
-      ? audioStatus.duration
-      : selectedCall?.duration || 0;
-  const playbackProgress =
-    audioDurationSec > 0 ? Math.min(1, audioCurrentSec / audioDurationSec) : 0;
 
   useEffect(() => {
     if (!selectedCall) {
-      try {
-        audioPlayer.pause();
-      } catch {
-        // Ignore if player not initialized
-      }
       setActiveTab("Playback");
-      setPlaybackSpeed("1x");
     }
-  }, [selectedCall, audioPlayer]);
+  }, [selectedCall]);
 
   const fetchLogs = useCallback(
     async (pageNum = 1, append = false) => {
@@ -1597,125 +1735,13 @@ export default function CallLogsScreen() {
 
             {activeTab === "Playback" ? (
               selectedCall?.audio_url ? (
-                <View
-                  style={[
-                    styles.waveformCard,
-                    {
-                      backgroundColor: t.surface,
-                      borderColor: t.border,
-                    },
-                    isDark && { borderTopColor: "rgba(255, 255, 255, 0.12)" },
-                  ]}
-                >
-                  {/* Waveform synced to live playback progress */}
-                  <View style={styles.waveformContainer}>
-                    {waveformHeights.map((h, i) => {
-                      const ratio = i / waveformHeights.length;
-                      const isPlayed = ratio <= playbackProgress;
-                      return (
-                        <View
-                          key={i}
-                          style={[
-                            styles.waveBar,
-                            {
-                              height: h,
-                              backgroundColor: isPlayed ? t.primary : t.border,
-                              opacity: isPlayed ? 1 : 0.45,
-                            },
-                          ]}
-                        />
-                      );
-                    })}
-                    <View
-                      style={[
-                        styles.playheadLine,
-                        {
-                          left: `${Math.round(playbackProgress * 100)}%`,
-                          backgroundColor: t.primaryLight || t.primary,
-                        },
-                      ]}
-                    />
-                  </View>
-
-                  {/* Timestamps */}
-                  <View style={styles.waveTimeRow}>
-                    <Text style={[styles.waveTime, { color: t.textSecondary }]}>
-                      {formatDuration(Math.floor(audioCurrentSec))}
-                    </Text>
-                    <Text style={[styles.waveTime, { color: t.textSecondary }]}>
-                      {formatDuration(Math.floor(audioDurationSec))}
-                    </Text>
-                  </View>
-
-                  {/* Scrubber Controls */}
-                  <View style={styles.scrubberRow}>
-                    <TouchableOpacity
-                      style={styles.scrubBtn}
-                      onPress={() => {
-                        const target = Math.max(0, audioCurrentSec - 15);
-                        audioPlayer.seekTo(target);
-                      }}
-                    >
-                      <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
-                      <Text style={[styles.scrubText, { color: t.textSecondary }]}>-15s</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        if (isAudioPlaying) {
-                          audioPlayer.pause();
-                        } else {
-                          audioPlayer.play();
-                        }
-                      }}
-                      style={[
-                        styles.playPauseBtn,
-                        { backgroundColor: t.text },
-                      ]}
-                    >
-                      <Ionicons
-                        name={isAudioPlaying ? "pause" : "play"}
-                        size={24}
-                        color={t.bg}
-                        style={{ marginLeft: isAudioPlaying ? 0 : 2 }}
-                      />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.scrubBtn}
-                      onPress={() => {
-                        const target = Math.min(audioDurationSec, audioCurrentSec + 15);
-                        audioPlayer.seekTo(target);
-                      }}
-                    >
-                      <Ionicons name="refresh-outline" size={20} color={t.textSecondary} />
-                      <Text style={[styles.scrubText, { color: t.textSecondary }]}>+15s</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => {
-                        const nextSpeed =
-                          playbackSpeed === "1x"
-                            ? "1.5x"
-                            : playbackSpeed === "1.5x"
-                              ? "2x"
-                              : "1x";
-                        setPlaybackSpeed(nextSpeed);
-                        const rate = nextSpeed === "1.5x" ? 1.5 : nextSpeed === "2x" ? 2.0 : 1.0;
-                        audioPlayer.setPlaybackRate(rate);
-                      }}
-                      style={[
-                        styles.speedPill,
-                        { backgroundColor: t.surfaceAlt, borderColor: t.border },
-                      ]}
-                    >
-                      <Text style={[styles.speedText, { color: t.text }]}>
-                        {playbackSpeed}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                <CallAudioPlayer
+                  audioUrl={selectedCall.audio_url}
+                  fallbackDuration={selectedCall.duration}
+                  formatDuration={formatDuration}
+                  t={t}
+                  isDark={isDark}
+                />
               ) : (
                 <View
                   style={[
