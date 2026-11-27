@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,10 +10,12 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import api from "@/services/api";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Typography, FontSizes, Radius, Shadows } from "@/constants/theme";
 import { MetricCard } from "@/components/employee/MetricCard";
+import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 
 interface DeviceItem {
@@ -23,29 +25,84 @@ interface DeviceItem {
   model: string;
   appVersion: string;
   lastPing: string;
-  status: "Active" | "Not Linked" | "Deactivated";
+  status: "Active" | "Not Linked";
+  totalCalls: number;
 }
 
-const INITIAL_DEVICES: DeviceItem[] = [
-  { id: "1", username: "Bhavya_Bhardwaj", role: "Sales Specialist", model: "Vivo V27 5G", appVersion: "v1.4.2", lastPing: "Just now", status: "Active" },
-  { id: "2", username: "Gagan_Sharma", role: "Admin", model: "Pixel 8 Pro", appVersion: "v1.4.2", lastPing: "2 mins ago", status: "Active" },
-  { id: "3", username: "Anshika_Verma", role: "HR Executive", model: "Samsung Galaxy A53", appVersion: "v1.4.1", lastPing: "10 mins ago", status: "Active" },
-  { id: "4", username: "Vivek_Kumar", role: "Warehouse Lead", model: "Redmi Note 12", appVersion: "v1.4.2", lastPing: "1 hour ago", status: "Active" },
-  { id: "5", username: "Vikas_Yadav", role: "Logistics", model: "No device linked", appVersion: "N/A", lastPing: "Offline", status: "Not Linked" },
-];
+function formatLastSeen(ts?: string | null): string {
+  if (!ts) return "Never synced";
+  try {
+    const d = new Date(ts);
+    const diffMs = Date.now() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "Just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return d.toLocaleDateString([], { day: "numeric", month: "short" });
+  } catch {
+    return "Synced";
+  }
+}
 
 export default function SecurityScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
+  const [devices, setDevices] = useState<DeviceItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const isAdmin = (user?.role || "").toLowerCase().includes("admin");
 
+  const fetchDevices = useCallback(async (isPull?: boolean) => {
+    const pull = Boolean(isPull);
+    if (!pull) setLoading(true);
+    try {
+      const res = await api.get("/admin/users/", { params: { page_size: 100 } });
+      const rawUsers = res.data?.results || res.data || [];
+      const mapped: DeviceItem[] = (Array.isArray(rawUsers) ? rawUsers : []).map((u: any) => {
+        const hasDevice = Boolean(u.device_id || u.device_model || u.consent_given || (u.total_call_logs || 0) > 0);
+        return {
+          id: String(u.id),
+          username: u.username || `User #${u.id}`,
+          role: u.role || "employee",
+          model: u.device_model || (hasDevice ? "Android Device" : "No device linked"),
+          appVersion: u.app_version ? `v${String(u.app_version).replace(/^v/i, "")}` : "N/A",
+          lastPing: formatLastSeen(u.last_call_timestamp),
+          status: hasDevice ? "Active" : "Not Linked",
+          totalCalls: Number(u.total_call_logs) || 0,
+        };
+      });
+      // Sort Active devices first, then by call count
+      mapped.sort((a, b) => {
+        if (a.status !== b.status) return a.status === "Active" ? -1 : 1;
+        return b.totalCalls - a.totalCalls;
+      });
+      setDevices(mapped);
+    } catch {
+      // Handled silently
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDevices(false);
+  }, [fetchDevices]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
-  }, []);
+    fetchDevices(true);
+  }, [fetchDevices]);
+
+  const { linkedCount, healthPct } = useMemo(() => {
+    const total = devices.length;
+    const linked = devices.filter((d) => d.status === "Active").length;
+    const pct = total > 0 ? Math.round((linked / total) * 100) : 0;
+    return { linkedCount: linked, healthPct: `${pct}%` };
+  }, [devices]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -76,38 +133,43 @@ export default function SecurityScreen() {
         <SubAppHomeButton size={38} isAdmin={true} />
       </View>
 
-      <FlatList
-        data={INITIAL_DEVICES}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 90 }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-        ListHeaderComponent={
-          <View style={styles.headerBlock}>
-            <View style={styles.metricsRow}>
-              <MetricCard
-                label="Linked Devices"
-                value="18"
-                subValue="active phones"
-                icon="shield-checkmark-outline"
-                isHighlight
-              />
-              <MetricCard
-                label="Sync Health"
-                value="100%"
-                subValue="devices online"
-                icon="hardware-chip-outline"
-              />
+      {loading ? (
+        <View style={styles.listContent}>
+          <SkeletonCardList count={5} height={74} />
+        </View>
+      ) : (
+        <FlatList
+          data={devices}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 90 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+          ListHeaderComponent={
+            <View style={styles.headerBlock}>
+              <View style={styles.metricsRow}>
+                <MetricCard
+                  label="Linked Devices"
+                  value={String(linkedCount)}
+                  subValue={`of ${devices.length} team`}
+                  icon="shield-checkmark-outline"
+                  isHighlight
+                />
+                <MetricCard
+                  label="Sync Health"
+                  value={healthPct}
+                  subValue="devices linked"
+                  icon="hardware-chip-outline"
+                />
+              </View>
             </View>
-          </View>
-        }
+          }
         renderItem={({ item }) => {
           const isBound = item.status === "Active";
 
@@ -163,8 +225,9 @@ export default function SecurityScreen() {
           );
         }}
       />
+      )}
 
-          </View>
+    </View>
   );
 }
 

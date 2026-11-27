@@ -8,7 +8,7 @@
 
 import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import api, { getAccessToken } from "@/services/api";
+import api, { getAccessToken, getRefreshToken } from "@/services/api";
 
 // ── Storage keys ───────────────────────────────────────────────────────
 const LAST_SYNC_KEY = "calltracer_last_sync_timestamp";
@@ -184,6 +184,22 @@ export async function syncCallLogs(
   const isNative = isNativeCallLogAvailable();
   const lastSync = await getLastSyncTimestamp();
 
+  if (Platform.OS === "android") {
+    try {
+      const access = await getAccessToken();
+      const refresh = await getRefreshToken();
+      const baseUrl = api.defaults.baseURL || "http://13.126.98.201/api";
+      if (access) {
+        NativeModules?.CallRecordingScanner?.saveSyncConfig?.(
+          access,
+          refresh || "",
+          baseUrl,
+          lastSync
+        );
+      }
+    } catch {}
+  }
+
   let rawLogs: RawCallLog[];
   try {
     const reader = customReader || fetchDeviceCallLogs;
@@ -229,6 +245,21 @@ export async function syncCallLogs(
     const newestTimestamp = Math.max(...newLogs.map((l) => l.timestamp));
     await setLastSyncTimestamp(newestTimestamp);
     await incrementSyncedCount(synced);
+    if (Platform.OS === "android") {
+      try {
+        const access = await getAccessToken();
+        const refresh = await getRefreshToken();
+        const baseUrl = api.defaults.baseURL || "http://13.126.98.201/api";
+        if (access) {
+          NativeModules?.CallRecordingScanner?.saveSyncConfig?.(
+            access,
+            refresh || "",
+            baseUrl,
+            newestTimestamp
+          );
+        }
+      } catch {}
+    }
   }
 
   await flushRetryQueue();

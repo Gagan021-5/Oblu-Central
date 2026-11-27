@@ -2,6 +2,7 @@
 
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import * as SecureStore from "expo-secure-store";
+import { NativeModules, Platform } from "react-native";
 import { router } from "expo-router";
 
 const DEFAULT_API_BASE_URL = "http://13.126.98.201/api";
@@ -48,11 +49,26 @@ export async function saveTokens(
 ): Promise<void> {
   await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, access);
   await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refresh);
+  if (Platform.OS === "android") {
+    try {
+      NativeModules?.CallRecordingScanner?.saveSyncConfig?.(
+        access,
+        refresh,
+        API_BASE_URL,
+        0
+      );
+    } catch {}
+  }
 }
 
 export async function clearTokens(): Promise<void> {
   await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
   await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+  if (Platform.OS === "android") {
+    try {
+      NativeModules?.CallRecordingScanner?.clearSyncConfig?.();
+    } catch {}
+  }
 }
 
 // ── Axios instance ─────────────────────────────────────────────────────
