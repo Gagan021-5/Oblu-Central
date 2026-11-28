@@ -340,42 +340,6 @@ export default function IncentivesScreen() {
         <SubAppHomeButton size={38} />
       </View>
 
-      {/* Role Navigation Tabs if RSM or Sales Head */}
-      {(isRsm || isSalesHead) && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
-          <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: "#159A7C" }}>
-            <Text style={{ fontFamily: Typography.bold, fontSize: 12, color: "#FFFFFF" }}>My Paid</Text>
-          </View>
-          {isRsm && (
-            <TouchableOpacity
-              onPress={() => router.push("/(employee)/customers/tool/rsm-incentives" as any)}
-              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB", borderWidth: 1, borderColor: t.border }}
-            >
-              <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>RSM Team</Text>
-            </TouchableOpacity>
-          )}
-          {isSalesHead && (
-            <TouchableOpacity
-              onPress={() => router.push("/(employee)/customers/tool/sales-head-incentives" as any)}
-              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB", borderWidth: 1, borderColor: t.border }}
-            >
-              <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>Sales Head</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={() => router.push("/(employee)/customers/tool/voucher-approvals" as any)}
-            style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB", borderWidth: 1, borderColor: t.border }}
-          >
-            <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>Voucher Approvals</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/(employee)/customers/tool/cross-selling" as any)}
-            style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB", borderWidth: 1, borderColor: t.border }}
-          >
-            <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>Cross-Selling</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      )}
 
       {/* Switch Salesperson for Admin/Sales Head */}
       {salespersons.length > 1 && (
