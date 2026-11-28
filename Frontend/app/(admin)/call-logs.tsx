@@ -33,6 +33,8 @@ import api, { getAccessToken } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import AppLineChart from "@/components/charts/AppLineChart";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAdminUser } from "@/services/permissionService";
 import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
 import { SearchBar } from "@/components/ui/SearchBar";
@@ -312,6 +314,9 @@ export default function CallLogsScreen() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const loadingMoreRef = useRef(false);
   const [selectedType, setSelectedType] = useState<FilterType>("all");
+  const { user, permissionProfile } = useAuth();
+  const isAdm = isAdminUser(user, permissionProfile);
+
   const [searchPhone, setSearchPhone] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -705,7 +710,7 @@ export default function CallLogsScreen() {
       >
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(admin)/users"))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace(isAdm ? "/(admin)/users" : "/(employee)"))}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={22} color={t.text} />
@@ -714,7 +719,7 @@ export default function CallLogsScreen() {
           Calls & Tracking
         </Text>
         <View style={styles.topBarRight}>
-          <SubAppHomeButton size={38} isAdmin={true} />
+          <SubAppHomeButton size={38} isAdmin={isAdm} />
         </View>
       </View>
 

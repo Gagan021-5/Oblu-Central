@@ -48,7 +48,13 @@ import {
   AllowedApp,
   UserPermissionProfile,
   DEFAULT_ALLOWED_APPS,
+  hasTeamHierarchy,
+  isAdminUser,
 } from "@/services/permissionService";
+import {
+  getMaintenanceRoute,
+  isSubAppUnderMaintenance,
+} from "@/constants/maintenance";
 import {
   fetchHRMSDashboardApi,
   fetchHRMSEmployeesApi,
@@ -118,13 +124,7 @@ export default function EmployeeHomeScreen() {
     );
   }, [user]);
 
-  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
-    const uName = ((user as any)?.username || "").toLowerCase();
-    const uRole = ((user as any)?.role || "").toLowerCase();
-    return uName.includes("vanshika") || uName.includes("anshika") || uRole.includes("hr")
-      ? "hrms"
-      : "all";
-  });
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   const openSubApp = (appId: string) => {
     triggerLightHaptic();
@@ -133,15 +133,14 @@ export default function EmployeeHomeScreen() {
       return;
     }
 
+    if (isSubAppUnderMaintenance(appId)) {
+      router.push(getMaintenanceRoute(appId) as any);
+      return;
+    }
+
     const routes: Record<string, string> = {
       customers: "/(employee)/customers/dashboard",
-      calls: "/(user)/status",
-      leads: "/(employee)/leads",
-      hrms: "/(employee)/hrms",
-      inventory: "/(employee)/inventory",
-      proforma: "/(employee)/proforma",
-      incentives: "/(employee)/incentives",
-      security: "/(employee)/security",
+      calls: hasTeamHierarchy(user, userProfile) ? "/(admin)/call-logs" : "/(user)/status",
     };
     const route = routes[appId];
     if (route) {
@@ -149,13 +148,7 @@ export default function EmployeeHomeScreen() {
     }
   };
 
-  const [allowedApps, setAllowedApps] = useState<AllowedApp[]>(() => {
-    const uName = ((user as any)?.username || "").toLowerCase();
-    const uRole = ((user as any)?.role || "").toLowerCase();
-    return uName.includes("vanshika") || uName.includes("anshika") || uRole.includes("hr")
-      ? [{ id: "hrms", label: "HRMS", icon: "briefcase" }]
-      : DEFAULT_ALLOWED_APPS;
-  });
+  const [allowedApps, setAllowedApps] = useState<AllowedApp[]>(DEFAULT_ALLOWED_APPS);
   const [userProfile, setUserProfile] = useState<UserPermissionProfile | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -470,7 +463,7 @@ export default function EmployeeHomeScreen() {
     router.push("/(employee)/profile" as any);
   };
 
-  const isAdmin = user?.role?.toLowerCase() === "admin" || userProfile?.user?.role?.toLowerCase() === "admin";
+  const isAdmin = isAdminUser(user, userProfile);
 
   const getAppAccent = (id: string) => {
     switch (id) {

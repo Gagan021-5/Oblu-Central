@@ -16,7 +16,7 @@ import { PieChart } from "react-native-chart-kit";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { hasPermission, hasRole } from "@/services/permissionService";
+import { hasPermission, hasRole, hasTeamHierarchy, isAdminUser as checkIsAdmin } from "@/services/permissionService";
 import {
   DashboardStats,
   CustomerChartsData,
@@ -81,27 +81,57 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
 
   const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
   const userIsSuperuser =
+    checkIsAdmin(user, permissionProfile) ||
     roleText.includes("superuser") ||
-    (user?.permissions || []).includes("*") ||
-    (permissionProfile?.permissions || []).includes("*") ||
-    hasRole(permissionProfile, "admin") ||
-    roleText.includes("admin") ||
     isAdmin;
 
-  const isFinance = roleText.includes("finance") || hasRole(permissionProfile, "finance");
+  const isFinance = roleText.includes("finance") || roleText.includes("account") || hasRole(permissionProfile, "finance") || hasRole(permissionProfile, "accounts_operations");
 
   const userHasRole = useCallback(
     (role: string) => {
       const r = role.toLowerCase();
       if (userIsSuperuser) return true;
       if (r === "finance" && isFinance) return true;
-      if (r === "sales_head" && (isFinance || roleText.includes("sales head") || roleText.includes("sales_head") || hasRole(permissionProfile, "sales_head"))) return true;
-      if (r === "business" && (isFinance || roleText.includes("business") || hasRole(permissionProfile, "business"))) return true;
+      if (r === "accounts_operations" && isFinance) return true;
+      if (
+        r === "sales_head" &&
+        (isFinance ||
+          roleText.includes("sales head") ||
+          roleText.includes("sales_head") ||
+          roleText.includes("sales_mgr") ||
+          hasRole(permissionProfile, "sales_head") ||
+          hasPermission(permissionProfile, "incentive.view_all"))
+      )
+        return true;
+      if (
+        r === "business" &&
+        (isFinance ||
+          roleText.includes("business") ||
+          roleText.includes("buss_mgr") ||
+          hasRole(permissionProfile, "business"))
+      )
+        return true;
       if (r === "admin" && (userIsSuperuser || isFinance)) return true;
-      if (r === "rsm" && (roleText.includes("rsm") || roleText.includes("regional sales manager") || hasRole(permissionProfile, "rsm"))) return true;
+      if (
+        r === "rsm" &&
+        (roleText.includes("rsm") ||
+          roleText.includes("regional sales manager") ||
+          hasRole(permissionProfile, "rsm") ||
+          hasPermission(permissionProfile, "incentive.view_team") ||
+          hasTeamHierarchy(user, permissionProfile))
+      )
+        return true;
+      if (
+        r === "salesperson" &&
+        (roleText.includes("sales") ||
+          roleText.includes("asm") ||
+          roleText.includes("rsm") ||
+          hasPermission(permissionProfile, "customer.view"))
+      )
+        return true;
       return hasRole(permissionProfile, role);
     },
-    [userIsSuperuser, isFinance, roleText, permissionProfile]
+    [userIsSuperuser, isFinance, roleText, permissionProfile, user]
   );
 
   const can = useCallback(
@@ -628,8 +658,6 @@ export default function CustomerWorkspaceScreen({ isAdmin = false }: { isAdmin?:
               open(
                 isAdmin && item.title === "Customer Directory"
                   ? "/(admin)/customers"
-                  : isAdmin && item.title === "My Incentives"
-                  ? "/(admin)/incentives"
                   : item.route
               )
             }

@@ -51,6 +51,10 @@ import { SubAppCard } from "@/components/employee/SubAppCard";
 import { ActionSpotlightBanner } from "@/components/employee/ActionSpotlightBanner";
 import { SubAppLogo } from "@/components/employee/SubAppLogo";
 import { SearchBar } from "@/components/ui/SearchBar";
+import {
+  getMaintenanceRoute,
+  isSubAppUnderMaintenance,
+} from "@/constants/maintenance";
 import { triggerLightHaptic } from "@/utils/haptics";
 import { GlobalSearchResults } from "@/components/ui/GlobalSearchResults";
 import {
@@ -139,6 +143,10 @@ export default function UsersScreen() {
 
   const handleMetricCardPress = (metricId: "staff" | "calls" | "customers" | "leaves", route: string) => {
     triggerLightHaptic();
+    if (metricId === "staff" || metricId === "leaves") {
+      router.push(getMaintenanceRoute(metricId === "staff" ? "security" : "hrms") as any);
+      return;
+    }
     setLastActiveMetric(metricId);
     AsyncStorage.setItem("@oblu_last_admin_metric", metricId).catch(() => {});
     router.push(route as any);
@@ -148,6 +156,11 @@ export default function UsersScreen() {
     triggerLightHaptic();
     if (appId === "all") {
       setSelectedCategory("all");
+      return;
+    }
+
+    if (isSubAppUnderMaintenance(appId)) {
+      router.push(getMaintenanceRoute(appId) as any);
       return;
     }
 

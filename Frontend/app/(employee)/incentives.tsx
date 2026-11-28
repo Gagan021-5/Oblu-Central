@@ -28,6 +28,7 @@ import { SkeletonCardList } from "@/components/ui/SkeletonCard";
 import { triggerLightHaptic, triggerSelectionHaptic } from "@/utils/haptics";
 import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
 import { isSalespersonActive } from "@/constants/salespeople";
+import { hasPermission, hasTeamHierarchy, isAdminUser } from "@/services/permissionService";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -232,7 +233,7 @@ export default function IncentivesScreen() {
   const insets = useSafeAreaInsets();
   const { t, isDark } = useEmployeeTheme();
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, permissionProfile } = useAuth();
   const [reportMonth, setReportMonth] = useState(() => new Date());
   const monthKey = `${reportMonth.getFullYear()}-${String(reportMonth.getMonth() + 1).padStart(2, "0")}`;
   const monthLabel = reportMonth.toLocaleString("default", { month: "long", year: "numeric" });
@@ -249,9 +250,20 @@ export default function IncentivesScreen() {
   const [error, setError] = useState("");
 
   const roleText = ((user?.role || "") + " " + ((user as any)?.roles || []).map((r: any) => r.key || r.name).join(" ")).toLowerCase();
-  const isAdminOrSuper = (user as any)?.is_superuser || roleText.includes("admin");
-  const isRsm = isAdminOrSuper || roleText.includes("rsm") || roleText.includes("manager");
-  const isSalesHead = isAdminOrSuper || roleText.includes("sales_head") || roleText.includes("head") || (user?.username || "").toLowerCase().includes("bhavya") || (user?.username || "").toLowerCase().includes("vibhuti");
+  const isAdminOrSuper = isAdminUser(user, permissionProfile);
+  const isRsm =
+    isAdminOrSuper ||
+    roleText.includes("rsm") ||
+    roleText.includes("manager") ||
+    hasPermission(permissionProfile, "incentive.view_team") ||
+    hasTeamHierarchy(user, permissionProfile);
+  const isSalesHead =
+    isAdminOrSuper ||
+    roleText.includes("sales_head") ||
+    roleText.includes("sales_mgr") ||
+    roleText.includes("head") ||
+    roleText.includes("business") ||
+    hasPermission(permissionProfile, "incentive.view_all");
 
   const load = useCallback(async () => {
     setError("");
@@ -350,6 +362,12 @@ export default function IncentivesScreen() {
               <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>Sales Head</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            onPress={() => router.push("/(employee)/customers/tool/voucher-approvals" as any)}
+            style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB", borderWidth: 1, borderColor: t.border }}
+          >
+            <Text style={{ fontFamily: Typography.medium, fontSize: 12, color: foreground }}>Voucher Approvals</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/(employee)/customers/tool/cross-selling" as any)}
             style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB", borderWidth: 1, borderColor: t.border }}

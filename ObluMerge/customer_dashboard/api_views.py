@@ -995,10 +995,25 @@ class CustomerWorkspaceToolsView(APIView):
 
     @staticmethod
     def _role_keys(user):
+        keys = set()
         try:
-            return {assignment.role.role_key.lower() for assignment in user.employee_profile.role_assignments.filter(is_active=True)}
+            for assignment in user.employee_profile.role_assignments.filter(is_active=True):
+                if assignment.is_currently_valid():
+                    keys.add(assignment.role.role_key.lower())
         except Exception:
-            return set()
+            pass
+        try:
+            sp = SalesPerson.objects.filter(user=user).first()
+            if sp and getattr(sp, "role", None):
+                keys.add(sp.role.strip().lower().replace(" ", "_"))
+        except Exception:
+            pass
+        try:
+            if getattr(user, "role", None):
+                keys.add(user.role.strip().lower().replace(" ", "_"))
+        except Exception:
+            pass
+        return keys
 
     @classmethod
     def _has_role(cls, user, *keys):
@@ -1717,7 +1732,12 @@ class CustomerWorkspaceToolsView(APIView):
                 .select_related("customer", "customer__salesperson", "voucher", "claim_requested_by")
             )
             if not is_management and sp:
-                qs = qs.filter(customer__salesperson=sp)
+                from access_control.roles import get_accessible_salesperson_ids
+                accessible_sp_ids = get_accessible_salesperson_ids(request.user)
+                if accessible_sp_ids:
+                    qs = qs.filter(customer__salesperson_id__in=accessible_sp_ids)
+                else:
+                    qs = qs.filter(customer__salesperson=sp)
 
             return Response([
                 {
@@ -1864,8 +1884,11 @@ class CustomerWorkspaceToolsView(APIView):
                 return Response({"error": "Permission denied."}, status=403)
 
             row = get_object_or_404(CustomerVoucherStatus, pk=request.data.get("id"), claim_status="PENDING")
-            if not is_management and sp and row.customer.salesperson_id != sp.id:
-                return Response({"error": "You can only approve or reject claims for your own customers."}, status=403)
+            if not is_management and sp:
+                from access_control.roles import get_accessible_salesperson_ids
+                accessible_sp_ids = set(get_accessible_salesperson_ids(request.user))
+                if row.customer.salesperson_id not in accessible_sp_ids and row.customer.salesperson_id != sp.id:
+                    return Response({"error": "You can only approve or reject claims for your own team's customers."}, status=403)
 
             action = request.data.get("action")
             if action not in {"approve", "reject"}:

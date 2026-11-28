@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, usePathname, useGlobalSearchParams } from "expo-router";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { hasTeamHierarchy, isAdminUser } from "@/services/permissionService";
+import { getMaintenanceRoute, isSubAppUnderMaintenance } from "@/constants/maintenance";
 import { Typography, FontSizes, Shadows } from "@/constants/theme";
 import { triggerSelectionHaptic, triggerLightHaptic } from "@/utils/haptics";
 
@@ -103,7 +105,7 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
-  const { user } = useAuth();
+  const { user, permissionProfile } = useAuth();
   const pathname = usePathname();
   const params = useGlobalSearchParams<{ tab?: string }>();
   const activeTabParam = params.tab || "dashboard";
@@ -125,32 +127,29 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = ({
     outputRange: ["0deg", "45deg"],
   });
 
-  const isAdmin = useMemo(() => {
-    const r = (user?.role || "").toLowerCase();
-    const u = (user?.username || "").toLowerCase();
-    return (
-      r === "admin" ||
-      r.includes("admin") ||
-      r.includes("director") ||
-      u === "infected" ||
-      u === "akshay_narayan" ||
-      u === "nitin_aggarwal" ||
-      u === "abhijay"
-    );
-  }, [user]);
+  const isAdmin = useMemo(
+    () => isAdminUser(user, permissionProfile),
+    [user, permissionProfile]
+  );
 
-  // Check if current user is HR persona (vanshika, anshika, or role HR)
+  const canViewTeamCalls = useMemo(
+    () => hasTeamHierarchy(user, permissionProfile),
+    [user, permissionProfile]
+  );
+
+  // Check if current user has HR role/permissions (no hardcoded usernames)
   const isHR = useMemo(() => {
-    const role = ((user as any)?.role || "").toLowerCase();
-    const username = ((user as any)?.username || "").toLowerCase();
+    const role = (user?.role || "").toLowerCase();
+    const roles = permissionProfile?.roles ?? user?.roles ?? [];
+    const perms = permissionProfile?.permissions ?? user?.permissions ?? [];
     return (
       role.includes("hr") ||
       role.includes("human resource") ||
       role.includes("people ops") ||
-      username.includes("vanshika") ||
-      username.includes("anshika")
+      roles.some((r) => r.key.toLowerCase() === "hr" || r.name.toLowerCase().includes("hr")) ||
+      perms.includes("hrms.admin")
     );
-  }, [user]);
+  }, [user, permissionProfile]);
 
   // Route active checks
   const isHome =
@@ -211,8 +210,8 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = ({
       iconInactive: "call-outline",
       isActive: isCalls,
       onPress: () => {
-        if (isAdmin) {
-          router.replace("/(admin)/call-logs" as any);
+        if (canViewTeamCalls) {
+          if (!isCalls) router.replace("/(admin)/call-logs" as any);
         } else if (!isCalls) {
           router.replace({ pathname: "/(user)/status", params: { from: "workspace" } } as any);
         }
@@ -243,7 +242,11 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = ({
       iconInactive: "briefcase-outline",
       isActive: isHome,
       onPress: () => {
-        router.replace({ pathname: "/(employee)", params: { tab: "dashboard" } } as any);
+        if (isSubAppUnderMaintenance("hrms")) {
+          router.push(getMaintenanceRoute("hrms") as any);
+        } else {
+          router.replace({ pathname: "/(employee)", params: { tab: "dashboard" } } as any);
+        }
       },
     },
     {
@@ -253,7 +256,11 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = ({
       iconInactive: "people-outline",
       isActive: isStaffActive,
       onPress: () => {
-        router.replace({ pathname: "/(employee)", params: { tab: "staff" } } as any);
+        if (isSubAppUnderMaintenance("hrms")) {
+          router.push(getMaintenanceRoute("security") as any);
+        } else {
+          router.replace({ pathname: "/(employee)", params: { tab: "staff" } } as any);
+        }
       },
     },
     {
@@ -263,7 +270,9 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = ({
       iconInactive: "call-outline",
       isActive: isCalls,
       onPress: () => {
-        if (!isCalls) {
+        if (canViewTeamCalls) {
+          if (!isCalls) router.replace("/(admin)/call-logs" as any);
+        } else if (!isCalls) {
           router.replace({ pathname: "/(user)/status", params: { from: "workspace" } } as any);
         }
       },

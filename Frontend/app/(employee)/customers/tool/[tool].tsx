@@ -74,40 +74,44 @@ export default function CustomerToolScreen() {
   const { user, permissionProfile } = useAuth();
   const roleText = `${user?.role || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
   const isSuperuser =
+    Boolean(user?.is_admin || permissionProfile?.is_admin) ||
     roleText.includes("superuser") ||
     (user?.permissions || []).includes("*") ||
     (permissionProfile?.permissions || []).includes("*");
-  const isFinance = roleText.includes("finance") || hasRole(permissionProfile, "finance");
+  const isFinance = roleText.includes("finance") || roleText.includes("account") || hasRole(permissionProfile, "finance") || hasRole(permissionProfile, "accounts_operations");
   const userHasRole = (role: string) => {
     if (isSuperuser || isFinance) return true;
     return (
       hasRole(permissionProfile, role) ||
-      (role === "rsm" && (roleText.includes("rsm") || roleText.includes("regional sales manager"))) ||
-      (role === "sales_head" && (roleText.includes("sales head") || roleText.includes("sales_head") || roleText.includes("finance"))) ||
-      (role === "business" && (roleText.includes("business") || roleText.includes("finance"))) ||
+      (role === "rsm" &&
+        (roleText.includes("rsm") ||
+          roleText.includes("regional sales manager") ||
+          hasPermission(permissionProfile, "incentive.view_team") ||
+          (permissionProfile?.hierarchy_scope?.subordinates?.length ?? 0) > 0)) ||
+      (role === "sales_head" &&
+        (roleText.includes("sales head") ||
+          roleText.includes("sales_head") ||
+          roleText.includes("sales_mgr") ||
+          hasPermission(permissionProfile, "incentive.view_all"))) ||
+      (role === "business" && (roleText.includes("business") || roleText.includes("buss_mgr"))) ||
       (role === "admin" && (roleText.includes("admin") || isSuperuser))
     );
   };
   const isAdminUser = isSuperuser || isFinance || userHasRole("admin") || roleText.includes("admin");
   const isAccountant = isFinance || userHasRole("accountant") || roleText.includes("accountant");
 
-  // Strict RBAC: Only Business Manager (vibhuti_), Sales Head (bhavya), and Admins can assign customers
   const canAssignCustomers = useMemo(() => {
-    const u = (user?.username || "").toLowerCase().trim();
     const r = `${user?.role || ""} ${user?.roleKey || ""} ${permissionProfile?.user.role || ""}`.toLowerCase();
     const allRoles = (user?.roles || []).map((item) => (item.key || item.name || "").toLowerCase());
-
-    const isVibhuti = u.includes("vibhuti") || r.includes("business") || allRoles.some((rk) => rk.includes("business"));
-    const isBhavya = u.includes("bhavya") || r.includes("sales_head") || allRoles.some((rk) => rk.includes("sales_head"));
-    const isAdmin =
+    return (
       isAdminUser ||
       isSuperuser ||
-      r.includes("admin") ||
-      u === "infected" ||
-      u === "admin" ||
-      (user?.permissions || []).includes("*");
-
-    return isVibhuti || isBhavya || isAdmin;
+      r.includes("business") ||
+      r.includes("sales_head") ||
+      r.includes("sales head") ||
+      allRoles.some((rk) => rk.includes("business") || rk.includes("sales_head")) ||
+      hasPermission(permissionProfile, "customer.view_all")
+    );
   }, [user, permissionProfile, isAdminUser, isSuperuser]);
 
   const accessByTool: Record<string, boolean> = {
@@ -115,8 +119,17 @@ export default function CustomerToolScreen() {
     "payment-followups": isAdminUser || hasPermission(permissionProfile, "payment.view"),
     "monthly-sales": true,
     "my-incentives": true,
-    "rsm-incentives": isAdminUser || isAccountant || userHasRole("rsm") || userHasRole("sales_head"),
-    "sales-head-incentives": isAdminUser || userHasRole("sales_head") || userHasRole("business"),
+    "rsm-incentives":
+      isAdminUser ||
+      isAccountant ||
+      userHasRole("rsm") ||
+      userHasRole("sales_head") ||
+      hasPermission(permissionProfile, "incentive.view_team"),
+    "sales-head-incentives":
+      isAdminUser ||
+      userHasRole("sales_head") ||
+      userHasRole("business") ||
+      hasPermission(permissionProfile, "incentive.view_all"),
     "cross-selling": true,
     "voucher-approvals":
       isAdminUser ||
@@ -2974,11 +2987,6 @@ export default function CustomerToolScreen() {
               ]}
               activeOpacity={0.75}
             >
-              <Ionicons
-                name="wallet-outline"
-                size={14}
-                color={tool === "my-incentives" ? "#FFFFFF" : muted}
-              />
               <Text
                 style={[
                   styles.incentiveNavPillText,
@@ -2997,16 +3005,11 @@ export default function CustomerToolScreen() {
                 style={[
                   styles.incentiveNavPill,
                   tool === "rsm-incentives"
-                    ? { backgroundColor: "#0EA5E9" }
+                    ? { backgroundColor: "#159A7C" }
                     : [card, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }],
                 ]}
                 activeOpacity={0.75}
               >
-                <Ionicons
-                  name="people-outline"
-                  size={14}
-                  color={tool === "rsm-incentives" ? "#FFFFFF" : muted}
-                />
                 <Text
                   style={[
                     styles.incentiveNavPillText,
@@ -3026,16 +3029,11 @@ export default function CustomerToolScreen() {
                 style={[
                   styles.incentiveNavPill,
                   tool === "sales-head-incentives"
-                    ? { backgroundColor: "#10B981" }
+                    ? { backgroundColor: "#159A7C" }
                     : [card, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }],
                 ]}
                 activeOpacity={0.75}
               >
-                <Ionicons
-                  name="git-network-outline"
-                  size={14}
-                  color={tool === "sales-head-incentives" ? "#FFFFFF" : muted}
-                />
                 <Text
                   style={[
                     styles.incentiveNavPillText,
@@ -3059,11 +3057,6 @@ export default function CustomerToolScreen() {
               ]}
               activeOpacity={0.75}
             >
-              <Ionicons
-                name="grid-outline"
-                size={14}
-                color={tool === "cross-selling" ? "#FFFFFF" : muted}
-              />
               <Text
                 style={[
                   styles.incentiveNavPillText,
@@ -3240,7 +3233,7 @@ export default function CustomerToolScreen() {
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <MetricCard
-                  label="Qualifying Customers"
+                  label="Qualifying"
                   value={crossSellingStats?.total_qualifying ?? (loading ? "…" : visibleRows.length)}
                   subValue={loading && !crossSellingStats ? "Loading summary…" : `${crossSellingStats?.active_count ?? visibleRows.filter((r) => r.is_active).length} Active · ${crossSellingStats?.inactive_count ?? visibleRows.filter((r) => !r.is_active).length} Inactive`}
                   icon="people-outline"
@@ -3251,7 +3244,6 @@ export default function CustomerToolScreen() {
                   value={crossSellingStats?.fully_converted ?? (loading ? "…" : visibleRows.filter((r) => (r.bought_count || r.bought) === 5).length)}
                   subValue="Bought all 5 categories"
                   icon="checkmark-circle-outline"
-                  isHighlight
                 />
               </View>
               <View style={{ flexDirection: "row", gap: 8 }}>
@@ -3260,14 +3252,12 @@ export default function CustomerToolScreen() {
                   value={crossSellingStats?.cross_sell_opportunities ?? (loading ? "…" : visibleRows.filter((r) => (r.bought_count || r.bought) < 5).length)}
                   subValue="1–4 categories bought"
                   icon="cart-outline"
-                  isHighlight
                 />
                 <MetricCard
                   label="Conversion Rate"
                   value={loading && !crossSellingStats ? "…" : crossSellingStats?.total_qualifying ? `${Math.round(((crossSellingStats.fully_converted || 0) / crossSellingStats.total_qualifying) * 100)}%` : "0%"}
                   subValue="Portfolio coverage"
                   icon="trending-up-outline"
-                  isHighlight
                 />
               </View>
             </View>

@@ -34,7 +34,7 @@ from .models import CallLog, CallStats, CallTrackingProfile, normalize_phone
 from .permissions import CanAccessCallTracking, IsAdminRole
 from access_control.roles import is_admin, get_subordinate_salesperson_ids
 from access_control.hierarchy import get_downline_user_ids
-from access_control.services import can
+from access_control.services import get_user_effective_permissions
 from .serializers import (
     CallLogSerializer,
     CallLogSyncSerializer,
@@ -226,7 +226,12 @@ def _get_visible_call_users(user):
     - Managers (HRMS downline or SalesPerson downline) -> self + downline user IDs
     - Individual -> self only
     """
-    if is_admin(user) or can(user, "call_logs.view", scope="all") or can(user, "*"):
+    effective = get_user_effective_permissions(user)
+    if (
+        is_admin(user)
+        or "*" in effective
+        or "all" in effective.get("call_logs.view", set())
+    ):
         return User.objects.filter(is_staff=False, is_superuser=False)
 
     visible_ids = {user.id}
