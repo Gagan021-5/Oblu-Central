@@ -46,56 +46,24 @@
     z-index: 2;
 }
 
-/* ── Face Guide Target Oval ─────────────────────────────────── */
-.kiosk-guide-container {
+/* ── Subtle Wide-View Corner Accents (No restrictive oval mask) ── */
+.kiosk-wide-frame {
     position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    inset: 14px;
+    border: 1.5px dashed rgba(148, 163, 184, 0.25);
+    border-radius: 14px;
     pointer-events: none;
     z-index: 3;
+    transition: border-color 0.25s ease;
 }
-.kiosk-target-oval {
-    width: 230px;
-    height: 300px;
-    border-radius: 50%;
-    border: 3px solid #ef4444; /* Default: Red */
-    box-shadow: 0 0 0 2000px rgba(2, 6, 23, 0.45), 0 0 20px rgba(239, 68, 68, 0.4);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-}
-.kiosk-target-oval.amber {
-    border-color: #f59e0b;
-    box-shadow: 0 0 0 2000px rgba(2, 6, 23, 0.4), 0 0 25px rgba(245, 158, 11, 0.45);
-}
-.kiosk-target-oval.green {
-    border-color: #10b981;
-    box-shadow: 0 0 0 2000px rgba(2, 6, 23, 0.35), 0 0 35px rgba(16, 185, 129, 0.6);
-    animation: oval-pulse 1.8s ease-in-out infinite;
-}
-@keyframes oval-pulse {
-    0%, 100% { transform: scale(1); box-shadow: 0 0 0 2000px rgba(2, 6, 23, 0.35), 0 0 25px rgba(16, 185, 129, 0.5); }
-    50%      { transform: scale(1.02); box-shadow: 0 0 0 2000px rgba(2, 6, 23, 0.35), 0 0 40px rgba(16, 185, 129, 0.75); }
-}
-
-/* Corner bracket accents on the guide */
-.kiosk-target-oval::before,
-.kiosk-target-oval::after {
-    content: '';
-    position: absolute;
-    width: 24px;
-    height: 24px;
-    border: 3px solid currentColor;
-    opacity: 0.8;
-}
-.kiosk-target-oval::before { top: 15%; left: -6px; border-right: 0; border-bottom: 0; border-radius: 6px 0 0 0; }
-.kiosk-target-oval::after  { bottom: 15%; right: -6px; border-left: 0; border-top: 0; border-radius: 0 0 6px 0; }
+.kiosk-wide-frame.amber { border-color: rgba(245, 158, 11, 0.55); }
+.kiosk-wide-frame.green { border-color: rgba(16, 185, 129, 0.75); }
+.kiosk-wide-frame.red   { border-color: rgba(239, 68, 68, 0.45); }
 
 /* ── Dynamic Feedback Pill ──────────────────────────────────── */
 .kiosk-feedback-wrap {
     position: absolute;
-    bottom: 24px;
+    bottom: 18px;
     left: 0;
     right: 0;
     text-align: center;
@@ -115,8 +83,9 @@
     font-weight: 600;
     border: 1px solid rgba(255, 255, 255, 0.15);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    transition: all 0.25s ease;
+    transition: all 0.2s ease;
 }
+.kiosk-feedback-pill.idle  { border-color: rgba(99, 102, 241, 0.5); color: #cbd5e1; }
 .kiosk-feedback-pill.red   { border-color: rgba(239, 68, 68, 0.6); color: #fca5a5; }
 .kiosk-feedback-pill.amber { border-color: rgba(245, 158, 11, 0.6); color: #fde68a; }
 .kiosk-feedback-pill.green { border-color: rgba(16, 185, 129, 0.8); color: #6ee7b7; background: rgba(6, 78, 59, 0.85); }
@@ -215,7 +184,7 @@
     height: 100%;
     background: #10b981;
     width: 100%;
-    animation: resetCountdown 3s linear forwards;
+    animation: resetCountdown 2.2s linear forwards;
 }
 @keyframes resetCountdown { from { width: 100%; } to { width: 0%; } }
 
@@ -292,15 +261,13 @@
                 <canvas id="kioskMeshCanvas" class="mesh-canvas"></canvas>
                 <canvas id="captureCanvas" style="display:none;"></canvas>
 
-                <!-- Face Guide Target Oval -->
-                <div class="kiosk-guide-container">
-                    <div class="kiosk-target-oval" id="targetOval"></div>
-                </div>
+                <!-- Wide-View Detection Frame (No restrictive oval) -->
+                <div class="kiosk-wide-frame" id="wideFrame"></div>
 
                 <!-- Dynamic Real-time Feedback Pill -->
                 <div class="kiosk-feedback-wrap">
-                    <span class="kiosk-feedback-pill red" id="feedbackPill">
-                        <i class="bi bi-person-bounding-box me-1"></i>Position your face in the oval
+                    <span class="kiosk-feedback-pill idle" id="feedbackPill">
+                        <i class="bi bi-person-bounding-box me-1"></i>Walk into view for automatic Face-ID punch
                     </span>
                 </div>
 
@@ -314,9 +281,9 @@
                 <div class="kiosk-result-badge" id="resultBadge"></div>
             </div>
 
-            <!-- Punch Attendance Button -->
-            <button id="punchBtn" class="btn btn-kiosk-punch" onclick="triggerKioskPunch()" disabled>
-                <i class="bi bi-camera-fill me-2"></i>Punch Attendance
+            <!-- Auto-Punch Status / Manual Fallback Button -->
+            <button id="punchBtn" class="btn btn-kiosk-punch" onclick="triggerKioskPunch(false)" disabled>
+                <i class="bi bi-lightning-charge-fill me-2"></i>Auto-Punch Active · Stand in View
             </button>
 
             <div class="text-muted small mt-3">
@@ -333,13 +300,13 @@
 
 <script>
 /* ══════════════════════════════════════════════════════════════
-   OFFICE KIOSK — Real-Time Face Mesh & Client-Side Guidance
+   OFFICE KIOSK — Fast Wide-View Auto-Punch Face Recognition
    ══════════════════════════════════════════════════════════════ */
 
 const video           = document.getElementById('kioskVideo');
 const meshCanvas      = document.getElementById('kioskMeshCanvas');
 const captureCanvas   = document.getElementById('captureCanvas');
-const targetOval      = document.getElementById('targetOval');
+const wideFrame       = document.getElementById('wideFrame');
 const feedbackPill    = document.getElementById('feedbackPill');
 const punchBtn        = document.getElementById('punchBtn');
 const scanOverlay     = document.getElementById('scanOverlay');
@@ -352,17 +319,28 @@ let cameraReady       = false;
 let kioskStream       = null;
 let isProcessing      = false;
 let stableFramesCount = 0;
-const READY_FRAMES_REQUIRED = 8; // Face must remain valid for 8 consecutive frames
+let prevCenterX       = null;
+let prevCenterY       = null;
+let cooldownUntil     = 0;
+let awaitingDeparture = false;
+let departureEmptyFrames = 0;
+let departureDeadline = 0;
+let currentGuideColor = 'idle';
+
+const READY_FRAMES_REQUIRED = 3;   // ~100-150ms steady lock-on before auto-punch
+const MIN_FACE_HEIGHT_RATIO = 0.11; // Supports punching from 1-2.5m distance
+const MAX_FACE_HEIGHT_RATIO = 0.85;
+const MAX_FRAME_MOTION      = 0.035; // Max normalized center movement per frame
+const MAX_CAPTURE_DIM       = 960;   // Matches backend MAX_IMAGE_DIM for fast upload + crisp distant faces
 
 // Minimalist Face ID key landmark indices for clean rendering
-// (Face contour, eyebrows, eyes, nose bridge, lips)
 const LANDMARK_SUBSET = [
     10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
     397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
     172, 58,  132, 93,  234, 127, 162, 21,  54,  103, 67,  109,
-    1, 4, 5, 195, 197, 6, 168, 8, 9, 151, // Nose bridge & center
-    33, 133, 362, 263, // Eye corners
-    61, 291, 0, 17     // Lip peaks
+    1, 4, 5, 195, 197, 6, 168, 8, 9, 151,
+    33, 133, 362, 263,
+    61, 291, 0, 17
 ];
 
 // Audio chime for punch confirmation (Web Audio API synthesis)
@@ -376,18 +354,18 @@ function playChime(success = true) {
 
         if (success) {
             osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-            osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.12); // A5
+            osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.10); // A5
             gain.gain.setValueAtTime(0.15, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.40);
             osc.start();
-            osc.stop(ctx.currentTime + 0.45);
+            osc.stop(ctx.currentTime + 0.40);
         } else {
             osc.frequency.setValueAtTime(260.00, ctx.currentTime);
-            osc.frequency.setValueAtTime(200.00, ctx.currentTime + 0.15);
+            osc.frequency.setValueAtTime(200.00, ctx.currentTime + 0.14);
             gain.gain.setValueAtTime(0.2, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.36);
             osc.start();
-            osc.stop(ctx.currentTime + 0.4);
+            osc.stop(ctx.currentTime + 0.36);
         }
     } catch (e) {
         // Audio optional
@@ -408,7 +386,7 @@ faceMesh.setOptions({
 
 faceMesh.onResults(onFaceMeshResults);
 
-// ── Camera Initialization ───────────────────────────────────
+// ── Camera Initialization (HD 720p for distance recognition) ─
 async function initKioskCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         showCameraError('Camera API not available. Use a modern browser over http://localhost:8000.');
@@ -417,7 +395,7 @@ async function initKioskCamera() {
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: false
         });
         kioskStream = stream;
@@ -454,10 +432,46 @@ async function startMediaPipeLoop() {
     if (video.readyState >= 2) {
         await faceMesh.send({ image: video });
     }
-    requestAnimationFrame(startMediaPipeLoop);
+    if (!isProcessing) {
+        requestAnimationFrame(startMediaPipeLoop);
+    }
 }
 
-// ── Real-Time Landmark & Guidance Controller ────────────────
+// Draw sleek Face-ID corner reticle around the detected face anywhere in view
+function drawTrackingBox(ctx, bx, by, bw, bh, color) {
+    const strokeMap = {
+        green: 'rgba(16, 185, 129, 0.95)',
+        amber: 'rgba(245, 158, 11, 0.90)',
+        red:   'rgba(239, 68, 68, 0.85)',
+        idle:  'rgba(148, 163, 184, 0.6)'
+    };
+    const padX = bw * 0.18;
+    const padY = bh * 0.16;
+    const x1 = Math.max(4, bx - padX);
+    const y1 = Math.max(4, by - padY);
+    const x2 = Math.min(meshCanvas.width - 4, bx + bw + padX);
+    const y2 = Math.min(meshCanvas.height - 4, by + bh + padY);
+    const corner = Math.max(14, Math.min(28, (x2 - x1) * 0.22));
+
+    ctx.save();
+    ctx.strokeStyle = strokeMap[color] || strokeMap.idle;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+
+    // Top-left
+    ctx.beginPath();
+    ctx.moveTo(x1, y1 + corner); ctx.lineTo(x1, y1); ctx.lineTo(x1 + corner, y1);
+    // Top-right
+    ctx.moveTo(x2 - corner, y1); ctx.lineTo(x2, y1); ctx.lineTo(x2, y1 + corner);
+    // Bottom-right
+    ctx.moveTo(x2, y2 - corner); ctx.lineTo(x2, y2); ctx.lineTo(x2 - corner, y2);
+    // Bottom-left
+    ctx.moveTo(x1 + corner, y2); ctx.lineTo(x1, y2); ctx.lineTo(x1, y2 - corner);
+    ctx.stroke();
+    ctx.restore();
+}
+
+// ── Real-Time Landmark & Auto-Punch Controller ──────────────
 function onFaceMeshResults(results) {
     if (isProcessing) return;
 
@@ -466,35 +480,58 @@ function onFaceMeshResults(results) {
 
     const w = meshCanvas.width;
     const h = meshCanvas.height;
-
-    // Oval Guide Geometry in Canvas Coordinates
-    const targetW = 230;
-    const targetH = 300;
-    const targetX = w / 2;
-    const targetY = h / 2;
-
     const faces = results.multiFaceLandmarks;
 
     // ── Case 1: No Face ──
     if (!faces || faces.length === 0) {
         stableFramesCount = 0;
-        setGuideState('red', 'Position your face in the oval');
-        punchBtn.disabled = true;
+        prevCenterX = null;
+        prevCenterY = null;
+
+        if (awaitingDeparture) {
+            departureEmptyFrames++;
+            if (departureEmptyFrames >= 3) {
+                awaitingDeparture = false;
+                departureEmptyFrames = 0;
+            }
+        }
+
+        setGuideState('idle', 'Walk into view for automatic Face-ID punch');
+        setButtonState(false, 'Auto-Punch Active · Stand in View');
+        return;
+    }
+
+    // ── Post-punch departure guard (prevents immediate re-punch loop) ──
+    if (awaitingDeparture) {
+        departureEmptyFrames = 0;
+        if (Date.now() < departureDeadline) {
+            setGuideState('green', 'Done ✓ · Step aside for next person');
+            setButtonState(false, 'Punch Recorded · Ready Soon');
+            return;
+        }
+        awaitingDeparture = false;
+    }
+
+    // ── Brief retry cooldown after transient errors ──
+    if (Date.now() < cooldownUntil) {
+        setGuideState('amber', 'Preparing next scan…');
+        setButtonState(false, 'Preparing…');
         return;
     }
 
     // ── Case 2: Multiple Faces ──
     if (faces.length > 1) {
         stableFramesCount = 0;
+        prevCenterX = null;
+        prevCenterY = null;
         setGuideState('red', 'Only one person allowed in frame');
-        punchBtn.disabled = true;
+        setButtonState(false, 'Multiple Faces Detected');
         return;
     }
 
-    // ── Case 3: Exactly One Face — Evaluate Positioning ──
+    // ── Case 3: Exactly One Face — Anywhere in Frame ──
     const landmarks = faces[0];
 
-    // Compute bounding box from landmarks
     let minX = 1.0, maxX = 0.0, minY = 1.0, maxY = 0.0;
     for (const lm of landmarks) {
         if (lm.x < minX) minX = lm.x;
@@ -503,101 +540,136 @@ function onFaceMeshResults(results) {
         if (lm.y > maxY) maxY = lm.y;
     }
 
-    // Convert to mirrored pixel coordinates (video is mirrored via scaleX(-1))
+    // Mirrored pixel bounding box (video has scaleX(-1))
+    const mirroredMinX = 1.0 - maxX;
+    const mirroredMaxX = 1.0 - minX;
+    const bx = mirroredMinX * w;
+    const by = minY * h;
     const facePixelW = (maxX - minX) * w;
     const facePixelH = (maxY - minY) * h;
-    const facePixelCenterX = (1.0 - (minX + maxX) / 2) * w;
-    const facePixelCenterY = ((minY + maxY) / 2) * h;
 
-    const offsetNormX = (facePixelCenterX - targetX) / w;
-    const offsetNormY = (facePixelCenterY - targetY) / h;
-    const sizeRatio = facePixelH / targetH;
+    const centerX = (mirroredMinX + mirroredMaxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const faceHeightRatio = facePixelH / h;
 
-    // ── Draw Minimalist Face ID Landmark Overlay ──
+    // Draw tracking box + minimalist landmarks
+    drawTrackingBox(ctx, bx, by, facePixelW, facePixelH, currentGuideColor);
+
     ctx.save();
-    ctx.fillStyle = targetOval.classList.contains('green') ? 'rgba(52, 211, 153, 0.85)' :
-                    targetOval.classList.contains('amber') ? 'rgba(251, 191, 36, 0.75)' :
+    ctx.fillStyle = currentGuideColor === 'green' ? 'rgba(52, 211, 153, 0.85)' :
+                    currentGuideColor === 'amber' ? 'rgba(251, 191, 36, 0.75)' :
                     'rgba(239, 68, 68, 0.65)';
-
     for (const idx of LANDMARK_SUBSET) {
         const lm = landmarks[idx];
         if (!lm) continue;
-        const lx = (1.0 - lm.x) * w; // Mirrored X
+        const lx = (1.0 - lm.x) * w;
         const ly = lm.y * h;
         ctx.beginPath();
-        ctx.arc(lx, ly, 2.0, 0, 2 * Math.PI);
+        ctx.arc(lx, ly, 1.8, 0, 2 * Math.PI);
         ctx.fill();
     }
     ctx.restore();
 
-    // ── Position & Sizing Checks ──
-    if (sizeRatio < 0.65) {
+    // ── Distance & Edge Checks (No center oval restriction!) ──
+    if (faceHeightRatio < MIN_FACE_HEIGHT_RATIO) {
         stableFramesCount = 0;
-        setGuideState('red', 'Move closer to the camera');
-        punchBtn.disabled = true;
-    } else if (sizeRatio > 1.35) {
-        stableFramesCount = 0;
-        setGuideState('red', 'Step back slightly');
-        punchBtn.disabled = true;
-    } else if (Math.abs(offsetNormX) > 0.16) {
-        stableFramesCount = 0;
-        setGuideState('red', offsetNormX > 0 ? 'Move slightly left' : 'Move slightly right');
-        punchBtn.disabled = true;
-    } else if (Math.abs(offsetNormY) > 0.16) {
-        stableFramesCount = 0;
-        setGuideState('red', offsetNormY > 0 ? 'Move up slightly' : 'Move down slightly');
-        punchBtn.disabled = true;
-    } else if (Math.abs(offsetNormX) > 0.07 || Math.abs(offsetNormY) > 0.07 || sizeRatio < 0.80 || sizeRatio > 1.20) {
-        // Almost ready: Amber state
-        stableFramesCount = 0;
-        setGuideState('amber', 'Center your face · Hold still');
-        punchBtn.disabled = true;
-    } else {
-        // Face is inside target oval with proper size! Accumulate stability frames
-        stableFramesCount++;
+        prevCenterX = centerX;
+        prevCenterY = centerY;
+        setGuideState('red', 'Move slightly closer');
+        setButtonState(false, 'Face Too Far');
+        return;
+    }
 
-        if (stableFramesCount >= READY_FRAMES_REQUIRED) {
-            setGuideState('green', 'Ready ✓ · Tap to Punch');
-            punchBtn.disabled = false;
-        } else {
-            setGuideState('amber', `Hold still... (${Math.round((stableFramesCount / READY_FRAMES_REQUIRED) * 100)}%)`);
-            punchBtn.disabled = true;
-        }
+    if (faceHeightRatio > MAX_FACE_HEIGHT_RATIO) {
+        stableFramesCount = 0;
+        prevCenterX = centerX;
+        prevCenterY = centerY;
+        setGuideState('red', 'Step back slightly');
+        setButtonState(false, 'Face Too Close');
+        return;
+    }
+
+    if (mirroredMinX < 0.02 || mirroredMaxX > 0.98 || minY < 0.02 || maxY > 0.98) {
+        stableFramesCount = 0;
+        prevCenterX = centerX;
+        prevCenterY = centerY;
+        setGuideState('amber', 'Keep full face inside frame');
+        setButtonState(false, 'Center Yourself in View');
+        return;
+    }
+
+    // ── Motion Stability Check & Auto-Punch Trigger ──
+    const isSteady = prevCenterX !== null &&
+        Math.abs(centerX - prevCenterX) < MAX_FRAME_MOTION &&
+        Math.abs(centerY - prevCenterY) < MAX_FRAME_MOTION;
+
+    prevCenterX = centerX;
+    prevCenterY = centerY;
+
+    stableFramesCount = isSteady ? stableFramesCount + 1 : 1;
+
+    if (stableFramesCount >= READY_FRAMES_REQUIRED) {
+        setGuideState('green', 'Face Detected · Auto-Punching…');
+        setButtonState(true, 'Punching Automatically…');
+        triggerKioskPunch(true);
+    } else {
+        setGuideState('amber', 'Face detected · Hold steady…');
+        setButtonState(true, 'Tap to Punch Now');
     }
 }
 
 function setGuideState(color, text) {
-    targetOval.className = `kiosk-target-oval ${color}`;
+    currentGuideColor = color;
+    wideFrame.className = `kiosk-wide-frame ${color}`;
     feedbackPill.className = `kiosk-feedback-pill ${color}`;
-    feedbackPill.innerHTML = `<i class="bi bi-${color === 'green' ? 'check-circle-fill' : color === 'amber' ? 'hourglass-split' : 'person-bounding-box'} me-1"></i>${text}`;
+    const icon = color === 'green' ? 'check-circle-fill'
+               : color === 'amber' ? 'hourglass-split'
+               : color === 'red'   ? 'exclamation-circle-fill'
+               : 'person-bounding-box';
+    feedbackPill.innerHTML = `<i class="bi bi-${icon} me-1"></i>${text}`;
 }
 
-// ── Trigger Kiosk Attendance Punch ──────────────────────────
-async function triggerKioskPunch() {
-    if (!cameraReady || isProcessing || punchBtn.disabled) return;
+function setButtonState(enabled, label) {
+    punchBtn.disabled = !enabled;
+    punchBtn.innerHTML = `<i class="bi bi-lightning-charge-fill me-2"></i>${label}`;
+}
+
+// ── Trigger Kiosk Attendance Punch (Auto or Manual) ─────────
+async function triggerKioskPunch(isAuto = false) {
+    if (!cameraReady || isProcessing) return;
+    if (!isAuto && punchBtn.disabled) return;
 
     isProcessing = true;
     punchBtn.disabled = true;
 
-    // Show scanning overlay
-    scanLabel.innerText = 'Capturing face & checking liveness…';
+    scanLabel.innerText = 'Recognizing face…';
     scanOverlay.classList.add('active');
 
-    // Capture frame at native video resolution
-    const w = video.videoWidth || 640;
-    const h = video.videoHeight || 480;
-    captureCanvas.width = w;
-    captureCanvas.height = h;
+    // Capture frame scaled to MAX_CAPTURE_DIM (fast upload, sharp distant faces)
+    const vw = video.videoWidth || 1280;
+    const vh = video.videoHeight || 720;
+    const scale = Math.min(1, MAX_CAPTURE_DIM / Math.max(vw, vh));
+    const cw = Math.round(vw * scale);
+    const ch = Math.round(vh * scale);
+
+    captureCanvas.width = cw;
+    captureCanvas.height = ch;
     const captureCtx = captureCanvas.getContext('2d');
-    captureCtx.drawImage(video, 0, 0, w, h);
+    captureCtx.drawImage(video, 0, 0, cw, ch);
 
     captureCanvas.toBlob(async blob => {
+        if (!blob) {
+            scanOverlay.classList.remove('active');
+            resetKioskState(false);
+            return;
+        }
+
         const fd = new FormData();
         fd.append('punch_photo', blob, 'kiosk_punch.jpg');
 
-        try {
-            scanLabel.innerText = 'Identifying employee in records…';
+        let shouldWaitForDeparture = false;
 
+        try {
             const res = await fetch('{% url "hrms:api_kiosk_punch" %}', {
                 method: 'POST',
                 body: fd
@@ -607,6 +679,7 @@ async function triggerKioskPunch() {
             scanOverlay.classList.remove('active');
 
             if (res.ok && data.success) {
+                shouldWaitForDeparture = true;
                 playChime(true);
                 const isPunchIn = data.action === 'Punch In';
                 showResultBadge(`
@@ -625,6 +698,9 @@ async function triggerKioskPunch() {
                 playChime(false);
                 const errCode = data.code || 'REJECTED';
                 const errMsg = data.message || data.error || 'Face not recognized.';
+                if (errCode === 'DOUBLE_TAP_GUARD' || errCode === 'DAY_COMPLETE') {
+                    shouldWaitForDeparture = true;
+                }
                 showResultBadge(`
                     <div class="result-pill error">
                         <div class="result-icon">❌</div>
@@ -647,9 +723,9 @@ async function triggerKioskPunch() {
             `);
         }
 
-        // Auto-reset UI for next person after 3 seconds
-        setTimeout(resetKioskState, 3000);
-    }, 'image/jpeg', 0.92);
+        // Fast 2.2s result display before re-arming
+        setTimeout(() => resetKioskState(shouldWaitForDeparture), 2200);
+    }, 'image/jpeg', 0.86);
 }
 
 function showResultBadge(html) {
@@ -658,18 +734,31 @@ function showResultBadge(html) {
     resultBadge.classList.add('visible');
 }
 
-function resetKioskState() {
+function resetKioskState(waitForDeparture = false) {
     resultBadge.classList.add('exiting');
     setTimeout(() => {
         resultBadge.classList.remove('visible', 'exiting');
         resultBadge.innerHTML = '';
         isProcessing = false;
         stableFramesCount = 0;
-        setGuideState('red', 'Position your face in the oval');
-        punchBtn.disabled = true;
-        // Resume loop
+        prevCenterX = null;
+        prevCenterY = null;
+
+        if (waitForDeparture) {
+            awaitingDeparture = true;
+            departureEmptyFrames = 0;
+            departureDeadline = Date.now() + 4000;
+            setGuideState('green', 'Done ✓ · Step aside for next person');
+            setButtonState(false, 'Punch Recorded · Ready Soon');
+        } else {
+            awaitingDeparture = false;
+            cooldownUntil = Date.now() + 1200;
+            setGuideState('idle', 'Walk into view for automatic Face-ID punch');
+            setButtonState(false, 'Auto-Punch Active · Stand in View');
+        }
+
         requestAnimationFrame(startMediaPipeLoop);
-    }, 400);
+    }, 250);
 }
 
 // Cleanup camera on page unload

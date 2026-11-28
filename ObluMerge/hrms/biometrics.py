@@ -75,16 +75,16 @@ if DeepFace is None:
 # ─────────────────────────────────────────────────────────────
 MODEL_NAME = "Facenet512"        # 512-D high-precision recognition model
 EMBEDDING_DIM = 512              # Expected vector length
-MAX_IMAGE_DIM = 800              # Balanced downscale cap for sub-100ms processing
+MAX_IMAGE_DIM = 960              # Balanced downscale cap for fast processing & distant faces
 
 # Face detection confidence threshold (0.0 to 1.0)
 MIN_FACE_CONFIDENCE = 0.60
 
 # Face size & bounding box bounds (in pixels and relative area)
-# NOTE: These values must be calibrated with real company cameras and lighting conditions.
-MIN_FACE_WIDTH = 70              # Minimum bounding box width in pixels
-MIN_FACE_HEIGHT = 70             # Minimum bounding box height in pixels
-MIN_FACE_AREA_RATIO = 0.03       # Face must occupy at least 3% of the image
+# NOTE: Calibrated to support both close-up mobile punches and distant reception kiosk punches.
+MIN_FACE_WIDTH = 55              # Minimum bounding box width in pixels
+MIN_FACE_HEIGHT = 55             # Minimum bounding box height in pixels
+MIN_FACE_AREA_RATIO = 0.010      # Face must occupy at least 1% of the image (allows 1-2.5m distance)
 MAX_FACE_AREA_RATIO = 0.85       # Face cannot exceed 85% of frame (too close / distorted)
 
 # Image Quality Gates
@@ -241,7 +241,7 @@ def _to_rgb_array(image_source):
 # ─────────────────────────────────────────────────────────────
 # 2. Strict Face Detection Waterfall
 # ─────────────────────────────────────────────────────────────
-def detect_faces(bgr_array):
+def _detect_faces_with_backend(bgr_array, anti_spoofing=False):
     """
     Detect faces using a strict multi-detector waterfall on BGR array:
       Pass 1: YuNet strict (modern OpenCV ONNX deep-learning detector, ~15ms, robust to angles & lighting)
@@ -252,53 +252,36 @@ def detect_faces(bgr_array):
     CRITICAL SECURITY RULE:
     enforce_detection=False is NEVER used. If no face is detected with
     enforce_detection=True, no face is returned.
+
+    Returns (results: list, winning_backend: str | None).
     """
     if DeepFace is None or cv2 is None:
-        return []
+        return [], None
 
-    # ── Pass 1: Strict YuNet (State-of-the-Art OpenCV DNN) ──
-    try:
-        results = DeepFace.extract_faces(
-            img_path=bgr_array,
-            detector_backend="yunet",
-            enforce_detection=True,
-            align=True,
-        )
-        if results and len(results) > 0:
-            logger.debug("[Biometrics] Detected %d face(s) via YuNet strict", len(results))
-            return results
-    except Exception as exc:
-        logger.debug("[Biometrics] YuNet strict detection found no face: %s", exc)
+    for backend in ["yunet", "ssd", "opencv"]:
+        try:
+            kwargs = dict(
+                img_path=bgr_array,
+                detector_backend=backend,
+                enforce_detection=True,
+                align=True,
+            )
+            if anti_spoofing:
+                kwargs["anti_spoofing"] = True
+            results = DeepFace.extract_faces(**kwargs)
+            if results and len(results) > 0:
+                logger.debug("[Biometrics] Detected %d face(s) via %s strict", len(results), backend)
+                return results, backend
+        except Exception as exc:
+            logger.debug("[Biometrics] %s strict detection found no face: %s", backend, exc)
 
-    # ── Pass 2: Strict SSD Fallback ──
-    try:
-        results = DeepFace.extract_faces(
-            img_path=bgr_array,
-            detector_backend="ssd",
-            enforce_detection=True,
-            align=True,
-        )
-        if results and len(results) > 0:
-            logger.debug("[Biometrics] Detected %d face(s) via SSD strict fallback", len(results))
-            return results
-    except Exception as exc:
-        logger.debug("[Biometrics] SSD strict detection found no face: %s", exc)
+    return [], None
 
-    # ── Pass 3: Strict OpenCV Haar Cascade Fallback ──
-    try:
-        results = DeepFace.extract_faces(
-            img_path=bgr_array,
-            detector_backend="opencv",
-            enforce_detection=True,
-            align=True,
-        )
-        if results and len(results) > 0:
-            logger.debug("[Biometrics] Detected %d face(s) via OpenCV strict fallback", len(results))
-            return results
-    except Exception as exc:
-        logger.debug("[Biometrics] OpenCV strict detection found no face: %s", exc)
 
-    return []
+def detect_faces(bgr_array):
+    """Public wrapper returning detected face objects from the strict waterfall."""
+    results, _ = _detect_faces_with_backend(bgr_array, anti_spoofing=False)
+    return results
 
 
 # ─────────────────────────────────────────────────────────────
@@ -489,8 +472,8 @@ def extract_face_encoding(image_source, require_liveness=True):
         logger.error("[Biometrics] Image pre-processing failed: %s", exc)
         return None, {"code": CODE_INVALID_IMAGE, "message": "Could not read image. Please provide a valid photo."}
 
-    # 2. Strict Face Detection on BGR array
-    face_objs = detect_faces(bgr_array)
+    # 2. Strict Face Detection + Liveness in a single pass
+    face_objs, winning_backend = _detect_faces_with_backend(bgr_array, anti_spoofing=require_liveness)
 
     # 3. Exactly One Face Requirement
     is_valid_count, count_code, count_msg = validate_face_count(face_objs)
@@ -504,15 +487,24 @@ def extract_face_encoding(image_source, require_liveness=True):
     if not is_valid_quality:
         return None, {"code": qual_code, "message": qual_msg}
 
-    # 5. Anti-Spoofing / Liveness Check
+    # 5. Anti-Spoofing / Liveness Check (reuse result from Step 2 when available)
     if require_liveness:
-        is_live, live_code, live_msg = check_liveness(bgr_array)
-        if not is_live:
-            return None, {"code": live_code, "message": live_msg}
+        if "is_real" in face_obj:
+            is_real = face_obj.get("is_real")
+            score = face_obj.get("antispoof_score", 0.0)
+            logger.info("[Biometrics Liveness (%s)] is_real=%s, antispoof_score=%.4f", winning_backend, is_real, score)
+            if is_real is False or score < MIN_ANTISPOOF_SCORE:
+                logger.warning("[Biometrics] Spoof attack suspected! is_real=%s, score=%.4f", is_real, score)
+                return None, {"code": CODE_SPOOF_DETECTED, "message": "Possible spoof detected. Please use a live camera and look directly at the screen."}
+        else:
+            is_live, live_code, live_msg = check_liveness(bgr_array)
+            if not is_live:
+                return None, {"code": live_code, "message": live_msg}
 
-    # 6. Extract Aligned Facenet512 Embedding
+    # 6. Extract Aligned Facenet512 Embedding (try winning backend first)
+    backends_order = [winning_backend] + [b for b in ("yunet", "ssd", "opencv") if b != winning_backend] if winning_backend else ["yunet", "ssd", "opencv"]
     rep_results = None
-    for backend in ["yunet", "ssd", "opencv"]:
+    for backend in backends_order:
         try:
             rep_results = DeepFace.represent(
                 img_path=bgr_array,
