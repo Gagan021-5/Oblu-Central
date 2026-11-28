@@ -11,9 +11,10 @@ import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { isAdminUser } from "@/services/permissionService";
 
 export default function Index() {
-  const { user, isLoading } = useAuth();
+  const { user, permissionProfile, isLoading } = useAuth();
   const { colors } = useTheme();
 
   useEffect(() => {
@@ -25,25 +26,15 @@ export default function Index() {
         return;
       }
 
-            const r = (user.role || "").toLowerCase();
-      const u = (user.username || "").toLowerCase();
-      const isAdmin =
-        r === "admin" ||
-        r.includes("admin") ||
-        r.includes("director") ||
-        u === "infected" ||
-        u === "akshay_narayan" ||
-        u === "nitin_aggarwal";
-
-      if (isAdmin) {
+      if (isAdminUser(user, permissionProfile)) {
         router.replace("/(admin)/users");
         return;
       }
 
-      // User role — direct to Employee Workspace Dashboard (Customers, Leads, Call Tracker)
+      // Non-admin role — direct to Employee Workspace Dashboard (RBAC-filtered)
       router.replace("/(employee)");
     })();
-  }, [user, isLoading]);
+  }, [user, permissionProfile, isLoading]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

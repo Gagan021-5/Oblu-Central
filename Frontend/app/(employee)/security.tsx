@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useEmployeeTheme } from "@/constants/employeeTheme";
 import { useAuth } from "@/contexts/AuthContext";
+import api from "@/services/api";
+import { hasTeamHierarchy, isAdminUser } from "@/services/permissionService";
 import { Typography, FontSizes, Radius, Shadows } from "@/constants/theme";
 import { MetricCard } from "@/components/employee/MetricCard";
 import { FloatingTabBar } from "@/components/employee/FloatingTabBar";
@@ -28,27 +30,85 @@ interface DeviceItem {
   status: "Active" | "Not Linked" | "Deactivated";
 }
 
-const INITIAL_DEVICES: DeviceItem[] = [
-  { id: "1", username: "Bhavya_Bhardwaj", role: "Sales Specialist", model: "Vivo V27 5G", appVersion: "v1.4.2", lastPing: "Just now", status: "Active" },
-  { id: "2", username: "Gagan_Sharma", role: "Admin", model: "Pixel 8 Pro", appVersion: "v1.4.2", lastPing: "2 mins ago", status: "Active" },
-  { id: "3", username: "Anshika_Verma", role: "HR Executive", model: "Samsung Galaxy A53", appVersion: "v1.4.1", lastPing: "10 mins ago", status: "Active" },
-  { id: "4", username: "Vivek_Kumar", role: "Warehouse Lead", model: "Redmi Note 12", appVersion: "v1.4.2", lastPing: "1 hour ago", status: "Active" },
-  { id: "5", username: "Vikas_Yadav", role: "Logistics", model: "No device linked", appVersion: "N/A", lastPing: "Offline", status: "Not Linked" },
-];
+function formatLastPing(ts?: string | null): string {
+  if (!ts) return "Never synced";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "Recently";
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 2) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
 
 export default function SecurityScreen() {
   const insets = useSafeAreaInsets();
   const { t, isDark } = useEmployeeTheme();
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, permissionProfile } = useAuth();
+  const [devices, setDevices] = useState<DeviceItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const isAdmin = (user?.role || "").toLowerCase().includes("admin");
+  const isAdmin = isAdminUser(user, permissionProfile);
+  const canViewTeam = hasTeamHierarchy(user, permissionProfile);
 
-  const onRefresh = useCallback(() => {
+  const loadDevices = useCallback(async () => {
+    try {
+      if (canViewTeam) {
+        const res = await api.get("/admin/users/", { params: { page_size: 200 } });
+        const list = res.data?.results || res.data || [];
+        if (Array.isArray(list)) {
+          setDevices(
+            list.map((u: any) => ({
+              id: String(u.id),
+              username: u.username,
+              role: u.role || "employee",
+              model: u.device_model || (u.device_id ? "Android Device" : "No device linked"),
+              appVersion: u.app_version || "N/A",
+              lastPing: formatLastPing(u.last_call_timestamp),
+              status: u.device_id ? "Active" : "Not Linked",
+            }))
+          );
+          return;
+        }
+      }
+      if (user) {
+        setDevices([
+          {
+            id: String(user.id),
+            username: user.username,
+            role: user.role || "Employee",
+            model: "Current Device",
+            appVersion: "Active",
+            lastPing: "Just now",
+            status: "Active",
+          },
+        ]);
+      }
+    } catch {
+      // keep existing state on transient network failure
+    }
+  }, [canViewTeam, user]);
+
+  useEffect(() => {
+    loadDevices();
+  }, [loadDevices]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
-  }, []);
+    await loadDevices();
+    setRefreshing(false);
+  }, [loadDevices]);
+
+  const linkedCount = useMemo(
+    () => devices.filter((d) => d.status === "Active").length,
+    [devices]
+  );
+  const syncHealthPct = useMemo(
+    () => (devices.length > 0 ? Math.round((linkedCount / devices.length) * 100) : 0),
+    [devices.length, linkedCount]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: t.bg, paddingTop: insets.top }]}>
@@ -80,7 +140,7 @@ export default function SecurityScreen() {
       </View>
 
       <FlatList
-        data={INITIAL_DEVICES}
+        data={devices}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 90 }]}
@@ -97,15 +157,15 @@ export default function SecurityScreen() {
             <View style={styles.metricsRow}>
               <MetricCard
                 label="Linked Devices"
-                value="18"
-                subValue="active phones"
+                value={String(linkedCount)}
+                subValue={`of ${devices.length} team`}
                 icon="shield-checkmark-outline"
                 isHighlight
               />
               <MetricCard
                 label="Sync Health"
-                value="100%"
-                subValue="devices online"
+                value={`${syncHealthPct}%`}
+                subValue="devices linked"
                 icon="hardware-chip-outline"
               />
             </View>

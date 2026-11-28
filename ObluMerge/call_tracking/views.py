@@ -31,7 +31,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import CallLog, CallStats, CallTrackingProfile, normalize_phone
-from .permissions import IsAdminRole
+from .permissions import CanAccessCallTracking, IsAdminRole
+from access_control.roles import is_admin, get_subordinate_salesperson_ids
+from access_control.hierarchy import get_downline_user_ids
+from access_control.services import can
 from .serializers import (
     CallLogSerializer,
     CallLogSyncSerializer,
@@ -216,16 +219,44 @@ class CallRecordingUploadView(APIView):
         )
 
 
+def _get_visible_call_users(user):
+    """
+    Hierarchy-based user visibility for call tracking:
+    - Admins / org-wide call_logs.view -> all non-staff/non-superuser employees
+    - Managers (HRMS downline or SalesPerson downline) -> self + downline user IDs
+    - Individual -> self only
+    """
+    if is_admin(user) or can(user, "call_logs.view", scope="all") or can(user, "*"):
+        return User.objects.filter(is_staff=False, is_superuser=False)
+
+    visible_ids = {user.id}
+    downline_ids = get_downline_user_ids(user) or []
+    visible_ids.update(downline_ids)
+
+    sub_sp_ids = get_subordinate_salesperson_ids(user) or []
+    if sub_sp_ids:
+        from customer_dashboard.models import SalesPerson
+        sp_uids = SalesPerson.objects.filter(
+            id__in=sub_sp_ids, user_id__isnull=False
+        ).values_list("user_id", flat=True)
+        visible_ids.update(sp_uids)
+
+    return User.objects.filter(id__in=list(visible_ids))
+
+
 class CallRecordingStreamView(APIView):
     """
     GET /api/call-logs/<int:pk>/audio/
     Streams the uploaded call recording audio file directly (works even with DEBUG=False).
     """
 
-    permission_classes = [IsAdminRole]
+    permission_classes = [CanAccessCallTracking]
 
     def get(self, request, pk):
         call_log = get_object_or_404(CallLog, pk=pk)
+        visible_users = _get_visible_call_users(request.user)
+        if call_log.user_id != request.user.id and not visible_users.filter(id=call_log.user_id).exists():
+            raise PermissionDenied("You do not have permission to access this recording.")
         if not call_log.audio_file:
             raise Http404("No recording attached to this call.")
         try:
@@ -303,16 +334,16 @@ class AdminProfileView(APIView):
 class AdminUserListView(generics.ListAPIView):
     """
     GET /api/admin/users/
-    Lists all registered employees.
+    Lists employees visible to the authenticated user based on RBAC & hierarchy.
     """
 
     serializer_class = UserSerializer
-    permission_classes = [IsAdminRole]
+    permission_classes = [CanAccessCallTracking]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         return (
-            User.objects.filter(is_staff=False, is_superuser=False)
+            _get_visible_call_users(self.request.user)
             .annotate(
                 total_call_logs=Count("call_logs"),
                 last_call_timestamp=Max("call_logs__timestamp"),
@@ -324,16 +355,17 @@ class AdminUserListView(generics.ListAPIView):
 class AdminCallLogView(generics.ListAPIView):
     """
     GET /api/admin/call-logs/?user_id=&start_date=&end_date=
-    Lists synced call logs for all registered employees.
+    Lists synced call logs scoped by RBAC & organizational hierarchy.
     """
 
     serializer_class = CallLogSerializer
-    permission_classes = [IsAdminRole]
+    permission_classes = [CanAccessCallTracking]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
+        visible_users = _get_visible_call_users(self.request.user)
         queryset = CallLog.objects.filter(
-            user__is_staff=False, user__is_superuser=False
+            user__in=visible_users
         ).select_related("user")
 
         user_id = self.request.query_params.get("user_id")
@@ -379,18 +411,22 @@ class AdminCallLogView(generics.ListAPIView):
 class AdminStatsView(APIView):
     """
     GET /api/admin/stats/ or GET /api/admin/stats/<user_id>/
-    Returns real-time aggregated stats and daily trend directly from CallLog.
+    Returns real-time aggregated stats and daily trend directly from CallLog,
+    scoped by RBAC & organizational hierarchy.
     """
 
-    permission_classes = [IsAdminRole]
+    permission_classes = [CanAccessCallTracking]
 
     def get(self, request, user_id=None):
         from django.db.models.functions import TruncDate
 
+        visible_users = _get_visible_call_users(request.user)
         user_param = user_id or request.query_params.get("user_id")
 
         if user_param and str(user_param) not in ["0", "all"]:
             target_user = get_object_or_404(User, id=user_param)
+            if not visible_users.filter(id=target_user.id).exists():
+                raise PermissionDenied("You do not have permission to view stats for this user.")
             logs = CallLog.objects.filter(user=target_user)
             username = target_user.username
             profile, _ = CallTrackingProfile.objects.get_or_create(user=target_user)
@@ -398,9 +434,9 @@ class AdminStatsView(APIView):
             device_model = profile.device_model
             uid = target_user.id
         else:
-            # All registered employees aggregated stats
-            logs = CallLog.objects.filter(user__is_staff=False, user__is_superuser=False)
-            total_emp = User.objects.filter(is_staff=False, is_superuser=False).count()
+            # Visible team aggregated stats
+            logs = CallLog.objects.filter(user__in=visible_users)
+            total_emp = visible_users.count()
             username = "Entire Team"
             device_id = "All Devices"
             device_model = f"{total_emp} Employees"
@@ -456,4 +492,5 @@ class AdminStatsView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
 

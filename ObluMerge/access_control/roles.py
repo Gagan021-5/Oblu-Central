@@ -9,23 +9,62 @@ from django.db.models import Q
 def is_admin(user):
     if not user or not user.is_authenticated:
         return False
-    return bool(
+    if (
         user.is_superuser
         or user.is_staff
         or user.groups.filter(name__iexact="Admin").exists()
-        or getattr(user, 'role', '').lower() == 'admin'
-        or getattr(user, 'username', '').lower() in ['nitin_aggarwal', 'akshay_narayan', 'infected']
-    )
+        or getattr(user, "role", "").lower() == "admin"
+    ):
+        return True
+
+    # Check dynamic RBAC RoleAssignment (admin / director / wildcard *)
+    emp = getattr(user, "employee_profile", None)
+    if emp is not None:
+        try:
+            for assignment in emp.role_assignments.filter(is_active=True).select_related("role"):
+                if not assignment.is_currently_valid():
+                    continue
+                if assignment.role.role_key.lower() in {"admin", "super_admin", "director", "md"}:
+                    return True
+                if assignment.role.role_permissions.filter(permission__permission_key="*").exists():
+                    return True
+        except Exception:
+            pass
+    return False
 
 
 def is_finance(user):
     """Accountant / Finance team access"""
-    return getattr(user, 'is_accountant', False) or is_admin(user)
+    if getattr(user, "is_accountant", False) or is_admin(user):
+        return True
+    emp = getattr(user, "employee_profile", None)
+    if emp is not None:
+        try:
+            for assignment in emp.role_assignments.filter(is_active=True).select_related("role"):
+                if assignment.is_currently_valid() and assignment.role.role_key.lower() in {
+                    "accounts_ops",
+                    "finance",
+                    "accountant",
+                }:
+                    return True
+        except Exception:
+            pass
+    return False
 
 
 def is_hr(user):
     """HR team access for HRMS administration"""
-    return is_admin(user) or user.groups.filter(name="HR").exists()
+    if is_admin(user) or user.groups.filter(name__iexact="HR").exists():
+        return True
+    emp = getattr(user, "employee_profile", None)
+    if emp is not None:
+        try:
+            for assignment in emp.role_assignments.filter(is_active=True).select_related("role"):
+                if assignment.is_currently_valid() and assignment.role.role_key.lower() in {"hr", "hr_manager"}:
+                    return True
+        except Exception:
+            pass
+    return False
 
 
 def get_salesperson_profile(user):

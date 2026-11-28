@@ -98,6 +98,15 @@ def get_allowed_apps_for_user(user, effective_perms):
     if has_incentives:
         apps.append({"id": "incentives", "label": "Incentives", "icon": "trophy"})
 
+    # 7. Calls & Security (Managers with downline, RBAC call_logs/security, or admin)
+    downline_ids = get_downline_user_ids(user)
+    sub_sp_ids = get_subordinate_salesperson_ids(user)
+    has_team = bool(downline_ids or sub_sp_ids)
+    if is_super or is_wildcard or has_team or "call_logs.view" in effective_perms or sp is not None:
+        apps.append({"id": "calls", "label": "Calls", "icon": "call"})
+    if is_super or is_wildcard or hr_access or has_team or "security.view" in effective_perms:
+        apps.append({"id": "security", "label": "Security", "icon": "shield-checkmark"})
+
     return apps
 
 
@@ -201,11 +210,12 @@ class MeProfileView(APIView):
                         "expires_at": assignment.ends_at.strftime("%Y-%m-%d %H:%M") if assignment.ends_at else None,
                     })
 
-        ## for admin and directors role access in mobile app 
-        if user.is_superuser or user.is_staff or getattr(user, 'role', '') == 'admin' or user.username.lower() in ['nitin_aggarwal', 'akshay_narayan', 'infected']:
-            user_role = "Admin"
+        # Dynamic RBAC admin detection (no hardcoded usernames)
+        user_is_admin = is_admin(user)
+        if user_is_admin:
+            user_role = roles_list[0]["name"] if roles_list else "Admin"
         elif is_finance(user):
-            user_role = "Finance"
+            user_role = roles_list[0]["name"] if roles_list else "Finance"
         elif roles_list:
             user_role = roles_list[0]["name"]
         elif emp and emp.designation:
@@ -237,9 +247,13 @@ class MeProfileView(APIView):
                 "username": user.username,
                 "name": user_name,
                 "role": user_role,
+                "is_admin": user_is_admin,
+                "can_view_all": hierarchy_scope.get("can_view_all_salespersons", False),
                 "gender": emp_gender,
                 "reporting_to": reporting_to,
             },
+            "is_admin": user_is_admin,
+            "can_view_all": hierarchy_scope.get("can_view_all_salespersons", False),
             "allowed_apps": allowed_apps,
             "hierarchy_scope": hierarchy_scope,
             # Direct compatibility fields

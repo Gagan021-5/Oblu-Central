@@ -10,33 +10,38 @@ User = get_user_model()
 
 
 def get_role(user):
-    """Calculates user role dynamically based on group, attributes, or organizational flowchart."""
-    # Check user groups first
+    """Calculates user role dynamically from RBAC RoleAssignment, groups, designation, or SalesPerson."""
+    from access_control.roles import is_admin, is_finance, is_hr, get_salesperson_profile
+
+    emp = getattr(user, "employee_profile", None)
+    if emp is not None:
+        try:
+            for assignment in emp.role_assignments.filter(is_active=True).select_related("role"):
+                if assignment.is_currently_valid():
+                    return assignment.role.role_key
+        except Exception:
+            pass
+
+    if is_admin(user):
+        return "admin"
+    if is_hr(user):
+        return "hr"
+    if is_finance(user):
+        return "accounts_ops"
+
     group = user.groups.first()
     if group and group.name:
-        return group.name
+        return group.name.lower()
 
-    uname = user.username.lower()
-    if uname in ["nitin_aggarwal", "akshay_narayan", "admin1", "infected"] or user.is_superuser:
-        return "admin"
-    if uname in ["bhavya_bhardwaj"]:
-        return "sales_mgr"
-    if uname in ["vibhuti_panwar"]:
-        return "buss_mgr"
-    if uname in ["vanshika", "anshika"]:
-        return "hr"
-    if uname in ["sujal_wadhwa", "neha_sharma", "sanyam_arora"] or getattr(user, "is_accountant", False):
-        return "accounts_ops"
-    if uname in ["vikas", "vivek"]:
-        return "warehouse"
-    if uname in ["ankush_oblu"]:
-        return "rsm_ankush"
-    if uname in ["aman_poddar"]:
-        return "rsm_aman"
-    if uname in ["kaushik_tiwari", "dhornala_rushikesh", "naveen_k", "satish_kumar"]:
-        return "asm"
-    if user.is_staff:
-        return "admin"
+    if emp is not None and getattr(emp, "designation", None) and emp.designation.title:
+        return emp.designation.title.lower().replace(" ", "_")
+
+    sp = get_salesperson_profile(user)
+    if sp is not None:
+        if getattr(sp, "role", None):
+            return sp.role.strip().lower()
+        return "asm" if sp.team_members.exists() else "salesperson"
+
     return "user"
 
 
@@ -185,3 +190,4 @@ class CallStatsSerializer(serializers.ModelSerializer):
             "calls_by_type",
             "top_numbers",
         ]
+

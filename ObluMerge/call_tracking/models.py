@@ -209,3 +209,4 @@ class CallStats(models.Model):
 
     def __str__(self):
         return f"{self.user.username} — {self.date} — {self.total_calls} calls"
+

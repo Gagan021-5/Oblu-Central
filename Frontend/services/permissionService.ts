@@ -38,9 +38,13 @@ export interface UserPermissionProfile {
     username: string;
     name: string;
     role: string;
+    is_admin?: boolean;
+    can_view_all?: boolean;
     gender?: string | null;
     reporting_to?: string | null;
   };
+  is_admin?: boolean;
+  can_view_all?: boolean;
   allowed_apps: AllowedApp[];
   hierarchy_scope: HierarchyScope;
   permissions: string[];
@@ -103,4 +107,67 @@ export function hasRole(
   if (!profile || !profile.roles) return false;
   const target = roleKey.toLowerCase();
   return profile.roles.some((r) => r.key.toLowerCase() === target || r.name.toLowerCase().includes(target));
+}
+
+export function isAdminUser(
+  user?: {
+    role?: string;
+    is_admin?: boolean;
+    permissions?: string[];
+    roles?: UserRoleItem[];
+  } | null,
+  profile?: UserPermissionProfile | null
+): boolean {
+  if (user?.is_admin || profile?.is_admin || profile?.user?.is_admin) {
+    return true;
+  }
+  const perms = profile?.permissions ?? user?.permissions ?? [];
+  if (perms.includes("*")) return true;
+
+  const roles = profile?.roles ?? user?.roles ?? [];
+  if (
+    roles.some((r) =>
+      ["admin", "super_admin", "director", "md"].includes(r.key.toLowerCase())
+    )
+  ) {
+    return true;
+  }
+
+  const r = (profile?.user?.role ?? user?.role ?? "").toLowerCase();
+  return r === "admin" || r.includes("admin") || r.includes("director");
+}
+
+export function hasTeamHierarchy(
+  user?: {
+    role?: string;
+    is_admin?: boolean;
+    permissions?: string[];
+    roles?: UserRoleItem[];
+    hierarchy_scope?: HierarchyScope;
+  } | null,
+  profile?: UserPermissionProfile | null
+): boolean {
+  if (isAdminUser(user, profile)) return true;
+  const scope = profile?.hierarchy_scope ?? user?.hierarchy_scope;
+  if (!scope) return false;
+  return Boolean(
+    scope.can_view_all_salespersons || (scope.subordinates?.length ?? 0) > 0
+  );
+}
+
+export function canAccessApp(
+  user?: {
+    role?: string;
+    is_admin?: boolean;
+    permissions?: string[];
+    roles?: UserRoleItem[];
+    allowed_apps?: AllowedApp[];
+  } | null,
+  profile?: UserPermissionProfile | null,
+  appId?: string
+): boolean {
+  if (!appId) return false;
+  if (isAdminUser(user, profile)) return true;
+  const apps = profile?.allowed_apps ?? user?.allowed_apps ?? [];
+  return apps.some((a) => a.id === appId);
 }

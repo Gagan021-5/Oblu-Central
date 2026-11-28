@@ -36,6 +36,8 @@ export interface AuthUser {
   email?: string;
   gender?: string;
   role: string;
+  is_admin?: boolean;
+  can_view_all?: boolean;
   consent_given?: boolean;
   roleKey?: string;
   roleTitle?: string;
@@ -119,6 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: profile.email || baseUser.email,
         gender: profile.user?.gender || profile.gender || baseUser.gender || "",
         role: profile.user?.role || baseUser.role || "Employee",
+        is_admin: Boolean(profile.is_admin ?? profile.user?.is_admin),
+        can_view_all: Boolean(profile.can_view_all ?? profile.hierarchy_scope?.can_view_all_salespersons),
         consent_given: baseUser.consent_given ?? true,
         permissions: profile.permissions || [],
         allowed_apps: profile.allowed_apps || [],

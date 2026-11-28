@@ -59,20 +59,9 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const username = user?.username || "Admin";
-  const userEmail = user?.email || (user?.username ? `${user.username.toLowerCase()}@nexus.io` : "admin@nexus.io");
-  const isAdm =
-    (user?.role || "").toLowerCase().includes("admin") ||
-    (user?.role || "").toLowerCase().includes("director") ||
-    (user?.username || "").toLowerCase() === "infected" ||
-    (user?.username || "").toLowerCase() === "akshay_narayan" ||
-    (user?.username || "").toLowerCase() === "nitin_aggarwal";
-
-  const userRole = isAdm
-    ? (user?.role && !user.role.toLowerCase().includes("salesperson") && !user.role.toLowerCase().includes("employee"))
-      ? user.role
-      : (username.toLowerCase() === "infected" ? "Super Administrator" : username.toLowerCase().includes("akshay") ? "Managing Director & System Admin" : "Executive Director & System Admin")
-    : (user?.role || "Account Executive");
+  const username = user?.username || "User";
+  const userEmail = user?.email || (user?.username ? `${user.username.toLowerCase()}@oblu.local` : "");
+  const userRole = user?.role || "Team Member";
 
   const initials = user?.name
     ? user.name.split(" ").filter(Boolean).map((w: string) => w[0]).join("").substring(0, 2).toUpperCase()

@@ -24,19 +24,11 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Typography, FontSizes, Spacing, Radius, Shadows } from "@/constants/theme";
 import { ORG_ROLES, DummyTestUser } from "@/data/rolesData";
+import { isAdminUser } from "@/services/permissionService";
 
 
 function isAdm(u: any) {
-  const r = (u?.role || "").toLowerCase();
-  const un = (u?.username || "").toLowerCase();
-  return (
-    r === "admin" ||
-    r.includes("admin") ||
-    r.includes("director") ||
-    un === "infected" ||
-    un === "akshay_narayan" ||
-    un === "nitin_aggarwal"
-  );
+  return isAdminUser(u);
 }
 
 export default function LoginScreen() {
