@@ -719,6 +719,29 @@ export default function CallLogsScreen() {
           Calls & Tracking
         </Text>
         <View style={styles.topBarRight}>
+          {!isAdm && (
+            <TouchableOpacity
+              onPress={() => router.push("/(user)/status" as any)}
+              activeOpacity={0.75}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 999,
+                backgroundColor: t.surface,
+                borderWidth: 1,
+                borderColor: t.border,
+                marginRight: 6,
+              }}
+            >
+              <Ionicons name="sync-outline" size={14} color={t.primary} />
+              <Text style={{ fontSize: 11.5, fontFamily: Typography.semiBold, color: t.text }}>
+                My Sync
+              </Text>
+            </TouchableOpacity>
+          )}
           <SubAppHomeButton size={38} isAdmin={isAdm} />
         </View>
       </View>

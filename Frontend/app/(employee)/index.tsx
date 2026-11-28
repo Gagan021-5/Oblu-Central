@@ -140,7 +140,7 @@ export default function EmployeeHomeScreen() {
 
     const routes: Record<string, string> = {
       customers: "/(employee)/customers/dashboard",
-      calls: hasTeamHierarchy(user, userProfile) ? "/(admin)/call-logs" : "/(user)/status",
+      calls: "/(user)/status",
     };
     const route = routes[appId];
     if (route) {

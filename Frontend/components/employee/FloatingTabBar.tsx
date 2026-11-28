@@ -210,7 +210,7 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = ({
       iconInactive: "call-outline",
       isActive: isCalls,
       onPress: () => {
-        if (canViewTeamCalls) {
+        if (isAdmin) {
           if (!isCalls) router.replace("/(admin)/call-logs" as any);
         } else if (!isCalls) {
           router.replace({ pathname: "/(user)/status", params: { from: "workspace" } } as any);
@@ -270,7 +270,7 @@ const FloatingTabBarComponent: React.FC<FloatingTabBarProps> = ({
       iconInactive: "call-outline",
       isActive: isCalls,
       onPress: () => {
-        if (canViewTeamCalls) {
+        if (isAdmin) {
           if (!isCalls) router.replace("/(admin)/call-logs" as any);
         } else if (!isCalls) {
           router.replace({ pathname: "/(user)/status", params: { from: "workspace" } } as any);

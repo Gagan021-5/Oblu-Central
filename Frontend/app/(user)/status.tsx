@@ -36,6 +36,7 @@ import { createLeadApi } from "@/services/leadService";
 import { scheduleFollowUpNotifications } from "@/services/followUpNotificationService";
 import { mockEmployee } from "@/data/mockEmployee";
 import { SubAppHomeButton } from "@/components/navigation/SubAppHomeButton";
+import { hasTeamHierarchy } from "@/services/permissionService";
 
 const themeModes: Array<{ key: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { key: "light", label: "Light", icon: "sunny-outline" },
@@ -45,7 +46,8 @@ const themeModes: Array<{ key: ThemeMode; label: string; icon: keyof typeof Ioni
 
 export default function StatusScreen() {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, permissionProfile, logout } = useAuth();
+  const canViewTeamCalls = hasTeamHierarchy(user, permissionProfile);
   const { colors, isDark, mode, setMode } = useTheme();
 
   const avatarInitials = user?.username
@@ -348,6 +350,48 @@ export default function StatusScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {canViewTeamCalls && (
+        <TouchableOpacity
+          onPress={() => router.push("/(admin)/call-logs" as any)}
+          activeOpacity={0.8}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: 14,
+            borderRadius: 16,
+            backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "#EBF7F3",
+            borderWidth: 1,
+            borderColor: isDark ? "rgba(53, 214, 160, 0.35)" : "rgba(0, 168, 121, 0.28)",
+            marginBottom: 14,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                backgroundColor: "#159A7C",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="people-outline" size={20} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: Typography.bold, fontSize: 14, color: colors.textPrimary }}>
+                Team Call Logs & Recordings
+              </Text>
+              <Text style={{ fontFamily: Typography.regular, fontSize: 12, color: colors.textSecondary }}>
+                View calls & recordings for your downline team
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#159A7C" />
+        </TouchableOpacity>
+      )}
 
       {/* Primary Connection Status Card */}
       <View
