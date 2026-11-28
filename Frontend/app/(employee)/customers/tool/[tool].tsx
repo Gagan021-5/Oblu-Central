@@ -212,6 +212,7 @@ export default function CustomerToolScreen() {
   const [expectedDateModal, setExpectedDateModal] = useState<{ voucherStatusId: string | number; customer: string; currentDate?: string } | null>(null);
   const [expectedDateInput, setExpectedDateInput] = useState("");
   const [approvingId, setApprovingId] = useState<unknown | null>(null);
+  const [soldByPickerRow, setSoldByPickerRow] = useState<ToolRow | null>(null);
 
   // Unassigned customer assignment state (strictly for vibhuti_, bhavya, and admins)
   const [selectedUnassignedIds, setSelectedUnassignedIds] = useState<number[]>([]);
@@ -252,6 +253,7 @@ export default function CustomerToolScreen() {
 
   // Monthly date state
   const [reportMonth, setReportMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [voucherMonthFilterEnabled, setVoucherMonthFilterEnabled] = useState(true);
   const monthKey = `${reportMonth.getFullYear()}-${String(reportMonth.getMonth() + 1).padStart(2, "0")}`;
   const monthLabel = reportMonth.toLocaleString("default", { month: "long", year: "numeric" });
   const isMonthlyReport = ["monthly-sales", "my-incentives", "rsm-incentives", "sales-head-incentives"].includes(tool);
@@ -298,6 +300,8 @@ export default function CustomerToolScreen() {
       } else {
         const reportParams = tool === "monthly-sales"
           ? { month: monthKey }
+          : tool === "voucher-approvals"
+          ? { month: voucherMonthFilterEnabled ? monthKey : "all" }
           : isMonthlyReport
           ? {
               month_picker: monthKey,
@@ -439,7 +443,7 @@ export default function CustomerToolScreen() {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [canOpen, customerSalesperson, csMissingCat, csScore, debouncedCustomerSearch, isMonthlyReport, monthKey, selectedRsm, selectedIncentiveSp, tool]);
+  }, [canOpen, customerSalesperson, csMissingCat, csScore, debouncedCustomerSearch, isMonthlyReport, monthKey, selectedRsm, selectedIncentiveSp, tool, voucherMonthFilterEnabled]);
 
   useEffect(() => {
     crossSellingRequestSequence.current += 1;
@@ -737,6 +741,34 @@ export default function CustomerToolScreen() {
       );
     } else {
       void approve(id, "approve");
+    }
+  };
+
+  const assignSoldBy = async (id: unknown, soldById: number | null) => {
+    setApprovingId(id);
+    try {
+      const res = await api.post(`/customers/workspace/${tool}/`, {
+        id,
+        action: "assign_sold_by",
+        sold_by: soldById ?? "",
+      });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                sold_by_id: res.data?.sold_by_id ?? soldById,
+                sold_by_name: res.data?.sold_by_name ?? null,
+                claim_status: res.data?.claim_status ?? (soldById ? "APPROVED" : "NONE"),
+              }
+            : r
+        )
+      );
+      setSoldByPickerRow(null);
+    } catch (e: any) {
+      Alert.alert("Update Failed", e?.response?.data?.error || "Could not update Sold By.");
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -2780,8 +2812,19 @@ export default function CustomerToolScreen() {
           </TouchableOpacity>
 
           <View style={styles.vaStatusBadge}>
-            <Ionicons name="time-outline" size={12} color="#D97706" />
-            <Text style={styles.vaStatusBadgeText}>PENDING</Text>
+            <Ionicons
+              name={row.claim_status === "APPROVED" ? "checkmark-circle-outline" : "time-outline"}
+              size={12}
+              color={row.claim_status === "APPROVED" ? "#159A7C" : "#D97706"}
+            />
+            <Text
+              style={[
+                styles.vaStatusBadgeText,
+                { color: row.claim_status === "APPROVED" ? "#159A7C" : "#D97706" },
+              ]}
+            >
+              {String(row.claim_status || "NONE")}
+            </Text>
           </View>
         </View>
 
@@ -2808,14 +2851,14 @@ export default function CustomerToolScreen() {
           )}
         </View>
 
-        {/* Claim Routing Box (Who claimed it vs Who currently owns it) */}
+        {/* Customer Owner vs Sold By (Incentive) */}
         <View style={[styles.vaRoutingCard, { backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "#F8FAFC", borderColor: card.borderColor }]}>
           <View style={styles.vaRoutingCol}>
-            <Text style={styles.vaRoutingLabel}>CLAIM REQUESTED BY</Text>
+            <Text style={[styles.vaRoutingLabel, { color: muted }]}>CUSTOMER OWNER</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 }}>
-              <Ionicons name="person-circle-outline" size={16} color="#159A7C" />
+              <Ionicons name="shield-outline" size={15} color={muted} />
               <Text style={[styles.vaRoutingName, { color: foreground }]}>
-                {String(row.requested_by || "Salesperson")}
+                {String(row.assigned_salesperson || "Unassigned")}
               </Text>
             </View>
           </View>
@@ -2824,32 +2867,54 @@ export default function CustomerToolScreen() {
             <Ionicons name="arrow-forward" size={16} color={muted} />
           </View>
 
-          <View style={[styles.vaRoutingCol, { alignItems: "flex-end" }]}>
-            <Text style={[styles.vaRoutingLabel, { color: muted }]}>CURRENT OWNER</Text>
+          <TouchableOpacity
+            onPress={() => setSoldByPickerRow(row)}
+            activeOpacity={0.75}
+            style={[styles.vaRoutingCol, { alignItems: "flex-end" }]}
+          >
+            <Text style={styles.vaRoutingLabel}>SOLD BY (INCENTIVE)</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 }}>
-              <Text style={[styles.vaRoutingName, { color: foreground }]}>
-                {String(row.assigned_salesperson || "Unassigned")}
+              <Text style={[styles.vaRoutingName, { color: "#159A7C" }]}>
+                {String(row.sold_by_name || "-- None --")}
               </Text>
-              <Ionicons name="shield-outline" size={15} color={muted} />
+              <Ionicons name="chevron-down" size={14} color="#159A7C" />
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Action Buttons: Reject & Approve */}
-        <View style={styles.vaActionRow}>
-          <TouchableOpacity
-            disabled={isProcessing}
-            onPress={() => handleApproveAction(row.id, "reject", String(row.customer || ""))}
-            style={[styles.vaRejectBtn, { opacity: isProcessing ? 0.6 : 1 }]}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="close-circle-outline" size={16} color="#E11D48" />
-            <Text style={styles.vaRejectText}>Reject Claim</Text>
-          </TouchableOpacity>
+        {/* Action Buttons: Pending Claim Approve/Reject OR Change Sold By */}
+        {row.claim_status === "PENDING" ? (
+          <View style={styles.vaActionRow}>
+            <TouchableOpacity
+              disabled={isProcessing}
+              onPress={() => handleApproveAction(row.id, "reject", String(row.customer || ""))}
+              style={[styles.vaRejectBtn, { opacity: isProcessing ? 0.6 : 1 }]}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="close-circle-outline" size={16} color="#E11D48" />
+              <Text style={styles.vaRejectText}>Reject Claim</Text>
+            </TouchableOpacity>
 
+            <TouchableOpacity
+              disabled={isProcessing}
+              onPress={() => handleApproveAction(row.id, "approve", String(row.customer || ""))}
+              style={[styles.vaApproveBtn, { opacity: isProcessing ? 0.7 : 1 }]}
+              activeOpacity={0.8}
+            >
+              {isProcessing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                  <Text style={styles.vaApproveText}>Approve Claim</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
           <TouchableOpacity
             disabled={isProcessing}
-            onPress={() => handleApproveAction(row.id, "approve", String(row.customer || ""))}
+            onPress={() => setSoldByPickerRow(row)}
             style={[styles.vaApproveBtn, { opacity: isProcessing ? 0.7 : 1 }]}
             activeOpacity={0.8}
           >
@@ -2857,12 +2922,12 @@ export default function CustomerToolScreen() {
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-                <Text style={styles.vaApproveText}>Approve Claim</Text>
+                <Ionicons name="person-add-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.vaApproveText}>Update Sold By</Text>
               </>
             )}
           </TouchableOpacity>
-        </View>
+        )}
       </View>
     );
   };
@@ -3069,17 +3134,47 @@ export default function CustomerToolScreen() {
           </ScrollView>
         )}
 
-        {/* Monthly Date Navigator for Monthly Sales & Incentives */}
-        {isMonthlyReport && (
+        {/* Monthly Date Navigator for Monthly Sales, Incentives & Voucher Approvals */}
+        {(isMonthlyReport || tool === "voucher-approvals") && (
           <View style={[styles.monthNav, card]}>
-            <TouchableOpacity onPress={() => changeMonth(-1)} style={styles.monthArrow} hitSlop={10}>
+            <TouchableOpacity
+              onPress={() => {
+                if (tool === "voucher-approvals" && !voucherMonthFilterEnabled) {
+                  setVoucherMonthFilterEnabled(true);
+                }
+                changeMonth(-1);
+              }}
+              style={styles.monthArrow}
+              hitSlop={10}
+            >
               <Ionicons name="chevron-back" size={20} color={foreground} />
             </TouchableOpacity>
-            <View style={styles.monthCenter}>
+            <TouchableOpacity
+              onPress={() => {
+                if (tool === "voucher-approvals") {
+                  setVoucherMonthFilterEnabled((prev) => !prev);
+                }
+              }}
+              activeOpacity={tool === "voucher-approvals" ? 0.7 : 1}
+              style={styles.monthCenter}
+            >
               <Ionicons name="calendar-outline" size={16} color="#159A7C" />
-              <Text style={[styles.monthText, { color: foreground }]}>{monthLabel}</Text>
-            </View>
-            <TouchableOpacity onPress={() => changeMonth(1)} style={styles.monthArrow} hitSlop={10}>
+              <Text style={[styles.monthText, { color: foreground }]}>
+                {tool === "voucher-approvals" && !voucherMonthFilterEnabled
+                  ? "All Months (Tap to filter)"
+                  : monthLabel}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                if (tool === "voucher-approvals" && !voucherMonthFilterEnabled) {
+                  setVoucherMonthFilterEnabled(true);
+                }
+                changeMonth(1);
+              }}
+              style={styles.monthArrow}
+              hitSlop={10}
+            >
               <Ionicons name="chevron-forward" size={20} color={foreground} />
             </TouchableOpacity>
           </View>
@@ -4296,6 +4391,70 @@ export default function CustomerToolScreen() {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── MODAL: SELECT SOLD BY (INCENTIVE) ── */}
+      <Modal
+        visible={soldByPickerRow !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSoldByPickerRow(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, card, { maxHeight: "75%" }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={[styles.modalTitle, { color: foreground }]}>Sold By (Incentive)</Text>
+              <TouchableOpacity onPress={() => setSoldByPickerRow(null)}>
+                <Ionicons name="close" size={22} color={muted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.detail, { color: muted }]}>
+              {String(soldByPickerRow?.customer || "")} · {String(soldByPickerRow?.voucher || "")}
+            </Text>
+
+            <ScrollView style={{ maxHeight: 300, marginVertical: 10 }}>
+              <TouchableOpacity
+                onPress={() => soldByPickerRow && void assignSoldBy(soldByPickerRow.id, null)}
+                style={[
+                  styles.filterOption,
+                  {
+                    backgroundColor: soldByPickerRow?.sold_by_id == null ? (isDark ? "#064E3B" : "#D1FAE5") : "transparent",
+                    borderWidth: 1,
+                    borderColor: soldByPickerRow?.sold_by_id == null ? "#059669" : card.borderColor,
+                    borderRadius: 10,
+                    marginBottom: 6,
+                  },
+                ]}
+              >
+                <Text style={[styles.filterOptionText, { color: foreground }]}>-- None --</Text>
+                {soldByPickerRow?.sold_by_id == null && <Ionicons name="checkmark" size={17} color="#159A7C" />}
+              </TouchableOpacity>
+
+              {availableSalespersons.map((sp) => {
+                const isSelected = Number(soldByPickerRow?.sold_by_id) === sp.id;
+                return (
+                  <TouchableOpacity
+                    key={`soldby-${sp.id}`}
+                    onPress={() => soldByPickerRow && void assignSoldBy(soldByPickerRow.id, sp.id)}
+                    style={[
+                      styles.filterOption,
+                      {
+                        backgroundColor: isSelected ? (isDark ? "#064E3B" : "#D1FAE5") : "transparent",
+                        borderWidth: 1,
+                        borderColor: isSelected ? "#059669" : card.borderColor,
+                        borderRadius: 10,
+                        marginBottom: 6,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.filterOptionText, { color: foreground }]}>{sp.name}</Text>
+                    {isSelected && <Ionicons name="checkmark" size={17} color="#159A7C" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
       </Modal>

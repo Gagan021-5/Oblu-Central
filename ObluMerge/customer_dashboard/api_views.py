@@ -1726,11 +1726,26 @@ class CustomerWorkspaceToolsView(APIView):
             if not sp and not is_management:
                 return Response({"error": "Voucher approvals access is not enabled for this account."}, status=403)
 
+            month_param = (request.query_params.get("month") or request.query_params.get("month_picker") or "").strip()
+            has_month = bool(month_param and month_param.lower() != "all" and "-" in month_param)
+
             qs = (
                 CustomerVoucherStatus.objects
-                .filter(claim_status="PENDING")
-                .select_related("customer", "customer__salesperson", "voucher", "claim_requested_by")
+                .select_related("customer", "customer__salesperson", "voucher", "claim_requested_by", "sold_by")
             )
+            if has_month:
+                try:
+                    y_str, m_str = month_param.split("-", 1)
+                    qs = qs.filter(
+                        voucher_type__iexact="TAX INVOICE",
+                        voucher_date__year=int(y_str),
+                        voucher_date__month=int(m_str),
+                    )
+                except (TypeError, ValueError):
+                    qs = qs.filter(claim_status="PENDING")
+            else:
+                qs = qs.filter(claim_status="PENDING")
+
             if not is_management and sp:
                 from access_control.roles import get_accessible_salesperson_ids
                 accessible_sp_ids = get_accessible_salesperson_ids(request.user)
@@ -1739,22 +1754,32 @@ class CustomerWorkspaceToolsView(APIView):
                 else:
                     qs = qs.filter(customer__salesperson=sp)
 
-            return Response([
-                {
-                    "id": row.id,
-                    "customer": row.customer.name,
-                    "customer_id": row.customer_id,
-                    "assigned_salesperson": row.customer.salesperson.name if row.customer.salesperson else "Unassigned",
-                    "voucher": row.voucher.voucher_number if row.voucher else "",
-                    "voucher_amount": float(row.voucher_amount) if row.voucher_amount is not None else 0.0,
-                    "unpaid_amount": float(row.unpaid_amount) if row.unpaid_amount is not None else 0.0,
-                    "requested_by": row.claim_requested_by.name if row.claim_requested_by else "Unknown",
-                    "requested_by_id": row.claim_requested_by_id,
-                    "date": str(row.voucher_date) if row.voucher_date else "",
-                    "claim_status": row.claim_status,
-                }
-                for row in qs.order_by("-voucher_date")[:300]
-            ])
+            salespersons = [
+                {"id": person.id, "name": person.name}
+                for person in SalesPerson.objects.all().order_by("name")
+            ]
+
+            return Response({
+                "rows": [
+                    {
+                        "id": row.id,
+                        "customer": row.customer.name,
+                        "customer_id": row.customer_id,
+                        "assigned_salesperson": row.customer.salesperson.name if row.customer.salesperson else "Unassigned",
+                        "sold_by_id": row.sold_by_id,
+                        "sold_by_name": row.sold_by.name if row.sold_by else None,
+                        "voucher": row.voucher.voucher_number if row.voucher else "",
+                        "voucher_amount": float(row.voucher_amount) if row.voucher_amount is not None else 0.0,
+                        "unpaid_amount": float(row.unpaid_amount) if row.unpaid_amount is not None else 0.0,
+                        "requested_by": row.claim_requested_by.name if row.claim_requested_by else "",
+                        "requested_by_id": row.claim_requested_by_id,
+                        "date": str(row.voucher_date) if row.voucher_date else "",
+                        "claim_status": row.claim_status,
+                    }
+                    for row in qs.order_by("-voucher_date")[:300]
+                ],
+                "salespersons": salespersons,
+            })
 
         return Response({"error": "Unknown customer workspace tool."}, status=404)
 
@@ -1883,6 +1908,29 @@ class CustomerWorkspaceToolsView(APIView):
             if not sp and not is_management:
                 return Response({"error": "Permission denied."}, status=403)
 
+            action = request.data.get("action")
+            if action == "assign_sold_by" or "sold_by" in request.data:
+                if not is_management:
+                    return Response({"error": "Only management can directly assign Sold By."}, status=403)
+                row = get_object_or_404(CustomerVoucherStatus, pk=request.data.get("id"))
+                sold_by_id = request.data.get("sold_by")
+                if sold_by_id in ("", None):
+                    row.sold_by = None
+                    row.claim_status = "NONE"
+                else:
+                    target_sp = get_object_or_404(SalesPerson, pk=sold_by_id)
+                    row.sold_by = target_sp
+                    row.claim_status = "APPROVED"
+                row.claim_requested_by = None
+                row.save(update_fields=["sold_by", "claim_status", "claim_requested_by", "updated_at"])
+                return Response({
+                    "success": True,
+                    "id": row.pk,
+                    "sold_by_id": row.sold_by_id,
+                    "sold_by_name": row.sold_by.name if row.sold_by else None,
+                    "claim_status": row.claim_status,
+                })
+
             row = get_object_or_404(CustomerVoucherStatus, pk=request.data.get("id"), claim_status="PENDING")
             if not is_management and sp:
                 from access_control.roles import get_accessible_salesperson_ids
@@ -1890,7 +1938,6 @@ class CustomerWorkspaceToolsView(APIView):
                 if row.customer.salesperson_id not in accessible_sp_ids and row.customer.salesperson_id != sp.id:
                     return Response({"error": "You can only approve or reject claims for your own team's customers."}, status=403)
 
-            action = request.data.get("action")
             if action not in {"approve", "reject"}:
                 return Response({"error": "action must be approve or reject"}, status=400)
 
